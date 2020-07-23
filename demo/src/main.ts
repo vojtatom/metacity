@@ -1,38 +1,30 @@
-let dropArea = document.getElementById("file");
-let fileIcon = document.getElementById("file-icon");
-let fileStatus = document.getElementById("file-status");
 
 
 let app = new AppModule.Application();
-app.render();
+let dropArea = document.getElementById("canvas");
+//app.render();
 
-/*dropArea.ondragover = (e) => {
+dropArea.ondragover = (e: Event) => {
     e.preventDefault();
     console.log("dragging");
 }
 
-dropArea.ondragenter = (e) => {
+dropArea.ondragenter = (e: Event) => {
     e.preventDefault();
     console.log("dragging on");
-    fileIcon.classList.add("active");
 }
 
-dropArea.ondragleave = (e) => {
+dropArea.ondragleave = (e: Event) => {
     e.preventDefault();
     console.log("dragging off");
-    fileIcon.classList.remove("active");
 }
 
 dropArea.ondrop = (e) => {
     e.preventDefault();
-    let file = e.dataTransfer.files[0];
-    let path = (file as any).path;
-    console.log(path);
-    app.load_file(path);
-
-    fileStatus.innerHTML = "Processing dataset";
-
-    fileIcon.classList.add("processing");
-
-}*/
+    let fileList = e.dataTransfer.files;
+    console.log(fileList);
+    
+    for(let f of fileList)
+        app.load_file(f);
+}
 

@@ -35,3 +35,8 @@ start: js
 	@-( \
 		npm start; \
 	)
+
+serve: 
+	@-( \
+		python3 -m http.server \
+	)

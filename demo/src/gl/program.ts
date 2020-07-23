@@ -1,6 +1,6 @@
 
 
-module GL {
+module GLProgram {
     //--------------------------------------------------------------
     // Interfaces
     //--------------------------------------------------------------
@@ -45,16 +45,7 @@ module GL {
     // Classes
     //--------------------------------------------------------------
 
-
-    class GLObject {
-        gl: WebGL2RenderingContext;
-
-        constructor(gl: WebGL2RenderingContext) {
-            this.gl = gl;
-        }
-    }
-
-    class Shader extends GLObject {
+    class Shader extends GLBase.GLObject {
         type: ShaderType;
         code: string;
         shader: WebGLShader;
@@ -69,6 +60,7 @@ module GL {
     
         createShader() {
             let type;
+
             if (this.type == ShaderType.vertex)
                 type = this.gl.VERTEX_SHADER;
             else 
@@ -76,8 +68,8 @@ module GL {
     
             this.shader = this.gl.createShader(type);
             this.gl.shaderSource(this.shader, this.code);
-    
             this.gl.compileShader(this.shader);
+
             if (!this.gl.getShaderParameter(this.shader, this.gl.COMPILE_STATUS)) {
                 console.error('ERROR compiling shader!', this.gl.getShaderInfoLog(this.shader));
                 console.error(this.code);
@@ -86,7 +78,7 @@ module GL {
         }
     }
 
-    export class Program extends GLObject {
+    class Program extends GLBase.GLObject {
         
         gl: WebGL2RenderingContext;
         
@@ -122,6 +114,11 @@ module GL {
         vs: Shader;
         fs: Shader;
         program: WebGLProgram; 
+
+        static get DIR()
+        {
+            return "/src/gl/glsl/";
+        }
 
         constructor(gl: WebGL2RenderingContext) {
             super(gl);
@@ -247,6 +244,53 @@ module GL {
             this.state[key] = true;
             if (this.state.init && this.state.attrs && this.state.unifs)
                 this.loaded = true;
+        }
+
+    }
+
+    export class TriangleProgram extends Program {
+        constructor(gl: WebGL2RenderingContext){
+            super(gl);
+        
+            DataManager.files({
+                files: [
+                    Program.DIR + "triangle-vs.glsl",
+                    Program.DIR + "triangle-fs.glsl",
+                ],
+                success: (files) => {
+                    this.init(files[0], files[1]);
+                    this.setup();
+                },
+                fail: () => {
+                    throw "Triangle shader not loaded";
+                }
+            });
+        }
+
+        setup() {
+            this.setupAttributes({
+                vertex: 'vertex',
+            });
+    
+            this.commonUniforms();
+            this.setupUniforms({
+                /*size: {
+                    name: 'size',
+                    type: this.GLType.float,
+                }*/
+            });
+        }
+
+        bindAttrVertex() {
+            this.gl.useProgram(this.program);
+            this.bindAttribute({
+                attribute: this.attributes.vertex,
+                size: 3,
+                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+                offset: 0,
+                //divisor: 1,
+            });
+            this.gl.useProgram(null);
         }
     }
 }

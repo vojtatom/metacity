@@ -10,8 +10,11 @@
     },
 
     "files": [
+      "dm.ts",
+      "parser.ts",
+      "gl/base.ts",
       "gl/program.ts",
-      "gl/triangle.ts",
+      "gl/model.ts",
       "gl/gl.ts",
       "ui/ui.ts",
       "app.ts",
