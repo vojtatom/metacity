@@ -9,6 +9,12 @@ module GLCamera {
         position: Vec3Array;
         up: Vec3Array;
         center: Vec3Array;
+        actualPosition: Vec3Array;
+        actualUp: Vec3Array;
+        actualCenter: Vec3Array;
+        normal: Vec3Array;
+        scale: number;
+        geoCenter: Vec3Array;
 
         viewMatrix: Float32Array;
         projectionMatrix: Float32Array;
@@ -21,14 +27,23 @@ module GLCamera {
         screenY: number;
         aspect: number;
         sceneChanged: boolean;
+        speed: number;
 
         farplane: number;
+
+        positionMomentum : number;
+        centerMomentum : number;
+        rotMomentum : number;
+        scaleMomentum : number;
         
         constructor(gl: WebGL2RenderingContext){
             super(gl);
             this.position = new Float32Array([0, 0, 0]);
             this.up = new Float32Array([0, 1, 0]);
             this.center = new Float32Array([, 0, 100]);
+            this.actualPosition = new Float32Array([0, 0, 0]);
+            this.actualUp = new Float32Array([0, 1, 0]);
+            this.actualCenter = new Float32Array([, 0, 100]);
 
             this.viewMatrix = new Float32Array(16);
             this.projectionMatrix = new Float32Array(16);
@@ -39,13 +54,21 @@ module GLCamera {
 
             this.screenX = 0;
             this.screenY = 0;
+            this.scale = 100;
+            this.speed = 0.05;
             this.aspect = 0;
             this.sceneChanged = false; 
             this.farplane = 1000000;
+
+                    
+            this.positionMomentum = 0;
+            this.centerMomentum = 0;
+            this.rotMomentum = 0;
+            this.scaleMomentum = 0;
         }
 
         get view() {
-            glMatrix.mat4.lookAt(this.viewMatrix, this.position, this.center, this.up);
+            glMatrix.mat4.lookAt(this.viewMatrix, this.actualPosition, this.actualCenter, this.actualUp);
             return this.viewMatrix;
         }
 
@@ -64,7 +87,7 @@ module GLCamera {
     
         get pos() {
             return this.position; 
-        }
+        } 
 
         viewTop(){
             this.position = Object.assign({}, this.center);
@@ -115,7 +138,39 @@ module GLCamera {
         }
 
         frame(){
+            glMatrix.vec3.sub(this.tmp, this.position, this.actualPosition);
+            this.positionMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
+            if (this.positionMomentum > 0.02){
+                glMatrix.vec3.scaleAndAdd(this.actualPosition, this.actualPosition, this.tmp, this.positionMomentum);
+            } else {
+                glMatrix.vec3.copy(this.actualPosition, this.position);
+                this.positionMomentum = 0;
+            }
             
+            this.rotMomentum = Math.min(glMatrix.vec3.angle(this.actualUp, this.up), this.speed * 3.14);
+            if (this.rotMomentum > 0.02) {
+                let axis = glMatrix.vec3.cross(this.tmp, this.actualUp, this.up);
+                glMatrix.mat4.fromRotation(this.rotateMatrix, this.rotMomentum, axis);
+                glMatrix.vec3.transformMat4(this.actualUp, this.actualUp, this.rotateMatrix);   
+            } else {
+                glMatrix.vec3.copy(this.actualUp, this.up);
+                this.rotMomentum = 0;
+            }
+    
+            glMatrix.vec3.sub(this.tmp, this.center, this.actualCenter);
+            this.centerMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
+            if (this.centerMomentum > 0.02){
+                glMatrix.vec3.scaleAndAdd(this.actualCenter, this.actualCenter, this.tmp, this.centerMomentum);
+            } else {
+                glMatrix.vec3.copy(this.actualCenter, this.center);
+                this.centerMomentum = 0;
+            }
+    
+            //tmp is now direction of view
+            glMatrix.vec3.sub(this.tmp, this.geoCenter, this.actualPosition); 
+            //adding dist from position to geometry center and radius of geomtry from the geom center
+            //TODO autoset farplane to be optimal
+            //this.farplane = vec3.len(this.tmp) + this.geometryRadius;
         }
     }
 }

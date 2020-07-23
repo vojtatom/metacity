@@ -48,6 +48,7 @@ module GL {
             //make a deep copy
             this.camera.farplane = farplane * 3;
             this.camera.center = Object.assign({}, this.center);
+            this.camera.geoCenter = Object.assign({}, this.center);
             this.camera.position = Object.assign({}, this.center);
             this.camera.position[2] += farplane / 2;
         }

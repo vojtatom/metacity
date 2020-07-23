@@ -111,7 +111,6 @@ module GLModels {
             //should be present anywhere else
             //delete this.data;
             console.log("loaded into GPU");
-            console.log(this.gl.getError());
 
             return;
         }
@@ -128,10 +127,7 @@ module GLModels {
             this.program.bindUniforms(uniforms);
 
             this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
-            console.log(this.gl.getError());
-    
             this.gl.bindVertexArray(null);
-
         }
     }
 

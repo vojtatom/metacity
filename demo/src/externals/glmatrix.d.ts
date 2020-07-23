@@ -55,6 +55,7 @@ declare var vec2: vec2
 
 declare interface vec3 {
 	add(out:Vec3Array, a: Vec3Array, b: Vec3Array): Vec3Array;
+	angle(a: Vec3Array, b: Vec3Array): number;
 	create(): Vec3Array;
 	clone(a: Vec3Array): Vec3Array;
 	fromValues(x: number, y: number, z: number): Vec3Array;
@@ -75,6 +76,7 @@ declare interface vec3 {
 	squaredDistance(a: Vec3Array, b: Vec3Array): number;
 	len(a: Vec3Array): number;
 	length(a: Vec3Array): number;
+	scaleAndAdd(out: Vec3Array, a: Vec3Array, b: Vec3Array, s: number): Vec3Array;
 	sqrLen(a: Vec3Array): number;
 	squaredLength(a: Vec3Array): number;
 	negate(out: Vec3Array, a: Vec3Array): Vec3Array;

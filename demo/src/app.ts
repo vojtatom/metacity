@@ -82,7 +82,7 @@ module AppModule {
 
         constructor()
         {
-            let windows = new UI.Window("3D view", [
+            let windows = new UI.Window("3D view", [ 
                     new UI.Canvas(),
                 ]);
 
@@ -127,8 +127,6 @@ module AppModule {
                 let model = Parser.parseOBJ(contents);
                 if (!model)
                     throw "Error parsing OBJ file";
-
-                console.log(model);
                 
                 this.loaded.obj = true;
                 this.city.addModel(model);

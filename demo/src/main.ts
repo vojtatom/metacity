@@ -26,6 +26,9 @@ window.onload = function(e: Event) {
         
         for(let f of fileList)
             app.load_file(f);
+
+        let prompt = document.getElementById("prompt");
+        prompt.parentElement.removeChild(prompt);
     }
 
     document.onkeydown = function (event: KeyboardEvent) {
