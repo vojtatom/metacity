@@ -288,7 +288,6 @@ module GLProgram {
                 size: 3,
                 stride: 3 * Float32Array.BYTES_PER_ELEMENT,
                 offset: 0,
-                //divisor: 1,
             });
             this.gl.useProgram(null);
         }

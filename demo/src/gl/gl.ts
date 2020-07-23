@@ -1,9 +1,17 @@
 
 
 module GL {
+
+
+    export interface OBJstats {
+        min : number[],
+        max : number[]
+    }
+    
     export interface CityModelInterface {
         vertices: Float32Array,
-        elements: Int32Array
+        elements: Int32Array,
+        stats: OBJstats
     }
 
     export class Graphics {
@@ -12,6 +20,11 @@ module GL {
 
         programs: {
             triangle: GLProgram.TriangleProgram
+        };
+
+        loaded : boolean;
+        models: {
+            city: Array<GLModels.CityModel>,
         };
 
         constructor(canvas: HTMLCanvasElement){
@@ -31,11 +44,24 @@ module GL {
             this.programs = {
                 triangle: new GLProgram.TriangleProgram(this.gl)
             };
+
+            this.loaded = false;
+            this.models = {
+                city: [],
+            };
         }
 
         addCitySegment(model: CityModelInterface)
         {
-            
+            this.models.city.push(new GLModels.CityModel(this.gl, this.programs.triangle, model));
+
+            //TODO calc camera positions
+            this.loaded = true;
+        }
+
+        render() {
+            if (!this.loaded)
+                return;
         }
 
     }

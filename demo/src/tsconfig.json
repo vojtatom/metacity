@@ -10,13 +10,17 @@
     },
 
     "files": [
+      "externals/glmatrix.js",
       "dm.ts",
       "parser.ts",
+      "gl/math.ts",
       "gl/base.ts",
       "gl/program.ts",
       "gl/model.ts",
+      "gl/camera.ts",
       "gl/gl.ts",
       "ui/ui.ts",
+      "city.ts",
       "app.ts",
       "main.ts"
     ]

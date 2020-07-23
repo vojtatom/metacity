@@ -17,6 +17,8 @@ module AppModule {
 
         gl: GL.Graphics;
 
+        city: CityModule.City;
+
         constructor()
         {
             let windows = new UI.Window("3D view", [
@@ -34,6 +36,8 @@ module AppModule {
             //take the first canvas you find
             let canvas = document.getElementsByTagName("canvas")[0];
             this.gl = new GL.Graphics(canvas);
+            this.city = new CityModule.City(this.gl);
+
         }
 
         load_file(file: File) {
@@ -61,10 +65,11 @@ module AppModule {
                 let model = Parser.parseOBJ(contents);
                 if (!model)
                     throw "Error parsing OBJ file";
-                
-                console.log(model);
 
+                console.log(model);
+                
                 this.loaded.obj = true;
+                this.city.addModel(model);
             }
             else if (type === FileType.json)
             {
@@ -74,20 +79,10 @@ module AppModule {
                 
                 this.loaded.json = true;
             }
-            
-            //TODO both loaded
-            if (this.loaded.obj)
-            {
-
-            }
-        }
-
-        initCityModel(model: GL.CityModelInterface) {
-            
         }
 
         render() {
-            console.log("rendering");
+            this.gl.render();
         }
     }
     
