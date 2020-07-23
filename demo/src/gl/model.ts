@@ -34,6 +34,34 @@ module GLModels {
         addBufferEBO(buffer: WebGLBuffer){
             this.buffers.ebo = buffer;
         }
+
+        bindBuffersAndTextures(){
+            this.gl.bindVertexArray(this.buffers.vao);
+    
+            for (let buffer of this.buffers.vbo){
+                this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+            }
+            
+            if (this.buffers.ebo !== undefined) {
+                this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.buffers.ebo);
+            }
+    
+            /*for (let texture of this.textures){
+                this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+            }*/
+        }
+
+        uniformDict(scene: GL.Scene){
+            return Object.assign({}, {
+                view: scene.camera.view,
+                proj: scene.camera.projection,
+                farplane: scene.camera.farplane,
+            });
+        }
+
+        render(scene: GL.Scene){
+            console.error("not implemented");
+        }
     }
 
     export class CityModel extends GLModel {
@@ -53,7 +81,7 @@ module GLModels {
         init(){
             //since the method can be called async, check is GPU is up to date
             if (!this.program.loaded)
-                return false;
+                return;
 
             //init VAO
             let vao = this.gl.createVertexArray();
@@ -81,18 +109,29 @@ module GLModels {
 
             //no more references to contents of OBJ file 
             //should be present anywhere else
-            delete this.data;
+            //delete this.data;
             console.log("loaded into GPU");
             console.log(this.gl.getError());
 
-            return true;
+            return;
         }
 
-        render(){
-            if (!this.loaded || this.init())
+        render(scene: GL.Scene){
+            if (!this.loaded)
+            {
+                this.init();
                 return;
+            }
 
-            
+            this.bindBuffersAndTextures();
+            let uniforms = this.uniformDict(scene);
+            this.program.bindUniforms(uniforms);
+
+            this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
+            console.log(this.gl.getError());
+    
+            this.gl.bindVertexArray(null);
+
         }
     }
 

@@ -38,7 +38,7 @@ module GLProgram {
     }
 
     interface UniformBinder {
-        [name: string] : Float32Array | Int32Array
+        [name: string] : Float32Array | Int32Array | number
     }
 
     //--------------------------------------------------------------
@@ -217,10 +217,10 @@ module GLProgram {
 
         commonUniforms() {
             this.setupUniforms({
-                model: {
+                /*model: {
                     name: 'mWorld',
                     type: this.GLType.mat4,
-                },
+                },*/
                 view: {
                     name: 'mView',
                     type: this.GLType.mat4,   

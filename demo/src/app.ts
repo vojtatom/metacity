@@ -8,6 +8,66 @@ module AppModule {
         unknown
     }
 
+    class Interface {
+        app: Application;
+        keys: {
+            [mname: string]: boolean
+        };
+        mouse: {
+            x: number;
+            y: number;
+            down: boolean;
+        }
+
+        constructor(app: Application) {
+            this.app = app;
+            this.keys = {};
+            this.mouse = {
+                x: null,
+                y: null,
+                down: false,
+            };
+        }
+
+        onKeyDown(key: number) {
+            this.keys[key] = true;
+            this.app.pressed(key);
+            console.log(key);
+        }
+
+        onKeyUp(key: number){
+            this.keys[key] = false;
+        }
+
+        onMouseDown(x: number, y: number) {
+            this.mouse.down = true;
+            this.mouse.x = x;
+            this.mouse.y = y;
+        };
+
+        onMouseUp(x: number, y: number) {
+            this.mouse.down = false;
+        };
+
+        onMouseMove(x: number, y: number) {
+            if (!this.mouse.down) {
+                return;
+            }
+
+            let delta_x = x - this.mouse.x;
+            let delta_y = y - this.mouse.y;
+
+            this.mouse.x = x
+            this.mouse.y = y;
+
+            this.app.gl.scene.camera.rotate(delta_x, delta_y);
+        };
+
+        wheel(delta: number){
+            this.app.gl.scene.camera.move(1, delta);
+        }
+    }
+
     export class Application {
 
         loaded : {
@@ -16,8 +76,9 @@ module AppModule {
         };
 
         gl: GL.Graphics;
-
         city: CityModule.City;
+
+        interface: Interface;
 
         constructor()
         {
@@ -36,8 +97,9 @@ module AppModule {
             //take the first canvas you find
             let canvas = document.getElementsByTagName("canvas")[0];
             this.gl = new GL.Graphics(canvas);
-            this.city = new CityModule.City(this.gl);
+            this.interface = new Interface(this);
 
+            this.city = new CityModule.City(this.gl);
         }
 
         load_file(file: File) {
@@ -81,8 +143,25 @@ module AppModule {
             }
         }
 
+        pressed(key: number) {
+            //TODO instant reactions to keypresses
+
+            //topview: numpad 7
+            if (key == 103){
+                this.gl.scene.camera.viewTop();
+            } else if (key == 97) {
+                this.gl.scene.camera.viewFront();
+            } else if (key == 99) {
+                this.gl.scene.camera.viewSide();
+            }
+        }
+
         render() {
             this.gl.render();
+        }
+
+        resize(x: number, y: number){
+            this.gl.resize(x, y);
         }
     }
     
