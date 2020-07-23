@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+      "noImplicitAny": true,
+      "removeComments": true,
+      "preserveConstEnums": true,
+      "outFile": "../build/script.js",
+      "sourceMap": true,
+      "target": "ES6",
+      "allowJs": true
+    },
+
+    "files": [
+      "gl/program.ts",
+      "gl/triangle.ts",
+      "gl/gl.ts",
+      "ui/ui.ts",
+      "app.ts",
+      "main.ts"
+    ]
+}
