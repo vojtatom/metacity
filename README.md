@@ -22,7 +22,7 @@ The pipeline relies on the fact that the **exported OBJ uses CityJSON IDs as obj
 All source can be found in [the demo folder](./demo), the project is written in TypeScript and compiled into a single `.js` file - see output [script.js](./demo/build/script.js).
 
 ### How to run
-Run `make serve` or `python3 -m http.server` from the `demo` folder, pull up the address `0.0.0.0:8000` in your browser and drop in the `.obj` file. Demo OBJ file can be found in the demo folder. CityGML, CityJSON and other files are not backed on GitHub and are stored only locally. 
+Run `make serve` or `python3 -m http.server` from the `demo` folder, pull up the address `0.0.0.0:8000` in your browser ~~and drop in the `.obj` file. Demo OBJ file can be found in the demo folder. CityGML, CityJSON and other files are not backed on GitHub and are stored only locally.~~ and that's all.
 
 <img src="./demo/screens/scr1.png" alt="drawing" width="300"/>
 <img src="./demo/screens/scr2.png" alt="drawing" width="300"/>
