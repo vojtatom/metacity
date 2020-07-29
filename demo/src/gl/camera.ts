@@ -138,9 +138,11 @@ module GLCamera {
         }
 
         frame(){
+            const limit = 0.04;
+
             glMatrix.vec3.sub(this.tmp, this.position, this.actualPosition);
             this.positionMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
-            if (this.positionMomentum > 0.02){
+            if (this.positionMomentum > limit){
                 glMatrix.vec3.scaleAndAdd(this.actualPosition, this.actualPosition, this.tmp, this.positionMomentum);
             } else {
                 glMatrix.vec3.copy(this.actualPosition, this.position);
@@ -148,7 +150,7 @@ module GLCamera {
             }
             
             this.rotMomentum = Math.min(glMatrix.vec3.angle(this.actualUp, this.up), this.speed * 3.14);
-            if (this.rotMomentum > 0.02) {
+            if (this.rotMomentum > limit) {
                 let axis = glMatrix.vec3.cross(this.tmp, this.actualUp, this.up);
                 glMatrix.mat4.fromRotation(this.rotateMatrix, this.rotMomentum, axis);
                 glMatrix.vec3.transformMat4(this.actualUp, this.actualUp, this.rotateMatrix);   
@@ -159,7 +161,7 @@ module GLCamera {
     
             glMatrix.vec3.sub(this.tmp, this.center, this.actualCenter);
             this.centerMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
-            if (this.centerMomentum > 0.02){
+            if (this.centerMomentum > limit){
                 glMatrix.vec3.scaleAndAdd(this.actualCenter, this.actualCenter, this.tmp, this.centerMomentum);
             } else {
                 glMatrix.vec3.copy(this.actualCenter, this.center);

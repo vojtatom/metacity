@@ -204,6 +204,15 @@ module GLProgram {
             }
         }
 
+        bindInt32Attribute(set: AttributeBinder){
+
+            this.gl.enableVertexAttribArray(set.attribute);
+            this.gl.vertexAttribPointer(set.attribute, set.size, this.gl.UNSIGNED_BYTE, true, set.stride, set.offset);
+            if ('divisor' in set){
+                this.gl.vertexAttribDivisor(set.attribute, set.divisor);
+            }
+        }
+
 
         bindUniforms(options: UniformBinder) {
             for(let key in this.uniforms){
@@ -270,6 +279,8 @@ module GLProgram {
         setup() {
             this.setupAttributes({
                 vertex: 'vertex',
+                normal: 'normal',
+                object: 'object'
             });
     
             this.commonUniforms();
@@ -287,6 +298,28 @@ module GLProgram {
                 attribute: this.attributes.vertex,
                 size: 3,
                 stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+                offset: 0,
+            });
+            this.gl.useProgram(null);
+        }
+
+        bindAttrNormal() {
+            this.gl.useProgram(this.program);
+            this.bindAttribute({
+                attribute: this.attributes.normal,
+                size: 3,
+                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+                offset: 0,
+            });
+            this.gl.useProgram(null);
+        }
+
+        bindAttrObject() {
+            this.gl.useProgram(this.program);
+            this.bindInt32Attribute({
+                attribute: this.attributes.object,
+                size: 4, // has to be 4
+                stride: 1 * Uint32Array.BYTES_PER_ELEMENT,
                 offset: 0,
             });
             this.gl.useProgram(null);

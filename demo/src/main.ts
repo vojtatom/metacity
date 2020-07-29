@@ -4,7 +4,7 @@ window.onload = function(e: Event) {
     //canvas variable is actually parent DIV!!!
     let canvas = document.getElementById("canvas");
 
-    canvas.ondragover = (e: Event) => {
+    /*canvas.ondragover = (e: Event) => {
         e.preventDefault();
         console.log("dragging");
     }
@@ -29,7 +29,7 @@ window.onload = function(e: Event) {
 
         let prompt = document.getElementById("prompt");
         prompt.parentElement.removeChild(prompt);
-    }
+    }*/
 
     document.onkeydown = function (event: KeyboardEvent) {
         app.interface.onKeyDown(event.keyCode);

@@ -3903,9 +3903,7 @@ var Parser;
         let x = Number(tokens[1]);
         let y = Number(tokens[2]);
         let z = Number(tokens[3]);
-        vertexBuffer.push(Number(x));
-        vertexBuffer.push(Number(y));
-        vertexBuffer.push(Number(z));
+        vertexBuffer.push(Number(x), Number(y), Number(z));
         stats.min[0] = Math.min(stats.min[0], x);
         stats.min[1] = Math.min(stats.min[1], y);
         stats.min[2] = Math.min(stats.min[2], z);
@@ -3913,16 +3911,51 @@ var Parser;
         stats.max[1] = Math.max(stats.max[1], y);
         stats.max[2] = Math.max(stats.max[2], z);
     }
-    function parseFace(tokens, elementBuffer) {
+    function copyVertexToEnd(vertexBuffer, vertexID) {
+        let startID = vertexID * 3;
+        let newVertexID = vertexBuffer.length / 3;
+        vertexBuffer.push(vertexBuffer[startID], vertexBuffer[startID + 1], vertexBuffer[startID + 2]);
+        return newVertexID;
+    }
+    function setupNormal(vertexIDs, vertexBuffer) {
+        let vs = [];
+        for (let id of vertexIDs) {
+            let rid = 3 * id;
+            vs.push(glMatrix.vec3.fromValues(vertexBuffer[rid], vertexBuffer[rid + 1], vertexBuffer[rid + 2]));
+        }
+        let a = glMatrix.vec3.sub(glMatrix.vec3.create(), vs[2], vs[0]);
+        let b = glMatrix.vec3.sub(glMatrix.vec3.create(), vs[1], vs[0]);
+        let normal = glMatrix.vec3.create();
+        return glMatrix.vec3.normalize(normal, glMatrix.vec3.cross(normal, a, b));
+    }
+    function parseFace(tokens, vertexBuffer, elementBuffer, normalBuffer, objBuffer, vertexUsed, objectID) {
         if (tokens.length != 4) {
             console.log(tokens);
             throw "Encountered non-triangular face";
         }
-        elementBuffer.push(Number(tokens[1]) - 1);
-        elementBuffer.push(Number(tokens[2]) - 1);
-        elementBuffer.push(Number(tokens[3]) - 1);
-    }
-    function parseObject(tokens) {
+        let a = Number(tokens[1]) - 1;
+        let b = Number(tokens[2]) - 1;
+        let c = Number(tokens[3]) - 1;
+        let vertexIDs = [a, b, c];
+        for (let i = 0; i < 3; ++i) {
+            if (vertexUsed[vertexIDs[i]]) {
+                vertexIDs[i] = copyVertexToEnd(vertexBuffer, vertexIDs[i]);
+                normalBuffer.push(0, 0, 0);
+                objBuffer.push(objectID);
+            }
+            else {
+                objBuffer[vertexIDs[i]] = objectID;
+            }
+            vertexUsed[vertexIDs[i]] = true;
+        }
+        elementBuffer.push(...vertexIDs);
+        let normal = setupNormal(vertexIDs, vertexBuffer);
+        for (let id of vertexIDs) {
+            let rid = 3 * id;
+            for (let i = 0; i < 3; ++i) {
+                normalBuffer[rid + i] = normal[i];
+            }
+        }
     }
     function parseOBJ(contents) {
         console.log("loading OBJ");
@@ -3931,21 +3964,40 @@ var Parser;
             max: [-Infinity, -Infinity, -Infinity],
         };
         let vertices = Array();
+        let normals = Array();
+        let objects = Array();
         let elements = Array();
         const lines = contents.split("\n");
+        let vertexUsed = [];
         for (let line of lines) {
             let tokens = line.split(" ");
             let type = tokens[0];
-            if (type === "v")
+            if (type === "v") {
                 parseVertex(tokens, vertices, stats);
-            else if (type === "f")
-                parseFace(tokens, elements);
-            else if (type === "o")
-                parseObject(tokens);
+                vertexUsed.push(false);
+                normals.push(0, 0, 0);
+                objects.push(0);
+            }
+        }
+        let objectMap = {};
+        let object = 0;
+        for (let line of lines) {
+            let tokens = line.split(" ");
+            let type = tokens[0];
+            if (type === "f") {
+                parseFace(tokens, vertices, elements, normals, objects, vertexUsed, object);
+            }
+            else if (type === "o") {
+                object++;
+                objectMap[object] = tokens[1];
+            }
         }
         return {
             vertices: new Float32Array(vertices),
             elements: new Int32Array(elements),
+            normals: new Float32Array(normals),
+            objects: new Uint32Array(objects),
+            objectMap: objectMap,
             stats: stats
         };
     }
@@ -4062,6 +4114,13 @@ var GLProgram;
                 this.gl.vertexAttribDivisor(set.attribute, set.divisor);
             }
         }
+        bindInt32Attribute(set) {
+            this.gl.enableVertexAttribArray(set.attribute);
+            this.gl.vertexAttribPointer(set.attribute, set.size, this.gl.UNSIGNED_BYTE, true, set.stride, set.offset);
+            if ('divisor' in set) {
+                this.gl.vertexAttribDivisor(set.attribute, set.divisor);
+            }
+        }
         bindUniforms(options) {
             for (let key in this.uniforms) {
                 if (this.uniforms[key].assignFunction === this.GLType.mat4) {
@@ -4116,6 +4175,8 @@ var GLProgram;
         setup() {
             this.setupAttributes({
                 vertex: 'vertex',
+                normal: 'normal',
+                object: 'object'
             });
             this.commonUniforms();
             this.setupUniforms({});
@@ -4126,6 +4187,26 @@ var GLProgram;
                 attribute: this.attributes.vertex,
                 size: 3,
                 stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+                offset: 0,
+            });
+            this.gl.useProgram(null);
+        }
+        bindAttrNormal() {
+            this.gl.useProgram(this.program);
+            this.bindAttribute({
+                attribute: this.attributes.normal,
+                size: 3,
+                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+                offset: 0,
+            });
+            this.gl.useProgram(null);
+        }
+        bindAttrObject() {
+            this.gl.useProgram(this.program);
+            this.bindInt32Attribute({
+                attribute: this.attributes.object,
+                size: 4,
+                stride: 1 * Uint32Array.BYTES_PER_ELEMENT,
                 offset: 0,
             });
             this.gl.useProgram(null);
@@ -4193,6 +4274,17 @@ var GLModels;
             this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
             this.addBufferVBO(vertices);
             this.program.bindAttrVertex();
+            let normals = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normals);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.normals, this.gl.STATIC_DRAW);
+            this.addBufferVBO(normals);
+            this.program.bindAttrNormal();
+            let objects = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, objects);
+            console.log(this.data.objects);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.objects, this.gl.STATIC_DRAW);
+            this.addBufferVBO(objects);
+            this.program.bindAttrObject();
             let ebo = this.gl.createBuffer();
             this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
             this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, this.data.elements, this.gl.STATIC_DRAW);
@@ -4305,9 +4397,10 @@ var GLCamera;
             glMatrix.vec3.copy(this.position, this.tmp);
         }
         frame() {
+            const limit = 0.04;
             glMatrix.vec3.sub(this.tmp, this.position, this.actualPosition);
             this.positionMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
-            if (this.positionMomentum > 0.02) {
+            if (this.positionMomentum > limit) {
                 glMatrix.vec3.scaleAndAdd(this.actualPosition, this.actualPosition, this.tmp, this.positionMomentum);
             }
             else {
@@ -4315,7 +4408,7 @@ var GLCamera;
                 this.positionMomentum = 0;
             }
             this.rotMomentum = Math.min(glMatrix.vec3.angle(this.actualUp, this.up), this.speed * 3.14);
-            if (this.rotMomentum > 0.02) {
+            if (this.rotMomentum > limit) {
                 let axis = glMatrix.vec3.cross(this.tmp, this.actualUp, this.up);
                 glMatrix.mat4.fromRotation(this.rotateMatrix, this.rotMomentum, axis);
                 glMatrix.vec3.transformMat4(this.actualUp, this.actualUp, this.rotateMatrix);
@@ -4326,7 +4419,7 @@ var GLCamera;
             }
             glMatrix.vec3.sub(this.tmp, this.center, this.actualCenter);
             this.centerMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
-            if (this.centerMomentum > 0.02) {
+            if (this.centerMomentum > limit) {
                 glMatrix.vec3.scaleAndAdd(this.actualCenter, this.actualCenter, this.tmp, this.centerMomentum);
             }
             else {
@@ -4662,20 +4755,13 @@ var AppModule;
             this.gl = new GL.Graphics(canvas);
             this.interface = new Interface(this);
             this.city = new CityModule.City(this.gl);
-        }
-        load_file(file) {
-            const reader = new FileReader();
-            let suffix = file.name.split(".");
-            suffix = suffix[suffix.length - 1];
-            let ftype = FileType.unknown;
-            if (suffix === "obj")
-                ftype = FileType.obj;
-            else if (suffix === "json")
-                ftype = FileType.json;
-            reader.addEventListener('load', (event) => {
-                this.parse_file(ftype, event.target.result);
+            DataManager.files({
+                files: ["./assets/bubny/bubny_bud.obj"],
+                success: (files) => {
+                    this.parse_file(FileType.obj, files[0]);
+                },
+                fail: () => { console.error("error loading assets"); }
             });
-            reader.readAsText(file);
         }
         parse_file(type, contents) {
             if (type === FileType.obj) {
@@ -4715,27 +4801,6 @@ var AppModule;
 window.onload = function (e) {
     let app = new AppModule.Application();
     let canvas = document.getElementById("canvas");
-    canvas.ondragover = (e) => {
-        e.preventDefault();
-        console.log("dragging");
-    };
-    canvas.ondragenter = (e) => {
-        e.preventDefault();
-        console.log("dragging on");
-    };
-    canvas.ondragleave = (e) => {
-        e.preventDefault();
-        console.log("dragging off");
-    };
-    canvas.ondrop = (e) => {
-        e.preventDefault();
-        let fileList = e.dataTransfer.files;
-        console.log(fileList);
-        for (let f of fileList)
-            app.load_file(f);
-        let prompt = document.getElementById("prompt");
-        prompt.parentElement.removeChild(prompt);
-    };
     document.onkeydown = function (event) {
         app.interface.onKeyDown(event.keyCode);
         event.stopPropagation();

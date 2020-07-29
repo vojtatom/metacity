@@ -96,6 +96,21 @@ module GLModels {
             this.addBufferVBO(vertices);
             this.program.bindAttrVertex();
 
+            //normals
+            let normals = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normals);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.normals, this.gl.STATIC_DRAW);
+            this.addBufferVBO(normals);
+            this.program.bindAttrNormal();
+
+            //objects
+            let objects = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, objects);
+            console.log(this.data.objects);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.objects, this.gl.STATIC_DRAW);
+            this.addBufferVBO(objects);
+            this.program.bindAttrObject();
+
             //elements
             let ebo = this.gl.createBuffer();
             this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);

@@ -11,6 +11,9 @@ module GL {
     export interface CityModelInterface {
         vertices: Float32Array,
         elements: Int32Array,
+        normals: Float32Array,
+        objects: Uint32Array,
+        objectMap: { [name: number]: string },
         stats: OBJstats
     }
 

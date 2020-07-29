@@ -100,9 +100,23 @@ module AppModule {
             this.interface = new Interface(this);
 
             this.city = new CityModule.City(this.gl);
+
+            //------------------------------------------------
+            // FOR DEMO PURPOUSES ONLY
+            //------------------------------------------------
+            DataManager.files({
+                files: ["./assets/bubny/bubny_bud.obj"],
+                success: (files) => {
+                    
+                    this.parse_file(FileType.obj, files[0]);
+                    
+                },
+                fail: () => { console.error("error loading assets"); }
+            })
+            //------------------------------------------------
         }
 
-        load_file(file: File) {
+        /*load_file(file: File) {
             const reader = new FileReader();
             let suffix: string | string[] = file.name.split(".");
             suffix = suffix[suffix.length - 1];
@@ -118,7 +132,7 @@ module AppModule {
             });
 
             reader.readAsText(file);
-        }
+        }*/
         
         parse_file(type: FileType, contents: string)
         {
