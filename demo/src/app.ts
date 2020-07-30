@@ -18,6 +18,7 @@ module AppModule {
             y: number;
             down: boolean;
             button: number;
+            time: number
         }
 
         constructor(app: Application) {
@@ -27,7 +28,8 @@ module AppModule {
                 x: null,
                 y: null,
                 down: false,
-                button: 0
+                button: 0,
+                time: 0
             };
         }
 
@@ -46,11 +48,17 @@ module AppModule {
             this.mouse.x = x;
             this.mouse.y = y;
             this.mouse.button = button;
-            console.log(button);
+            this.mouse.time = Date.now();
         };
 
         onMouseUp(x: number, y: number) {
             this.mouse.down = false;
+            let now = Date.now();
+            
+            if (now - this.mouse.time < 300 && this.mouse.button == 0)
+            {
+                this.app.pick(x, y);
+            }
         };
 
         onMouseMove(x: number, y: number) {
@@ -90,6 +98,12 @@ module AppModule {
 
         interface: Interface;
 
+        pickPoint: {
+            pick: boolean,
+            x: number,
+            y: number
+        };
+
         constructor()
         {
             let windows = new UI.Window("3D view", [ 
@@ -111,14 +125,23 @@ module AppModule {
 
             this.city = new CityModule.City(this.gl);
 
+            this.pickPoint = {
+                pick: false,
+                x: 0,
+                y: 0
+            };
+
             //------------------------------------------------
             // FOR DEMO PURPOUSES ONLY
             //------------------------------------------------
             DataManager.files({
-                files: ["./assets/bubny/bubny_bud.obj"],
+                files: ["./assets/bubny/bubny_bud.obj",
+                        "./assets/bubny/bubny_bud.json"],
                 success: (files) => {
                     
+
                     this.parse_file(FileType.obj, files[0]);
+                    this.parse_file(FileType.json, files[1]);
                     
                 },
                 fail: () => { console.error("error loading assets"); }
@@ -180,7 +203,19 @@ module AppModule {
             }
         }
 
+        pick(x: number, y: number) {
+            this.pickPoint.x = x;
+            this.pickPoint.y = y;
+            this.pickPoint.pick = true;
+        }
+
         render() {
+            if (this.pickPoint.pick) {
+                let canvasHeight = this.gl.scene.camera.screenY;
+                this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
+                this.pickPoint.pick = false;
+            }   
+            
             this.gl.render();
         }
 

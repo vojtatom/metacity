@@ -60,7 +60,11 @@ module GLModels {
         }
 
         render(scene: GL.Scene){
-            console.error("not implemented");
+
+        }
+
+        renderPicking(scene: GL.Scene){
+
         }
     }
 
@@ -68,10 +72,10 @@ module GLModels {
         data: GL.BoxModelInterface;
         program: GLProgram.BoxProgram;
 
-        constructor(gl: WebGL2RenderingContext, program: GLProgram.BoxProgram, model: GL.BoxModelInterface){
+        constructor(gl: WebGL2RenderingContext, programs: GL.GLProgramList, model: GL.BoxModelInterface){
             super(gl);
 
-            this.program = program;
+            this.program = programs.box;
             this.data = model;
             this.init();
         }
@@ -113,18 +117,21 @@ module GLModels {
             this.gl.drawArrays(this.gl.LINES, 0, 24);
             this.gl.bindVertexArray(null);
         }
+
     }
 
     export class CityModel extends GLModel {
         data: GL.CityModelInterface;
         program: GLProgram.TriangleProgram;
+        pickingProgram: GLProgram.PickProgram;
 
         triangles: number;
 
-        constructor(gl: WebGL2RenderingContext, program: GLProgram.TriangleProgram, model: GL.CityModelInterface){
+        constructor(gl: WebGL2RenderingContext, programs: GL.GLProgramList, model: GL.CityModelInterface){
             super(gl);
 
-            this.program = program;
+            this.program = programs.triangle;
+            this.pickingProgram = programs.pick;
             this.data = model;
             this.init();
         }
@@ -146,21 +153,23 @@ module GLModels {
             this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
             this.addBufferVBO(vertices);
             this.program.bindAttrVertex();
-
+            this.pickingProgram.bindAttrVertex();
+            
             //normals
             let normals = this.gl.createBuffer();
             this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normals);
             this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.normals, this.gl.STATIC_DRAW);
             this.addBufferVBO(normals);
             this.program.bindAttrNormal();
-
+            
             //objects
             let objects = this.gl.createBuffer();
             this.gl.bindBuffer(this.gl.ARRAY_BUFFER, objects);
             this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.objects, this.gl.STATIC_DRAW);
             this.addBufferVBO(objects);
             this.program.bindAttrObject();
-
+            this.pickingProgram.bindAttrObject();
+            
             //elements
             let ebo = this.gl.createBuffer();
             this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
@@ -187,6 +196,21 @@ module GLModels {
             this.bindBuffersAndTextures();
             let uniforms = this.uniformDict(scene);
             this.program.bindUniforms(uniforms);
+
+            this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
+            this.gl.bindVertexArray(null);
+        }
+
+        renderPicking(scene: GL.Scene) {
+            if (!this.loaded)
+            {
+                this.init();
+                return;
+            }
+
+            this.bindBuffersAndTextures();
+            let uniforms = this.uniformDict(scene);
+            this.pickingProgram.bindUniforms(uniforms);
 
             this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
             this.gl.bindVertexArray(null);

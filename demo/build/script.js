@@ -4187,6 +4187,53 @@ var GLProgram;
                 this.loaded = true;
         }
     }
+    class PickProgram extends Program {
+        constructor(gl) {
+            super(gl);
+            DataManager.files({
+                files: [
+                    Program.DIR + "pick-vs.glsl",
+                    Program.DIR + "pick-fs.glsl",
+                ],
+                success: (files) => {
+                    this.init(files[0], files[1]);
+                    this.setup();
+                },
+                fail: () => {
+                    throw "Pick shader not loaded";
+                }
+            });
+        }
+        setup() {
+            this.setupAttributes({
+                vertex: 'vertex',
+                object: 'object'
+            });
+            this.commonUniforms();
+            this.setupUniforms({});
+        }
+        bindAttrVertex() {
+            this.gl.useProgram(this.program);
+            this.bindAttribute({
+                attribute: this.attributes.vertex,
+                size: 3,
+                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+                offset: 0,
+            });
+            this.gl.useProgram(null);
+        }
+        bindAttrObject() {
+            this.gl.useProgram(this.program);
+            this.bindInt32Attribute({
+                attribute: this.attributes.object,
+                size: 4,
+                stride: 1 * Uint32Array.BYTES_PER_ELEMENT,
+                offset: 0,
+            });
+            this.gl.useProgram(null);
+        }
+    }
+    GLProgram.PickProgram = PickProgram;
     class TriangleProgram extends Program {
         constructor(gl) {
             super(gl);
@@ -4320,14 +4367,15 @@ var GLModels;
             });
         }
         render(scene) {
-            console.error("not implemented");
+        }
+        renderPicking(scene) {
         }
     }
     GLModels.GLModel = GLModel;
     class CubeModel extends GLModel {
-        constructor(gl, program, model) {
+        constructor(gl, programs, model) {
             super(gl);
-            this.program = program;
+            this.program = programs.box;
             this.data = model;
             this.init();
         }
@@ -4360,9 +4408,10 @@ var GLModels;
     }
     GLModels.CubeModel = CubeModel;
     class CityModel extends GLModel {
-        constructor(gl, program, model) {
+        constructor(gl, programs, model) {
             super(gl);
-            this.program = program;
+            this.program = programs.triangle;
+            this.pickingProgram = programs.pick;
             this.data = model;
             this.init();
         }
@@ -4377,6 +4426,7 @@ var GLModels;
             this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
             this.addBufferVBO(vertices);
             this.program.bindAttrVertex();
+            this.pickingProgram.bindAttrVertex();
             let normals = this.gl.createBuffer();
             this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normals);
             this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.normals, this.gl.STATIC_DRAW);
@@ -4387,6 +4437,7 @@ var GLModels;
             this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.objects, this.gl.STATIC_DRAW);
             this.addBufferVBO(objects);
             this.program.bindAttrObject();
+            this.pickingProgram.bindAttrObject();
             let ebo = this.gl.createBuffer();
             this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
             this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, this.data.elements, this.gl.STATIC_DRAW);
@@ -4403,6 +4454,17 @@ var GLModels;
             this.bindBuffersAndTextures();
             let uniforms = this.uniformDict(scene);
             this.program.bindUniforms(uniforms);
+            this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
+            this.gl.bindVertexArray(null);
+        }
+        renderPicking(scene) {
+            if (!this.loaded) {
+                this.init();
+                return;
+            }
+            this.bindBuffersAndTextures();
+            let uniforms = this.uniformDict(scene);
+            this.pickingProgram.bindUniforms(uniforms);
             this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
             this.gl.bindVertexArray(null);
         }
@@ -4503,14 +4565,11 @@ var GLCamera;
             glMatrix.vec3.copy(this.position, this.tmp);
         }
         move(x, y) {
-            console.log(x, y);
             let front = glMatrix.vec3.sub(glMatrix.vec3.create(), this.center, this.position);
             let axes_x = glMatrix.vec3.normalize(this.tmp, glMatrix.vec3.cross(this.tmp, this.up, front));
             let axes_y = glMatrix.vec3.normalize(this.tmp2, glMatrix.vec3.copy(this.tmp2, this.up));
-            console.log(axes_x, axes_y);
             glMatrix.vec3.scale(axes_x, axes_x, x);
             glMatrix.vec3.scale(axes_y, axes_y, y);
-            console.log(axes_x, axes_y);
             glMatrix.vec3.add(this.position, this.position, axes_x);
             glMatrix.vec3.add(this.position, this.position, axes_y);
             glMatrix.vec3.add(this.center, this.center, axes_x);
@@ -4595,7 +4654,8 @@ var GL;
             let ext = this.gl.getExtension('OES_element_index_uint');
             this.programs = {
                 triangle: new GLProgram.TriangleProgram(this.gl),
-                box: new GLProgram.BoxProgram(this.gl)
+                box: new GLProgram.BoxProgram(this.gl),
+                pick: new GLProgram.PickProgram(this.gl)
             };
             this.loaded = false;
             this.models = {
@@ -4605,9 +4665,9 @@ var GL;
             this.scene = new Scene(this.gl);
         }
         addCitySegment(model) {
-            let glmodel = new GLModels.CityModel(this.gl, this.programs.triangle, model);
+            let glmodel = new GLModels.CityModel(this.gl, this.programs, model);
             this.models.city.push(glmodel);
-            let box = new GLModels.CubeModel(this.gl, this.programs.box, model.stats);
+            let box = new GLModels.CubeModel(this.gl, this.programs, model.stats);
             this.models.box.push(box);
             this.scene.addModel(model.stats);
             this.loaded = true;
@@ -4633,6 +4693,28 @@ var GL;
             }
             this.programs.box.unbind();
             this.scene.camera.frame();
+        }
+        renderPick(x, y, height) {
+            if (!this.loaded)
+                return;
+            this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
+            this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
+            this.gl.enable(this.gl.DEPTH_TEST);
+            this.programs.pick.bind();
+            for (let c of this.models.city) {
+                c.renderPicking(this.scene);
+            }
+            for (let b of this.models.box) {
+                b.renderPicking(this.scene);
+            }
+            this.programs.pick.unbind();
+            this.scene.camera.frame();
+            y = height - y;
+            let data = new ArrayBuffer(4);
+            let pixels = new Uint8Array(data);
+            this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
+            let ID = new DataView(data).getUint32(0, true);
+            return ID;
         }
         resize(x, y) {
             this.canvas.width = x;
@@ -4838,7 +4920,8 @@ var AppModule;
                 x: null,
                 y: null,
                 down: false,
-                button: 0
+                button: 0,
+                time: 0
             };
         }
         onKeyDown(key) {
@@ -4854,11 +4937,15 @@ var AppModule;
             this.mouse.x = x;
             this.mouse.y = y;
             this.mouse.button = button;
-            console.log(button);
+            this.mouse.time = Date.now();
         }
         ;
         onMouseUp(x, y) {
             this.mouse.down = false;
+            let now = Date.now();
+            if (now - this.mouse.time < 300 && this.mouse.button == 0) {
+                this.app.pick(x, y);
+            }
         }
         ;
         onMouseMove(x, y) {
@@ -4896,6 +4983,11 @@ var AppModule;
             this.gl = new GL.Graphics(canvas);
             this.interface = new Interface(this);
             this.city = new CityModule.City(this.gl);
+            this.pickPoint = {
+                pick: false,
+                x: 0,
+                y: 0
+            };
             DataManager.files({
                 files: ["./assets/bubny/bubny_bud.obj"],
                 success: (files) => {
@@ -4933,7 +5025,18 @@ var AppModule;
                 this.gl.scene.camera.restoreCenter();
             }
         }
+        pick(x, y) {
+            console.log(x, y);
+            this.pickPoint.x = x;
+            this.pickPoint.y = y;
+            this.pickPoint.pick = true;
+        }
         render() {
+            if (this.pickPoint.pick) {
+                let canvasHeight = this.gl.scene.camera.screenY;
+                this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
+                this.pickPoint.pick = false;
+            }
             this.gl.render();
         }
         resize(x, y) {

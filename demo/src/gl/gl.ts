@@ -62,14 +62,17 @@ module GL {
         }
     }
 
+    export interface GLProgramList {
+        triangle: GLProgram.TriangleProgram,
+        box: GLProgram.BoxProgram,
+        pick: GLProgram.PickProgram
+    }
+
     export class Graphics {
         canvas: HTMLCanvasElement;
         gl: WebGL2RenderingContext;
 
-        programs: {
-            triangle: GLProgram.TriangleProgram,
-            box: GLProgram.BoxProgram
-        };
+        programs: GLProgramList;
 
         loaded : boolean;
         models: {
@@ -96,7 +99,8 @@ module GL {
             //init GPU programs
             this.programs = {
                 triangle: new GLProgram.TriangleProgram(this.gl),
-                box: new GLProgram.BoxProgram(this.gl)
+                box: new GLProgram.BoxProgram(this.gl),
+                pick: new GLProgram.PickProgram(this.gl)
             };
 
             this.loaded = false;
@@ -110,9 +114,9 @@ module GL {
 
         addCitySegment(model: CityModelInterface)
         {
-            let glmodel = new GLModels.CityModel(this.gl, this.programs.triangle, model)
+            let glmodel = new GLModels.CityModel(this.gl, this.programs, model)
             this.models.city.push(glmodel);
-            let box = new GLModels.CubeModel(this.gl, this.programs.box, model.stats);
+            let box = new GLModels.CubeModel(this.gl, this.programs, model.stats);
             this.models.box.push(box);
             
             this.scene.addModel(model.stats);
@@ -151,6 +155,34 @@ module GL {
 
 
             this.scene.camera.frame();
+        }
+        
+        renderPick(x: number, y: number, height: number) {
+            if (!this.loaded)
+            return;
+            
+            this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
+            this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);  
+            this.gl.enable(this.gl.DEPTH_TEST);
+            
+            //render buildings
+            this.programs.pick.bind();
+            for(let c of this.models.city){
+                c.renderPicking(this.scene);
+            }
+            for(let b of this.models.box){
+                b.renderPicking(this.scene);
+            }
+            this.programs.pick.unbind();
+            this.scene.camera.frame();
+
+            y = height - y;
+            let data = new ArrayBuffer(4); // A single RGBA value
+            let pixels = new Uint8Array(data); // A single RGBA value
+            this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
+
+            let ID = new DataView(data).getUint32(0, true);
+            return ID;
         }
 
         resize(x: number, y: number) {

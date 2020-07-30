@@ -145,17 +145,13 @@ module GLCamera {
         }
 
         move(x: number, y: number) {
-            console.log(x, y);
             let front = glMatrix.vec3.sub(glMatrix.vec3.create(), this.center, this.position);
             //let dist = glMatrix.vec3.len(front);
             let axes_x = glMatrix.vec3.normalize(this.tmp, glMatrix.vec3.cross(this.tmp, this.up, front));
-            let axes_y = glMatrix.vec3.normalize(this.tmp2, glMatrix.vec3.copy(this.tmp2, this.up));
-            console.log(axes_x, axes_y);
-            
+            let axes_y = glMatrix.vec3.normalize(this.tmp2, glMatrix.vec3.copy(this.tmp2, this.up));  
             
             glMatrix.vec3.scale(axes_x, axes_x, x);
             glMatrix.vec3.scale(axes_y, axes_y, y);
-            console.log(axes_x, axes_y);
             glMatrix.vec3.add(this.position, this.position, axes_x);
             glMatrix.vec3.add(this.position, this.position, axes_y);
             glMatrix.vec3.add(this.center, this.center, axes_x);
