@@ -17,6 +17,7 @@ module AppModule {
             x: number;
             y: number;
             down: boolean;
+            button: number;
         }
 
         constructor(app: Application) {
@@ -26,6 +27,7 @@ module AppModule {
                 x: null,
                 y: null,
                 down: false,
+                button: 0
             };
         }
 
@@ -39,10 +41,12 @@ module AppModule {
             this.keys[key] = false;
         }
 
-        onMouseDown(x: number, y: number) {
+        onMouseDown(x: number, y: number, button: number) {
             this.mouse.down = true;
             this.mouse.x = x;
             this.mouse.y = y;
+            this.mouse.button = button;
+            console.log(button);
         };
 
         onMouseUp(x: number, y: number) {
@@ -60,11 +64,17 @@ module AppModule {
             this.mouse.x = x
             this.mouse.y = y;
 
-            this.app.gl.scene.camera.rotate(delta_x, delta_y);
+            if (this.mouse.button == 0) {
+                //left button
+                this.app.gl.scene.camera.rotate(delta_x, delta_y);
+            } else if (this.mouse.button == 1) {
+                //wheel
+                this.app.gl.scene.camera.move(delta_x, delta_y);
+            }
         };
 
         wheel(delta: number){
-            this.app.gl.scene.camera.move(1, delta);
+            this.app.gl.scene.camera.zoom(1, delta);
         }
     }
 
@@ -165,6 +175,8 @@ module AppModule {
                 this.gl.scene.camera.viewFront();
             } else if (key == 99) {
                 this.gl.scene.camera.viewSide();
+            } else if (key == 105) {
+                this.gl.scene.camera.restoreCenter();
             }
         }
 

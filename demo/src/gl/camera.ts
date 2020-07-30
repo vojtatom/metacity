@@ -2,7 +2,7 @@
 
 module GLCamera {
 
-    const MOVE_STEP = 0.0025;
+    const ZOOM_STEP = 0.0025;
     const ROT_STEP = 0.5;
 
     export class Camera extends GLBase.GLObject {
@@ -89,21 +89,28 @@ module GLCamera {
             return this.position; 
         } 
 
+        restoreCenter(){
+            this.center = Object.assign({}, this.geoCenter);
+        }
+
         viewTop(){
+            let dist = glMatrix.vec3.dist(this.center, this.position);
             this.position = Object.assign({}, this.center);
-            this.position[2] += this.farplane / 2;
+            this.position[2] += dist;
             this.up = new Float32Array([0, 1, 0]);
         }
-
+        
         viewFront(){
+            let dist = glMatrix.vec3.dist(this.center, this.position);
             this.position = Object.assign({}, this.center);
-            this.position[1] -= this.farplane / 2;
+            this.position[1] -= dist;
             this.up = new Float32Array([0, 0, 1]);
         }
-
+        
         viewSide(){
+            let dist = glMatrix.vec3.dist(this.center, this.position);
             this.position = Object.assign({}, this.center);
-            this.position[0] -= this.farplane / 2;
+            this.position[0] -= dist;//this.farplane / 2;
             this.up = new Float32Array([0, 0, 1]);
         }
 
@@ -119,7 +126,7 @@ module GLCamera {
             let a_y = glMatrix.glMatrix.toRadian(y) * ROT_STEP;
             let front = glMatrix.vec3.sub(glMatrix.vec3.create(), this.center, this.position);
     
-            let axes_x = glMatrix.vec3.cross(this.tmp, this.up, this.front);
+            let axes_x = glMatrix.vec3.cross(this.tmp, this.up, front);
             let axes_y = this.up;
     
             glMatrix.mat4.fromRotation(this.rotateMatrix, a_x, axes_y);
@@ -130,11 +137,30 @@ module GLCamera {
             glMatrix.vec3.transformMat4(this.up, this.up, this.rotateMatrix);
         }
 
-        move(direction: number = 1, scale: number = 1) {
+        zoom(direction: number = 1, scale: number = 1) {
             glMatrix.vec3.sub(this.tmp, this.position, this.center);
-            glMatrix.vec3.scale(this.tmp, this.tmp, 1 + direction * (MOVE_STEP * scale));
+            glMatrix.vec3.scale(this.tmp, this.tmp, 1 + direction * (ZOOM_STEP * scale));
             glMatrix.vec3.add(this.tmp, this.center, this.tmp);
             glMatrix.vec3.copy(this.position, this.tmp);
+        }
+
+        move(x: number, y: number) {
+            console.log(x, y);
+            let front = glMatrix.vec3.sub(glMatrix.vec3.create(), this.center, this.position);
+            //let dist = glMatrix.vec3.len(front);
+            let axes_x = glMatrix.vec3.normalize(this.tmp, glMatrix.vec3.cross(this.tmp, this.up, front));
+            let axes_y = glMatrix.vec3.normalize(this.tmp2, glMatrix.vec3.copy(this.tmp2, this.up));
+            console.log(axes_x, axes_y);
+            
+            
+            glMatrix.vec3.scale(axes_x, axes_x, x);
+            glMatrix.vec3.scale(axes_y, axes_y, y);
+            console.log(axes_x, axes_y);
+            glMatrix.vec3.add(this.position, this.position, axes_x);
+            glMatrix.vec3.add(this.position, this.position, axes_y);
+            glMatrix.vec3.add(this.center, this.center, axes_x);
+            glMatrix.vec3.add(this.center, this.center, axes_y);
+
         }
 
         frame(){

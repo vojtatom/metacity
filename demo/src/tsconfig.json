@@ -15,6 +15,7 @@
       "dm.ts",
       "parser.ts",
       "gl/base.ts",
+      "gl/geometry.ts",
       "gl/program.ts",
       "gl/model.ts",
       "gl/camera.ts",

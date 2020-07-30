@@ -47,7 +47,7 @@ window.onload = function(e: Event) {
     }
 
     canvas.onmousedown = function(event) {
-        app.interface.onMouseDown(event.clientX, event.clientY);
+        app.interface.onMouseDown(event.clientX, event.clientY, event.button);
         event.stopPropagation();
 	};
 

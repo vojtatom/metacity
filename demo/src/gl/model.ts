@@ -64,6 +64,57 @@ module GLModels {
         }
     }
 
+    export class CubeModel extends GLModel {
+        data: GL.BoxModelInterface;
+        program: GLProgram.BoxProgram;
+
+        constructor(gl: WebGL2RenderingContext, program: GLProgram.BoxProgram, model: GL.BoxModelInterface){
+            super(gl);
+
+            this.program = program;
+            this.data = model;
+            this.init();
+        }
+
+        init(){
+            //since the method can be called async, check is GPU is up to date
+            if (!this.program.loaded)
+                return;
+
+            //init VAO
+            let vao = this.gl.createVertexArray();
+            this.gl.bindVertexArray(vao);
+            this.addBufferVAO(vao);
+
+
+            let vdata = GLGeometry.boxVertices(this.data.min, this.data.max);
+            //vertices
+            let vertices = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, vdata, this.gl.STATIC_DRAW);
+            this.addBufferVBO(vertices);
+            this.program.bindAttrVertex();
+
+            this.gl.bindVertexArray(null);
+            this.loaded = true;
+        }
+
+        render(scene: GL.Scene){
+            if (!this.loaded)
+            {
+                this.init();
+                return;
+            }
+
+            this.bindBuffersAndTextures();
+            let uniforms = this.uniformDict(scene);
+            this.program.bindUniforms(uniforms);
+
+            this.gl.drawArrays(this.gl.LINES, 0, 24);
+            this.gl.bindVertexArray(null);
+        }
+    }
+
     export class CityModel extends GLModel {
         data: GL.CityModelInterface;
         program: GLProgram.TriangleProgram;
@@ -106,7 +157,6 @@ module GLModels {
             //objects
             let objects = this.gl.createBuffer();
             this.gl.bindBuffer(this.gl.ARRAY_BUFFER, objects);
-            console.log(this.data.objects);
             this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.objects, this.gl.STATIC_DRAW);
             this.addBufferVBO(objects);
             this.program.bindAttrObject();
@@ -125,9 +175,6 @@ module GLModels {
             //no more references to contents of OBJ file 
             //should be present anywhere else
             //delete this.data;
-            console.log("loaded into GPU");
-
-            return;
         }
 
         render(scene: GL.Scene){

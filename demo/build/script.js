@@ -4016,6 +4016,38 @@ var GLBase;
     }
     GLBase.GLObject = GLObject;
 })(GLBase || (GLBase = {}));
+var GLGeometry;
+(function (GLGeometry) {
+    function boxVertices(min, max) {
+        return new Float32Array([
+            min[0], min[1], min[2],
+            max[0], min[1], min[2],
+            max[0], min[1], min[2],
+            max[0], max[1], min[2],
+            max[0], max[1], min[2],
+            min[0], max[1], min[2],
+            min[0], max[1], min[2],
+            min[0], min[1], min[2],
+            min[0], min[1], max[2],
+            max[0], min[1], max[2],
+            max[0], min[1], max[2],
+            max[0], max[1], max[2],
+            max[0], max[1], max[2],
+            min[0], max[1], max[2],
+            min[0], max[1], max[2],
+            min[0], min[1], max[2],
+            min[0], min[1], min[2],
+            min[0], min[1], max[2],
+            max[0], min[1], min[2],
+            max[0], min[1], max[2],
+            min[0], max[1], min[2],
+            min[0], max[1], max[2],
+            max[0], max[1], min[2],
+            max[0], max[1], max[2],
+        ]);
+    }
+    GLGeometry.boxVertices = boxVertices;
+})(GLGeometry || (GLGeometry = {}));
 var GLProgram;
 (function (GLProgram) {
     let ShaderType;
@@ -4213,6 +4245,42 @@ var GLProgram;
         }
     }
     GLProgram.TriangleProgram = TriangleProgram;
+    class BoxProgram extends Program {
+        constructor(gl) {
+            super(gl);
+            DataManager.files({
+                files: [
+                    Program.DIR + "box-vs.glsl",
+                    Program.DIR + "box-fs.glsl",
+                ],
+                success: (files) => {
+                    this.init(files[0], files[1]);
+                    this.setup();
+                },
+                fail: () => {
+                    throw "Box shader not loaded";
+                }
+            });
+        }
+        setup() {
+            this.setupAttributes({
+                vertex: 'vertex',
+            });
+            this.commonUniforms();
+            this.setupUniforms({});
+        }
+        bindAttrVertex() {
+            this.gl.useProgram(this.program);
+            this.bindAttribute({
+                attribute: this.attributes.vertex,
+                size: 3,
+                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+                offset: 0,
+            });
+            this.gl.useProgram(null);
+        }
+    }
+    GLProgram.BoxProgram = BoxProgram;
 })(GLProgram || (GLProgram = {}));
 var GLModels;
 (function (GLModels) {
@@ -4256,6 +4324,41 @@ var GLModels;
         }
     }
     GLModels.GLModel = GLModel;
+    class CubeModel extends GLModel {
+        constructor(gl, program, model) {
+            super(gl);
+            this.program = program;
+            this.data = model;
+            this.init();
+        }
+        init() {
+            if (!this.program.loaded)
+                return;
+            let vao = this.gl.createVertexArray();
+            this.gl.bindVertexArray(vao);
+            this.addBufferVAO(vao);
+            let vdata = GLGeometry.boxVertices(this.data.min, this.data.max);
+            let vertices = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, vdata, this.gl.STATIC_DRAW);
+            this.addBufferVBO(vertices);
+            this.program.bindAttrVertex();
+            this.gl.bindVertexArray(null);
+            this.loaded = true;
+        }
+        render(scene) {
+            if (!this.loaded) {
+                this.init();
+                return;
+            }
+            this.bindBuffersAndTextures();
+            let uniforms = this.uniformDict(scene);
+            this.program.bindUniforms(uniforms);
+            this.gl.drawArrays(this.gl.LINES, 0, 24);
+            this.gl.bindVertexArray(null);
+        }
+    }
+    GLModels.CubeModel = CubeModel;
     class CityModel extends GLModel {
         constructor(gl, program, model) {
             super(gl);
@@ -4281,7 +4384,6 @@ var GLModels;
             this.program.bindAttrNormal();
             let objects = this.gl.createBuffer();
             this.gl.bindBuffer(this.gl.ARRAY_BUFFER, objects);
-            console.log(this.data.objects);
             this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.objects, this.gl.STATIC_DRAW);
             this.addBufferVBO(objects);
             this.program.bindAttrObject();
@@ -4292,8 +4394,6 @@ var GLModels;
             this.gl.bindVertexArray(null);
             this.triangles = this.data.elements.length / 3;
             this.loaded = true;
-            console.log("loaded into GPU");
-            return;
         }
         render(scene) {
             if (!this.loaded) {
@@ -4311,7 +4411,7 @@ var GLModels;
 })(GLModels || (GLModels = {}));
 var GLCamera;
 (function (GLCamera) {
-    const MOVE_STEP = 0.0025;
+    const ZOOM_STEP = 0.0025;
     const ROT_STEP = 0.5;
     class Camera extends GLBase.GLObject {
         constructor(gl) {
@@ -4357,19 +4457,25 @@ var GLCamera;
         get pos() {
             return this.position;
         }
+        restoreCenter() {
+            this.center = Object.assign({}, this.geoCenter);
+        }
         viewTop() {
+            let dist = glMatrix.vec3.dist(this.center, this.position);
             this.position = Object.assign({}, this.center);
-            this.position[2] += this.farplane / 2;
+            this.position[2] += dist;
             this.up = new Float32Array([0, 1, 0]);
         }
         viewFront() {
+            let dist = glMatrix.vec3.dist(this.center, this.position);
             this.position = Object.assign({}, this.center);
-            this.position[1] -= this.farplane / 2;
+            this.position[1] -= dist;
             this.up = new Float32Array([0, 0, 1]);
         }
         viewSide() {
+            let dist = glMatrix.vec3.dist(this.center, this.position);
             this.position = Object.assign({}, this.center);
-            this.position[0] -= this.farplane / 2;
+            this.position[0] -= dist;
             this.up = new Float32Array([0, 0, 1]);
         }
         resize(x, y) {
@@ -4382,7 +4488,7 @@ var GLCamera;
             let a_x = glMatrix.glMatrix.toRadian(-x) * ROT_STEP;
             let a_y = glMatrix.glMatrix.toRadian(y) * ROT_STEP;
             let front = glMatrix.vec3.sub(glMatrix.vec3.create(), this.center, this.position);
-            let axes_x = glMatrix.vec3.cross(this.tmp, this.up, this.front);
+            let axes_x = glMatrix.vec3.cross(this.tmp, this.up, front);
             let axes_y = this.up;
             glMatrix.mat4.fromRotation(this.rotateMatrix, a_x, axes_y);
             glMatrix.mat4.rotate(this.rotateMatrix, this.rotateMatrix, a_y, axes_x);
@@ -4390,11 +4496,25 @@ var GLCamera;
             glMatrix.vec3.add(this.position, this.center, glMatrix.vec3.negate(front, front));
             glMatrix.vec3.transformMat4(this.up, this.up, this.rotateMatrix);
         }
-        move(direction = 1, scale = 1) {
+        zoom(direction = 1, scale = 1) {
             glMatrix.vec3.sub(this.tmp, this.position, this.center);
-            glMatrix.vec3.scale(this.tmp, this.tmp, 1 + direction * (MOVE_STEP * scale));
+            glMatrix.vec3.scale(this.tmp, this.tmp, 1 + direction * (ZOOM_STEP * scale));
             glMatrix.vec3.add(this.tmp, this.center, this.tmp);
             glMatrix.vec3.copy(this.position, this.tmp);
+        }
+        move(x, y) {
+            console.log(x, y);
+            let front = glMatrix.vec3.sub(glMatrix.vec3.create(), this.center, this.position);
+            let axes_x = glMatrix.vec3.normalize(this.tmp, glMatrix.vec3.cross(this.tmp, this.up, front));
+            let axes_y = glMatrix.vec3.normalize(this.tmp2, glMatrix.vec3.copy(this.tmp2, this.up));
+            console.log(axes_x, axes_y);
+            glMatrix.vec3.scale(axes_x, axes_x, x);
+            glMatrix.vec3.scale(axes_y, axes_y, y);
+            console.log(axes_x, axes_y);
+            glMatrix.vec3.add(this.position, this.position, axes_x);
+            glMatrix.vec3.add(this.position, this.position, axes_y);
+            glMatrix.vec3.add(this.center, this.center, axes_x);
+            glMatrix.vec3.add(this.center, this.center, axes_y);
         }
         frame() {
             const limit = 0.04;
@@ -4474,18 +4594,27 @@ var GL;
             }
             let ext = this.gl.getExtension('OES_element_index_uint');
             this.programs = {
-                triangle: new GLProgram.TriangleProgram(this.gl)
+                triangle: new GLProgram.TriangleProgram(this.gl),
+                box: new GLProgram.BoxProgram(this.gl)
             };
             this.loaded = false;
             this.models = {
                 city: [],
+                box: []
             };
             this.scene = new Scene(this.gl);
         }
         addCitySegment(model) {
-            this.models.city.push(new GLModels.CityModel(this.gl, this.programs.triangle, model));
+            let glmodel = new GLModels.CityModel(this.gl, this.programs.triangle, model);
+            this.models.city.push(glmodel);
+            let box = new GLModels.CubeModel(this.gl, this.programs.box, model.stats);
+            this.models.box.push(box);
             this.scene.addModel(model.stats);
             this.loaded = true;
+            return {
+                cityModel: glmodel,
+                boxModel: box
+            };
         }
         render() {
             if (!this.loaded)
@@ -4493,12 +4622,16 @@ var GL;
             this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
             this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
             this.gl.enable(this.gl.DEPTH_TEST);
-            this.gl;
             this.programs.triangle.bind();
             for (let c of this.models.city) {
                 c.render(this.scene);
             }
             this.programs.triangle.unbind();
+            this.programs.box.bind();
+            for (let b of this.models.box) {
+                b.render(this.scene);
+            }
+            this.programs.box.unbind();
             this.scene.camera.frame();
         }
         resize(x, y) {
@@ -4705,6 +4838,7 @@ var AppModule;
                 x: null,
                 y: null,
                 down: false,
+                button: 0
             };
         }
         onKeyDown(key) {
@@ -4715,10 +4849,12 @@ var AppModule;
         onKeyUp(key) {
             this.keys[key] = false;
         }
-        onMouseDown(x, y) {
+        onMouseDown(x, y, button) {
             this.mouse.down = true;
             this.mouse.x = x;
             this.mouse.y = y;
+            this.mouse.button = button;
+            console.log(button);
         }
         ;
         onMouseUp(x, y) {
@@ -4733,11 +4869,16 @@ var AppModule;
             let delta_y = y - this.mouse.y;
             this.mouse.x = x;
             this.mouse.y = y;
-            this.app.gl.scene.camera.rotate(delta_x, delta_y);
+            if (this.mouse.button == 0) {
+                this.app.gl.scene.camera.rotate(delta_x, delta_y);
+            }
+            else if (this.mouse.button == 1) {
+                this.app.gl.scene.camera.move(delta_x, delta_y);
+            }
         }
         ;
         wheel(delta) {
-            this.app.gl.scene.camera.move(1, delta);
+            this.app.gl.scene.camera.zoom(1, delta);
         }
     }
     class Application {
@@ -4788,6 +4929,9 @@ var AppModule;
             else if (key == 99) {
                 this.gl.scene.camera.viewSide();
             }
+            else if (key == 105) {
+                this.gl.scene.camera.restoreCenter();
+            }
         }
         render() {
             this.gl.render();
@@ -4814,7 +4958,7 @@ window.onload = function (e) {
         event.stopPropagation();
     };
     canvas.onmousedown = function (event) {
-        app.interface.onMouseDown(event.clientX, event.clientY);
+        app.interface.onMouseDown(event.clientX, event.clientY, event.button);
         event.stopPropagation();
     };
     canvas.onmouseup = function (event) {

@@ -17,6 +17,11 @@ module GL {
         stats: OBJstats
     }
 
+    export interface BoxModelInterface {
+        min: number[],
+        max: number[]
+    }
+
     export class Scene extends GLBase.GLObject {
         stats: OBJstats;
         camera: GLCamera.Camera;
@@ -62,12 +67,14 @@ module GL {
         gl: WebGL2RenderingContext;
 
         programs: {
-            triangle: GLProgram.TriangleProgram
+            triangle: GLProgram.TriangleProgram,
+            box: GLProgram.BoxProgram
         };
 
         loaded : boolean;
         models: {
             city: Array<GLModels.CityModel>,
+            box: Array<GLModels.CubeModel>,
         };
 
 
@@ -88,12 +95,14 @@ module GL {
 
             //init GPU programs
             this.programs = {
-                triangle: new GLProgram.TriangleProgram(this.gl)
+                triangle: new GLProgram.TriangleProgram(this.gl),
+                box: new GLProgram.BoxProgram(this.gl)
             };
 
             this.loaded = false;
             this.models = {
                 city: [],
+                box: []
             };
 
             this.scene = new Scene(this.gl);
@@ -101,11 +110,18 @@ module GL {
 
         addCitySegment(model: CityModelInterface)
         {
-            this.models.city.push(new GLModels.CityModel(this.gl, this.programs.triangle, model));
-
+            let glmodel = new GLModels.CityModel(this.gl, this.programs.triangle, model)
+            this.models.city.push(glmodel);
+            let box = new GLModels.CubeModel(this.gl, this.programs.box, model.stats);
+            this.models.box.push(box);
+            
             this.scene.addModel(model.stats);
-            //TODO calc camera positions
             this.loaded = true;
+
+            return {
+                cityModel: glmodel,
+                boxModel: box
+            };
         }
 
         render() {
@@ -119,14 +135,20 @@ module GL {
             //this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
 
 
-            this.gl
+            //render buildings
             this.programs.triangle.bind();
-
             for(let c of this.models.city){
                 c.render(this.scene);
             }
-
             this.programs.triangle.unbind();
+
+            //render boxes
+            this.programs.box.bind();
+            for(let b of this.models.box){
+                b.render(this.scene);
+            }
+            this.programs.box.unbind();
+
 
             this.scene.camera.frame();
         }
