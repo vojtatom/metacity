@@ -43,6 +43,8 @@ Checked marks done:
 * [ ] would be nice to have custom exporter from CityGML or CityJson to obj so we don't rely on consistency of the exported IDs
 * [ ] combine with simulated winds
 
+## How to make it look prettier
+* implement [derrefered Shading](https://learnopengl.com/Advanced-Lighting/Deferred-Shading) for WebGL and [screen space AO](https://learnopengl.com/Advanced-Lighting/SSAO)
 
 ## Existing Solutions and Sources
 * https://github.com/cityjson/ninja
