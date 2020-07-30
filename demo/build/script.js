@@ -3911,6 +3911,12 @@ var Parser;
         stats.max[1] = Math.max(stats.max[1], y);
         stats.max[2] = Math.max(stats.max[2], z);
     }
+    function parseNormal(tokens, normalBuffer) {
+        let x = Number(tokens[1]);
+        let y = Number(tokens[2]);
+        let z = Number(tokens[3]);
+        normalBuffer.push(Number(x), Number(y), Number(z));
+    }
     function copyVertexToEnd(vertexBuffer, vertexID) {
         let startID = vertexID * 3;
         let newVertexID = vertexBuffer.length / 3;
@@ -3928,15 +3934,7 @@ var Parser;
         let normal = glMatrix.vec3.create();
         return glMatrix.vec3.normalize(normal, glMatrix.vec3.cross(normal, a, b));
     }
-    function parseFace(tokens, vertexBuffer, elementBuffer, normalBuffer, objBuffer, vertexUsed, objectID) {
-        if (tokens.length != 4) {
-            console.log(tokens);
-            throw "Encountered non-triangular face";
-        }
-        let a = Number(tokens[1]) - 1;
-        let b = Number(tokens[2]) - 1;
-        let c = Number(tokens[3]) - 1;
-        let vertexIDs = [a, b, c];
+    function addFace(vertexIDs, vertexBuffer, elementBuffer, normalBuffer, objBuffer, vertexUsed, objectID) {
         for (let i = 0; i < 3; ++i) {
             if (vertexUsed[vertexIDs[i]]) {
                 vertexIDs[i] = copyVertexToEnd(vertexBuffer, vertexIDs[i]);
@@ -3957,6 +3955,13 @@ var Parser;
             }
         }
     }
+    function parseFace(tokens, vertexBuffer, elementBuffer, normalBuffer, objBuffer, vertexUsed, objectID) {
+        let verts = Array(tokens.length - 1);
+        for (let i = 1; i < tokens.length; ++i)
+            verts[i] = Number(tokens[i].split("/")[0]) - 1;
+        for (let i = 0; i < verts.length - 2; ++i)
+            addFace([verts[0], verts[i + 1], verts[i + 2]], vertexBuffer, elementBuffer, normalBuffer, objBuffer, vertexUsed, objectID);
+    }
     function parseOBJ(contents) {
         console.log("loading OBJ");
         let stats = {
@@ -3968,29 +3973,32 @@ var Parser;
         let objects = Array();
         let elements = Array();
         const lines = contents.split("\n");
-        let vertexUsed = [];
         for (let line of lines) {
             let tokens = line.split(" ");
             let type = tokens[0];
-            if (type === "v") {
+            if (type === "v")
                 parseVertex(tokens, vertices, stats);
-                vertexUsed.push(false);
-                normals.push(0, 0, 0);
-                objects.push(0);
-            }
+            if (type === "vn")
+                parseNormal(tokens, normals);
         }
         let objectMap = {};
         let object = 0;
-        for (let line of lines) {
-            let tokens = line.split(" ");
-            let type = tokens[0];
-            if (type === "f") {
-                parseFace(tokens, vertices, elements, normals, objects, vertexUsed, object);
+        if (normals.length == 0) {
+            let vertexUsed = new Array(vertices.length).fill(false);
+            for (let line of lines) {
+                let tokens = line.split(" ");
+                let type = tokens[0];
+                if (type === "f") {
+                    parseFace(tokens, vertices, elements, normals, objects, vertexUsed, object);
+                }
+                else if (type === "o") {
+                    object++;
+                    objectMap[object] = tokens[1];
+                }
             }
-            else if (type === "o") {
-                object++;
-                objectMap[object] = tokens[1];
-            }
+        }
+        else if (normals.length == vertices.length) {
+            console.log("same");
         }
         return {
             vertices: new Float32Array(vertices),
@@ -4258,7 +4266,12 @@ var GLProgram;
                 object: 'object'
             });
             this.commonUniforms();
-            this.setupUniforms({});
+            this.setupUniforms({
+                selected: {
+                    name: 'selected',
+                    type: this.GLType.vec4,
+                }
+            });
         }
         bindAttrVertex() {
             this.gl.useProgram(this.program);
@@ -4453,6 +4466,7 @@ var GLModels;
             }
             this.bindBuffersAndTextures();
             let uniforms = this.uniformDict(scene);
+            uniforms["selected"] = scene.selectedv4;
             this.program.bindUniforms(uniforms);
             this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
             this.gl.bindVertexArray(null);
@@ -4612,6 +4626,16 @@ var GLCamera;
 })(GLCamera || (GLCamera = {}));
 var GL;
 (function (GL) {
+    function intToVec4Normalized(i) {
+        let n = new Uint32Array([i]);
+        let b = new Uint8Array(n.buffer);
+        let f = new Float32Array(b);
+        f[0] /= 255;
+        f[1] /= 255;
+        f[2] /= 255;
+        f[3] /= 255;
+        return f;
+    }
     class Scene extends GLBase.GLObject {
         constructor(gl) {
             super(gl);
@@ -4621,6 +4645,12 @@ var GL;
                 min: [Infinity, Infinity, Infinity],
                 max: [-Infinity, -Infinity, -Infinity],
             };
+            this.selected = 1000;
+            this.selectedv4 = intToVec4Normalized(this.selected);
+        }
+        select(id) {
+            this.selected = id;
+            this.selectedv4 = intToVec4Normalized(this.selected);
         }
         addModel(stats) {
             this.stats.min[0] = Math.min(this.stats.min[0], stats.min[0]);
@@ -4710,10 +4740,9 @@ var GL;
             this.programs.pick.unbind();
             this.scene.camera.frame();
             y = height - y;
-            let data = new ArrayBuffer(4);
-            let pixels = new Uint8Array(data);
+            let pixels = new Uint8Array(4);
             this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
-            let ID = new DataView(data).getUint32(0, true);
+            let ID = new DataView(pixels.buffer).getUint32(0, true);
             return ID;
         }
         resize(x, y) {
@@ -4989,9 +5018,13 @@ var AppModule;
                 y: 0
             };
             DataManager.files({
-                files: ["./assets/bubny/bubny_bud.obj"],
+                files: ["./assets/bubny/bubny_bud.obj",
+                    "./assets/bubny/bubny_bud.json",
+                    "./assets/bubny/terrain2.obj"],
                 success: (files) => {
                     this.parse_file(FileType.obj, files[0]);
+                    this.parse_file(FileType.obj, files[2]);
+                    this.parse_file(FileType.json, files[1]);
                 },
                 fail: () => { console.error("error loading assets"); }
             });
@@ -5007,7 +5040,7 @@ var AppModule;
             else if (type === FileType.json) {
                 let meta = Parser.parseJson(contents);
                 if (!meta)
-                    throw "Error parsing OBJ file";
+                    throw "Error parsing JSON file";
                 this.loaded.json = true;
             }
         }
@@ -5026,7 +5059,6 @@ var AppModule;
             }
         }
         pick(x, y) {
-            console.log(x, y);
             this.pickPoint.x = x;
             this.pickPoint.y = y;
             this.pickPoint.pick = true;
@@ -5034,7 +5066,8 @@ var AppModule;
         render() {
             if (this.pickPoint.pick) {
                 let canvasHeight = this.gl.scene.camera.screenY;
-                this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
+                let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
+                this.gl.scene.select(selected);
                 this.pickPoint.pick = false;
             }
             this.gl.render();

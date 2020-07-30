@@ -22,10 +22,23 @@ module GL {
         max: number[]
     }
 
+    function intToVec4Normalized(i: number) {
+        let n = new Uint32Array([i]);
+        let b = new Uint8Array(n.buffer);
+        let f = new Float32Array(b);
+        f[0] /= 255;
+        f[1] /= 255;
+        f[2] /= 255;
+        f[3] /= 255;
+        return f;
+    }
+
     export class Scene extends GLBase.GLObject {
         stats: OBJstats;
         camera: GLCamera.Camera;
         center: Vec3Array;
+        selected: number;
+        selectedv4: Float32Array;
 
         constructor(gl: WebGL2RenderingContext) {
             super(gl);
@@ -37,6 +50,16 @@ module GL {
                 min: [Infinity, Infinity, Infinity],
                 max: [-Infinity, -Infinity, -Infinity],
             };
+
+            //this.selected = 4294967295;
+            this.selected = 1000;
+            this.selectedv4 = intToVec4Normalized(this.selected);
+            
+        }
+
+        select(id: number) {
+            this.selected = id;
+            this.selectedv4 = intToVec4Normalized(this.selected);
         }
 
         addModel(stats: OBJstats) {
@@ -177,11 +200,10 @@ module GL {
             this.scene.camera.frame();
 
             y = height - y;
-            let data = new ArrayBuffer(4); // A single RGBA value
-            let pixels = new Uint8Array(data); // A single RGBA value
+            let pixels = new Uint8Array(4); // A single RGBA value
             this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
 
-            let ID = new DataView(data).getUint32(0, true);
+            let ID = new DataView(pixels.buffer).getUint32(0, true);
             return ID;
         }
 

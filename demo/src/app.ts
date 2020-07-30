@@ -136,11 +136,13 @@ module AppModule {
             //------------------------------------------------
             DataManager.files({
                 files: ["./assets/bubny/bubny_bud.obj",
-                        "./assets/bubny/bubny_bud.json"],
+                        "./assets/bubny/bubny_bud.json",
+                        "./assets/bubny/terrain2.obj"],
                 success: (files) => {
                     
 
                     this.parse_file(FileType.obj, files[0]);
+                    this.parse_file(FileType.obj, files[2]);
                     this.parse_file(FileType.json, files[1]);
                     
                 },
@@ -182,7 +184,7 @@ module AppModule {
             {
                 let meta = Parser.parseJson(contents);
                 if (!meta)
-                    throw "Error parsing OBJ file";
+                    throw "Error parsing JSON file";
                 
                 this.loaded.json = true;
             }
@@ -212,7 +214,8 @@ module AppModule {
         render() {
             if (this.pickPoint.pick) {
                 let canvasHeight = this.gl.scene.camera.screenY;
-                this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
+                let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
+                this.gl.scene.select(selected);
                 this.pickPoint.pick = false;
             }   
             

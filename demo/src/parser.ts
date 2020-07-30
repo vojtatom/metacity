@@ -18,6 +18,14 @@ module Parser {
         stats.max[2] = Math.max(stats.max[2], z);
     }
 
+    function parseNormal(tokens: string[], normalBuffer: Array<number>)
+    {
+        let x = Number(tokens[1]); 
+        let y = Number(tokens[2]); 
+        let z = Number(tokens[3]); 
+        normalBuffer.push(Number(x), Number(y), Number(z));
+    }
+
     function copyVertexToEnd(vertexBuffer: Array<number>, vertexID: number)
     {
         let startID = vertexID * 3;
@@ -42,22 +50,10 @@ module Parser {
         return glMatrix.vec3.normalize(normal, glMatrix.vec3.cross(normal, a, b));
     }
 
-    function parseFace(tokens: string[], vertexBuffer: Array<number>, elementBuffer: Array<number>, normalBuffer: Array<number>, 
-                       objBuffer:Array<number>, vertexUsed: Array<boolean>, objectID: number)
+    function addFace(vertexIDs: number[], vertexBuffer: Array<number>, elementBuffer: Array<number>, normalBuffer: Array<number>, 
+        objBuffer:Array<number>, vertexUsed: Array<boolean>, objectID: number)
     {
-        if (tokens.length != 4)
-        {
-            console.log(tokens);
-            throw "Encountered non-triangular face";
-        }
-
-        //sub 1 since OBJ indices are 1-based
-        let a = Number(tokens[1]) - 1;
-        let b = Number(tokens[2]) - 1;
-        let c = Number(tokens[3]) - 1;
-        let vertexIDs = [a, b, c];
-
-        //check for cuplicates and set objectID
+        //check for duplicates and set objectID
         for(let i = 0; i < 3; ++i) {
             if (vertexUsed[vertexIDs[i]]) {
                 vertexIDs[i] = copyVertexToEnd(vertexBuffer, vertexIDs[i]);
@@ -84,6 +80,21 @@ module Parser {
         }
     }
 
+    function parseFace(tokens: string[], vertexBuffer: Array<number>, elementBuffer: Array<number>, normalBuffer: Array<number>, 
+                       objBuffer:Array<number>, vertexUsed: Array<boolean>, objectID: number)
+    {
+
+        let verts = Array<number>(tokens.length - 1);
+
+        for(let i = 1; i < tokens.length; ++i)
+            verts[i] = Number(tokens[i].split("/")[0]) - 1;
+        
+
+        for(let i = 0; i < verts.length - 2; ++i)
+            addFace([verts[0], verts[i + 1], verts[i + 2]], vertexBuffer, 
+                    elementBuffer, normalBuffer, objBuffer, vertexUsed, objectID);
+    }
+
 
     export function parseOBJ(contents: string) {
         console.log("loading OBJ");
@@ -100,7 +111,6 @@ module Parser {
         let elements = Array<number>();
         
         const lines = contents.split("\n");
-        let vertexUsed = [];
         
         //load all vertices first
         for(let line of lines) {
@@ -108,33 +118,46 @@ module Parser {
             let type = tokens[0];
             
             if (type === "v")
-            {
                 parseVertex(tokens, vertices, stats);
-                vertexUsed.push(false);
-                normals.push(0, 0, 0);
-                objects.push(0);
-            }
+
+            if (type === "vn")
+                parseNormal(tokens, normals);
         }
 
         //mapping of object IDs in the scene onto json IDs
         let objectMap: { [name: number]: string }= {};
         let object = 0;
+        
+        //by now, all normals and vertices are loaded and stored
+        if (normals.length == 0) {
+            //no normals present in OBJ, have to be calculated manually
+            let vertexUsed = new Array(vertices.length).fill(false);
 
-        //parse objects and faces
-        for(let line of lines) {
-            let tokens = line.split(" ");
-            let type = tokens[0];
-            
-            if (type === "f")
-            {
-                parseFace(tokens, vertices, elements, normals, objects, vertexUsed, object);
+            for(let line of lines) {
+                let tokens = line.split(" ");
+                let type = tokens[0];
+                
+                if (type === "f")
+                {
+                    parseFace(tokens, vertices, elements, normals, objects, vertexUsed, object);
+                }
+                else if (type === "o")
+                {
+                    object++;
+                    objectMap[object] = tokens[1];
+                }
             }
-            else if (type === "o")
-            {
-                object++;
-                objectMap[object] = tokens[1];
-            }
+
+        } else if (normals.length == vertices.length) {
+            //we have the same abount of vertices and normals, 
+            //there is a chance that the indices will match
+            console.log("same");
+
+
         }
+
+
+
 
 
         return {

@@ -12,6 +12,6 @@ varying vec4 fragcolor;
 
 
 void main() {
-    fragcolor = vec4(object.xyzw) * vec4(1.0, 5.0, 20.0, 1.0);
+    fragcolor = vec4(object.xyzw);
     gl_Position =  mProj * mView * vec4(vertex, 1.0);
 }

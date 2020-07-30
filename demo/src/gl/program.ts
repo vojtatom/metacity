@@ -37,7 +37,7 @@ module GLProgram {
         divisor?: number,
     }
 
-    interface UniformBinder {
+    export interface UniformBinder {
         [name: string] : Float32Array | Int32Array | number
     }
 
@@ -342,10 +342,10 @@ module GLProgram {
     
             this.commonUniforms();
             this.setupUniforms({
-                /*size: {
-                    name: 'size',
-                    type: this.GLType.float,
-                }*/
+                selected: {
+                    name: 'selected',
+                    type: this.GLType.vec4,
+                }
             });
         }
 

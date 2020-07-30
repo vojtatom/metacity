@@ -295,3 +295,6 @@ dmypy.json
 bubny_3D/*
 citygml-tools*
 demo/assets/bubny/*.json
+demo/assets/bubny/*.obj
+demo/assets/bubny/*.zip
+demo/assets/bubny/*.3dm

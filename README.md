@@ -1,4 +1,5 @@
 # MetaCity Demo
+** The OBJ parser does not work in the current commit **
 
 Consists of:
 * Model Processing Pipeline
@@ -36,8 +37,8 @@ Checked marks done:
 * [x] load OBJ into WebGL - (parse OBJ, load and compile shaders, write wrappers for the most common GL calls, lay down the basic structure of the project)
 * [x] allow *smooth* rotation/zoom
 * [x] process the OBJ in order to allow for picking (objects must not share vertices (via elements))
-* [ ] **WORK IN PROGRESS** - allow for object picking - [source](http://learnwebgl.brown37.net/11_advanced_rendering/selecting_objects.html), [another source](https://webglfundamentals.org/webgl/lessons/webgl-picking.html)
-* [ ] load CityJSON and pair the picked building with its metadata 
+* [x] allow for object picking - [source](http://learnwebgl.brown37.net/11_advanced_rendering/selecting_objects.html), [another source](https://webglfundamentals.org/webgl/lessons/webgl-picking.html)
+* [ ] **WORK IN PROGRESS** - load CityJSON and pair the picked building with its metadata 
 * [ ] add terain
 * [ ] add street data (not present in CityJSON)
 * [ ] would be nice to have custom exporter from CityGML or CityJson to obj so we don't rely on consistency of the exported IDs

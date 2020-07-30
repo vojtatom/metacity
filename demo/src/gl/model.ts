@@ -194,7 +194,9 @@ module GLModels {
             }
 
             this.bindBuffersAndTextures();
-            let uniforms = this.uniformDict(scene);
+            let uniforms : GLProgram.UniformBinder = this.uniformDict(scene);
+            uniforms["selected"] = scene.selectedv4;
+
             this.program.bindUniforms(uniforms);
 
             this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
