@@ -122,7 +122,7 @@ module GLModels {
 
     export class CityModel extends GLModel {
         data: GL.CityModelInterface;
-        program: GLProgram.TriangleProgram;
+        program: GLProgram.BuildingProgram;
         pickingProgram: GLProgram.PickProgram;
 
         triangles: number;
@@ -130,7 +130,7 @@ module GLModels {
         constructor(gl: WebGL2RenderingContext, programs: GL.GLProgramList, model: GL.CityModelInterface){
             super(gl);
 
-            this.program = programs.triangle;
+            this.program = programs.building;
             this.pickingProgram = programs.pick;
             this.data = model;
             this.init();
@@ -169,21 +169,15 @@ module GLModels {
             this.addBufferVBO(objects);
             this.program.bindAttrObject();
             this.pickingProgram.bindAttrObject();
-            
-            //elements
-            let ebo = this.gl.createBuffer();
-            this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
-            this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, this.data.elements, this.gl.STATIC_DRAW);
-            this.addBufferEBO(ebo);
 
             this.gl.bindVertexArray(null);
 
-            this.triangles = this.data.elements.length / 3;
+            this.triangles = this.data.vertices.length / 3;
             this.loaded = true;
 
             //no more references to contents of OBJ file 
             //should be present anywhere else
-            //delete this.data;
+            delete this.data;
         }
 
         render(scene: GL.Scene){
@@ -199,7 +193,7 @@ module GLModels {
 
             this.program.bindUniforms(uniforms);
 
-            this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
+            this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
             this.gl.bindVertexArray(null);
         }
 
@@ -214,7 +208,7 @@ module GLModels {
             let uniforms = this.uniformDict(scene);
             this.pickingProgram.bindUniforms(uniforms);
 
-            this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
+            this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
             this.gl.bindVertexArray(null);
         }
     }

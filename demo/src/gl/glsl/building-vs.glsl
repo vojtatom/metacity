@@ -2,8 +2,8 @@ precision mediump float;
 precision highp int;
 
 attribute vec3 vertex;
-attribute vec3 normal;
 attribute vec4 object;
+attribute vec3 normal;
 
 //matrices
 uniform mat4 mWorld;
@@ -32,7 +32,7 @@ vec3 phong(vec3 light, vec3 ver_position, vec3 ver_normal){
 }
 
 void main() {
-    vec3 objColor = vec3(object.xyz);
+    vec3 objColor = vec3(0.8);
 
     int six[4];
     int oix[4];
@@ -43,9 +43,7 @@ void main() {
 
     if (bool(marked))
         objColor = vec3(1.0);
-    else
-        objColor *= vec3(1.0, 5.0, 20.0);
     
-    fragcolor = phong(vec3(1, 0.5, 1), vertex, normal) * objColor * 3.0;
+    fragcolor = phong(vec3(1, 0.5, 1), vertex, normal) * objColor;
     gl_Position =  mProj * mView * vec4(vertex, 1.0);
 }

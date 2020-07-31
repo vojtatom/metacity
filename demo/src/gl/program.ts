@@ -314,21 +314,21 @@ module GLProgram {
         }
     }
 
-    export class TriangleProgram extends Program {
+    export class BuildingProgram extends Program {
         constructor(gl: WebGL2RenderingContext){
             super(gl);
         
             DataManager.files({
                 files: [
-                    Program.DIR + "triangle-vs.glsl",
-                    Program.DIR + "triangle-fs.glsl",
+                    Program.DIR + "building-vs.glsl",
+                    Program.DIR + "building-fs.glsl",
                 ],
                 success: (files) => {
                     this.init(files[0], files[1]);
                     this.setup();
                 },
                 fail: () => {
-                    throw "Triangle shader not loaded";
+                    throw "Building shader not loaded";
                 }
             });
         }

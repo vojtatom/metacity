@@ -21,7 +21,7 @@
       "gl/camera.ts",
       "gl/gl.ts",
       "ui/ui.ts",
-      "city.ts",
+      "layers.ts",
       "app.ts",
       "main.ts"
     ]

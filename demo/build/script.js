@@ -3899,11 +3899,13 @@ var DataManager;
 })(DataManager || (DataManager = {}));
 var Parser;
 (function (Parser) {
-    function parseVertex(tokens, vertexBuffer, stats) {
+    function parseVertex(tokens, vertexBuffer, stats, filled) {
         let x = Number(tokens[1]);
         let y = Number(tokens[2]);
         let z = Number(tokens[3]);
-        vertexBuffer.push(Number(x), Number(y), Number(z));
+        vertexBuffer[filled++] = Number(x);
+        vertexBuffer[filled++] = Number(y);
+        vertexBuffer[filled++] = Number(z);
         stats.min[0] = Math.min(stats.min[0], x);
         stats.min[1] = Math.min(stats.min[1], y);
         stats.min[2] = Math.min(stats.min[2], z);
@@ -3911,11 +3913,10 @@ var Parser;
         stats.max[1] = Math.max(stats.max[1], y);
         stats.max[2] = Math.max(stats.max[2], z);
     }
-    function parseNormal(tokens, normalBuffer) {
-        let x = Number(tokens[1]);
-        let y = Number(tokens[2]);
-        let z = Number(tokens[3]);
-        normalBuffer.push(Number(x), Number(y), Number(z));
+    function parseNormal(tokens, normalBuffer, filled) {
+        normalBuffer[filled++] = Number(tokens[1]);
+        normalBuffer[filled++] = Number(tokens[2]);
+        normalBuffer[filled++] = Number(tokens[3]);
     }
     function copyVertexToEnd(vertexBuffer, vertexID) {
         let startID = vertexID * 3;
@@ -3934,80 +3935,218 @@ var Parser;
         let normal = glMatrix.vec3.create();
         return glMatrix.vec3.normalize(normal, glMatrix.vec3.cross(normal, a, b));
     }
-    function addFace(vertexIDs, vertexBuffer, elementBuffer, normalBuffer, objBuffer, vertexUsed, objectID) {
-        for (let i = 0; i < 3; ++i) {
-            if (vertexUsed[vertexIDs[i]]) {
-                vertexIDs[i] = copyVertexToEnd(vertexBuffer, vertexIDs[i]);
-                normalBuffer.push(0, 0, 0);
-                objBuffer.push(objectID);
-            }
-            else {
-                objBuffer[vertexIDs[i]] = objectID;
-            }
-            vertexUsed[vertexIDs[i]] = true;
-        }
-        elementBuffer.push(...vertexIDs);
-        let normal = setupNormal(vertexIDs, vertexBuffer);
-        for (let id of vertexIDs) {
-            let rid = 3 * id;
-            for (let i = 0; i < 3; ++i) {
-                normalBuffer[rid + i] = normal[i];
-            }
-        }
-    }
-    function parseFace(tokens, vertexBuffer, elementBuffer, normalBuffer, objBuffer, vertexUsed, objectID) {
-        let verts = Array(tokens.length - 1);
-        for (let i = 1; i < tokens.length; ++i)
-            verts[i] = Number(tokens[i].split("/")[0]) - 1;
-        for (let i = 0; i < verts.length - 2; ++i)
-            addFace([verts[0], verts[i + 1], verts[i + 2]], vertexBuffer, elementBuffer, normalBuffer, objBuffer, vertexUsed, objectID);
-    }
-    function parseOBJ(contents) {
-        console.log("loading OBJ");
-        let stats = {
-            min: [Infinity, Infinity, Infinity],
-            max: [-Infinity, -Infinity, -Infinity],
-        };
-        let vertices = Array();
-        let normals = Array();
-        let objects = Array();
-        let elements = Array();
-        const lines = contents.split("\n");
+    function countPrimitives(lines) {
+        let vertices = 0;
+        let normals = 0;
+        let triangles = 0;
         for (let line of lines) {
             let tokens = line.split(" ");
             let type = tokens[0];
             if (type === "v")
-                parseVertex(tokens, vertices, stats);
+                vertices++;
             if (type === "vn")
-                parseNormal(tokens, normals);
+                normals++;
+            if (type === "f")
+                triangles += tokens.length - 3;
         }
-        let objectMap = {};
-        let object = 0;
-        if (normals.length == 0) {
-            let vertexUsed = new Array(vertices.length).fill(false);
-            for (let line of lines) {
-                let tokens = line.split(" ");
-                let type = tokens[0];
-                if (type === "f") {
-                    parseFace(tokens, vertices, elements, normals, objects, vertexUsed, object);
-                }
-                else if (type === "o") {
-                    object++;
-                    objectMap[object] = tokens[1];
+        return {
+            vertices: vertices,
+            normals: normals,
+            triangles: triangles
+        };
+    }
+    function copyVector(bufferTo, bufferFrom, idTo, idFrom) {
+        for (let i = 0; i < 3; ++i) {
+            bufferTo[idTo * 3 + i] = bufferFrom[idFrom * 3 + i];
+        }
+    }
+    function loadNoNormals(lines, counts, storeIDs) {
+        let rvert = new Float32Array(counts.vertices * 3);
+        let stats = {
+            min: [Infinity, Infinity, Infinity],
+            max: [-Infinity, -Infinity, -Infinity]
+        };
+        let filled = 0;
+        for (let line of lines) {
+            let tokens = line.split(" ");
+            if (tokens[0] === "v") {
+                parseVertex(tokens, rvert, stats, filled);
+                filled += 3;
+            }
+        }
+        filled = 0;
+        let vertices = new Float32Array(counts.triangles * 3 * 3);
+        let normals = new Float32Array(counts.triangles * 3 * 3);
+        let objects;
+        let idToObj;
+        let objToId;
+        if (storeIDs) {
+            objects = new Uint32Array(counts.triangles * 3);
+            idToObj = {};
+            objToId = {};
+        }
+        let id = 0;
+        for (let line of lines) {
+            let tokens = line.split(" ");
+            if (tokens[0] === "o" && storeIDs) {
+                id++;
+                idToObj[id] = tokens[1];
+                objToId[tokens[1]] = id;
+            }
+            else if (tokens[0] === "f") {
+                let faceVertIds = Array(tokens.length - 1);
+                for (let i = 1; i < tokens.length; ++i)
+                    faceVertIds[i - 1] = Number(tokens[i]) - 1;
+                let faceIDs = [faceVertIds[0], 0, 0];
+                for (let i = 0; i < faceVertIds.length - 2; ++i) {
+                    faceIDs[1] = faceVertIds[i + 1];
+                    faceIDs[2] = faceVertIds[i + 2];
+                    copyVector(vertices, rvert, filled, faceIDs[0]);
+                    copyVector(vertices, rvert, filled + 1, faceIDs[1]);
+                    copyVector(vertices, rvert, filled + 2, faceIDs[2]);
+                    let normal = setupNormal(faceIDs, rvert);
+                    copyVector(normals, normal, filled, 0);
+                    copyVector(normals, normal, filled + 1, 0);
+                    copyVector(normals, normal, filled + 2, 0);
+                    if (storeIDs) {
+                        objects[filled] = id;
+                        objects[filled + 1] = id;
+                        objects[filled + 2] = id;
+                    }
+                    filled += 3;
                 }
             }
         }
-        else if (normals.length == vertices.length) {
-            console.log("same");
+        if (storeIDs) {
+            return {
+                vertices: vertices,
+                normals: normals,
+                objects: objects,
+                idToObj: idToObj,
+                objToId: objToId,
+                stats: stats
+            };
         }
-        return {
-            vertices: new Float32Array(vertices),
-            elements: new Int32Array(elements),
-            normals: new Float32Array(normals),
-            objects: new Uint32Array(objects),
-            objectMap: objectMap,
-            stats: stats
+        else {
+            return {
+                vertices: vertices,
+                normals: normals,
+                stats: stats
+            };
+        }
+    }
+    function loadWithNormals(lines, counts, storeIDs) {
+        let rvert = new Float32Array(counts.vertices * 3);
+        let rnorm = new Float32Array(counts.normals * 3);
+        let stats = {
+            min: [Infinity, Infinity, Infinity],
+            max: [-Infinity, -Infinity, -Infinity]
         };
+        let filledVert = 0;
+        let filledNorm = 0;
+        for (let line of lines) {
+            let tokens = line.split(" ");
+            if (tokens[0] === "v") {
+                parseVertex(tokens, rvert, stats, filledVert);
+                filledVert += 3;
+            }
+            else if (tokens[0] === "vn") {
+                parseNormal(tokens, rnorm, filledNorm);
+                filledNorm += 3;
+            }
+        }
+        let filled = 0;
+        let vertices = new Float32Array(counts.triangles * 3 * 3);
+        let normals = new Float32Array(counts.triangles * 3 * 3);
+        let objects;
+        let idToObj;
+        let objToId;
+        if (storeIDs) {
+            objects = new Uint32Array(counts.triangles * 3);
+            idToObj = {};
+            objToId = {};
+        }
+        let id = 0;
+        for (let line of lines) {
+            let tokens = line.split(" ");
+            if (tokens[0] === "o" && storeIDs) {
+                id++;
+                idToObj[id] = tokens[1];
+                objToId[tokens[1]] = id;
+            }
+            else if (tokens[0] === "f") {
+                let faceVertIds = Array(tokens.length - 1);
+                let faceNormIds = Array(tokens.length - 1);
+                let missingNormal = false;
+                for (let i = 1; i < tokens.length; ++i) {
+                    let vertIds = tokens[i].split("/");
+                    faceVertIds[i - 1] = Number(vertIds[0]) - 1;
+                    if (vertIds.length == 3)
+                        faceNormIds[i - 1] = Number(vertIds[vertIds.length - 1]) - 1;
+                    else {
+                        faceNormIds[i - 1] = -1;
+                        missingNormal = true;
+                    }
+                }
+                let triVertIDs = [faceVertIds[0], 0, 0];
+                let triNormIDs = [faceNormIds[0], 0, 0];
+                for (let i = 0; i < faceVertIds.length - 2; ++i) {
+                    triVertIDs[1] = faceVertIds[i + 1];
+                    triVertIDs[2] = faceVertIds[i + 2];
+                    triNormIDs[1] = faceNormIds[i + 1];
+                    triNormIDs[2] = faceNormIds[i + 2];
+                    copyVector(vertices, rvert, filled, triVertIDs[0]);
+                    copyVector(vertices, rvert, filled + 1, triVertIDs[1]);
+                    copyVector(vertices, rvert, filled + 2, triVertIDs[2]);
+                    if (missingNormal) {
+                        let normal = setupNormal(triVertIDs, rvert);
+                        copyVector(normals, normal, filled, 0);
+                        copyVector(normals, normal, filled + 1, 0);
+                        copyVector(normals, normal, filled + 2, 0);
+                    }
+                    else {
+                        copyVector(normals, rnorm, filled, triNormIDs[0]);
+                        copyVector(normals, rnorm, filled + 1, triNormIDs[1]);
+                        copyVector(normals, rnorm, filled + 2, triNormIDs[2]);
+                    }
+                    if (storeIDs) {
+                        objects[filled] = id;
+                        objects[filled + 1] = id;
+                        objects[filled + 2] = id;
+                    }
+                    filled += 3;
+                }
+            }
+        }
+        if (storeIDs) {
+            return {
+                vertices: vertices,
+                normals: normals,
+                objects: objects,
+                idToObj: idToObj,
+                objToId: objToId,
+                stats: stats
+            };
+        }
+        else {
+            return {
+                vertices: vertices,
+                normals: normals,
+                stats: stats
+            };
+        }
+    }
+    function parseOBJ(contents, storeIDs) {
+        console.log("loading OBJ");
+        const lines = contents.split("\n");
+        const counts = countPrimitives(lines);
+        console.log(counts);
+        if (counts.normals == 0) {
+            return loadNoNormals(lines, counts, storeIDs);
+        }
+        else {
+            return loadWithNormals(lines, counts, storeIDs);
+        }
     }
     Parser.parseOBJ = parseOBJ;
     function parseJson(contents) {
@@ -4242,20 +4381,20 @@ var GLProgram;
         }
     }
     GLProgram.PickProgram = PickProgram;
-    class TriangleProgram extends Program {
+    class BuildingProgram extends Program {
         constructor(gl) {
             super(gl);
             DataManager.files({
                 files: [
-                    Program.DIR + "triangle-vs.glsl",
-                    Program.DIR + "triangle-fs.glsl",
+                    Program.DIR + "building-vs.glsl",
+                    Program.DIR + "building-fs.glsl",
                 ],
                 success: (files) => {
                     this.init(files[0], files[1]);
                     this.setup();
                 },
                 fail: () => {
-                    throw "Triangle shader not loaded";
+                    throw "Building shader not loaded";
                 }
             });
         }
@@ -4304,7 +4443,7 @@ var GLProgram;
             this.gl.useProgram(null);
         }
     }
-    GLProgram.TriangleProgram = TriangleProgram;
+    GLProgram.BuildingProgram = BuildingProgram;
     class BoxProgram extends Program {
         constructor(gl) {
             super(gl);
@@ -4423,7 +4562,7 @@ var GLModels;
     class CityModel extends GLModel {
         constructor(gl, programs, model) {
             super(gl);
-            this.program = programs.triangle;
+            this.program = programs.building;
             this.pickingProgram = programs.pick;
             this.data = model;
             this.init();
@@ -4451,13 +4590,10 @@ var GLModels;
             this.addBufferVBO(objects);
             this.program.bindAttrObject();
             this.pickingProgram.bindAttrObject();
-            let ebo = this.gl.createBuffer();
-            this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
-            this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, this.data.elements, this.gl.STATIC_DRAW);
-            this.addBufferEBO(ebo);
             this.gl.bindVertexArray(null);
-            this.triangles = this.data.elements.length / 3;
+            this.triangles = this.data.vertices.length / 3;
             this.loaded = true;
+            delete this.data;
         }
         render(scene) {
             if (!this.loaded) {
@@ -4468,7 +4604,7 @@ var GLModels;
             let uniforms = this.uniformDict(scene);
             uniforms["selected"] = scene.selectedv4;
             this.program.bindUniforms(uniforms);
-            this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
+            this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
             this.gl.bindVertexArray(null);
         }
         renderPicking(scene) {
@@ -4479,7 +4615,7 @@ var GLModels;
             this.bindBuffersAndTextures();
             let uniforms = this.uniformDict(scene);
             this.pickingProgram.bindUniforms(uniforms);
-            this.gl.drawElements(this.gl.TRIANGLES, this.triangles, this.gl.UNSIGNED_INT, 0);
+            this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
             this.gl.bindVertexArray(null);
         }
     }
@@ -4683,7 +4819,7 @@ var GL;
             }
             let ext = this.gl.getExtension('OES_element_index_uint');
             this.programs = {
-                triangle: new GLProgram.TriangleProgram(this.gl),
+                building: new GLProgram.BuildingProgram(this.gl),
                 box: new GLProgram.BoxProgram(this.gl),
                 pick: new GLProgram.PickProgram(this.gl)
             };
@@ -4712,11 +4848,11 @@ var GL;
             this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
             this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
             this.gl.enable(this.gl.DEPTH_TEST);
-            this.programs.triangle.bind();
+            this.programs.building.bind();
             for (let c of this.models.city) {
                 c.render(this.scene);
             }
-            this.programs.triangle.unbind();
+            this.programs.building.unbind();
             this.programs.box.bind();
             for (let b of this.models.box) {
                 b.render(this.scene);
@@ -4921,18 +5057,27 @@ var UI;
     }
     UI.WindowRack = WindowRack;
 })(UI || (UI = {}));
-var CityModule;
-(function (CityModule) {
-    class City {
+var LayerModule;
+(function (LayerModule) {
+    class LayerManager {
         constructor(gl) {
             this.gl = gl;
         }
-        addModel(model) {
-            this.gl.addCitySegment(model);
+        addBuidings(modelOBJFile, cityJsonFile) {
+            let model = Parser.parseOBJ(modelOBJFile, true);
+            if (model)
+                this.gl.addCitySegment(model);
+            else
+                throw 'Building models not loaded';
+        }
+        addTerrain(modelOBJFile) {
+            let model = Parser.parseOBJ(modelOBJFile, false);
+            this.tmp = model;
+            console.log(model);
         }
     }
-    CityModule.City = City;
-})(CityModule || (CityModule = {}));
+    LayerModule.LayerManager = LayerManager;
+})(LayerModule || (LayerModule = {}));
 var AppModule;
 (function (AppModule) {
     let FileType;
@@ -5004,14 +5149,10 @@ var AppModule;
             ]);
             let main = document.getElementById("main");
             main.appendChild(windows.render());
-            this.loaded = {
-                obj: false,
-                json: false
-            };
             let canvas = document.getElementsByTagName("canvas")[0];
             this.gl = new GL.Graphics(canvas);
             this.interface = new Interface(this);
-            this.city = new CityModule.City(this.gl);
+            this.layers = new LayerModule.LayerManager(this.gl);
             this.pickPoint = {
                 pick: false,
                 x: 0,
@@ -5022,27 +5163,11 @@ var AppModule;
                     "./assets/bubny/bubny_bud.json",
                     "./assets/bubny/terrain2.obj"],
                 success: (files) => {
-                    this.parse_file(FileType.obj, files[0]);
-                    this.parse_file(FileType.obj, files[2]);
-                    this.parse_file(FileType.json, files[1]);
+                    this.layers.addBuidings(files[0], files[1]);
+                    this.layers.addTerrain(files[2]);
                 },
                 fail: () => { console.error("error loading assets"); }
             });
-        }
-        parse_file(type, contents) {
-            if (type === FileType.obj) {
-                let model = Parser.parseOBJ(contents);
-                if (!model)
-                    throw "Error parsing OBJ file";
-                this.loaded.obj = true;
-                this.city.addModel(model);
-            }
-            else if (type === FileType.json) {
-                let meta = Parser.parseJson(contents);
-                if (!meta)
-                    throw "Error parsing JSON file";
-                this.loaded.json = true;
-            }
         }
         pressed(key) {
             if (key == 103) {

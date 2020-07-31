@@ -10,10 +10,10 @@ module GL {
     
     export interface CityModelInterface {
         vertices: Float32Array,
-        elements: Int32Array,
         normals: Float32Array,
         objects: Uint32Array,
-        objectMap: { [name: number]: string },
+        idToObj: { [name: number]: string },
+        objToId: { [name: string]: number },
         stats: OBJstats
     }
 
@@ -86,7 +86,7 @@ module GL {
     }
 
     export interface GLProgramList {
-        triangle: GLProgram.TriangleProgram,
+        building: GLProgram.BuildingProgram,
         box: GLProgram.BoxProgram,
         pick: GLProgram.PickProgram
     }
@@ -121,7 +121,7 @@ module GL {
 
             //init GPU programs
             this.programs = {
-                triangle: new GLProgram.TriangleProgram(this.gl),
+                building: new GLProgram.BuildingProgram(this.gl),
                 box: new GLProgram.BoxProgram(this.gl),
                 pick: new GLProgram.PickProgram(this.gl)
             };
@@ -163,11 +163,11 @@ module GL {
 
 
             //render buildings
-            this.programs.triangle.bind();
+            this.programs.building.bind();
             for(let c of this.models.city){
                 c.render(this.scene);
             }
-            this.programs.triangle.unbind();
+            this.programs.building.unbind();
 
             //render boxes
             this.programs.box.bind();
