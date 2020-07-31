@@ -4,7 +4,8 @@ Consists of:
 * Model Processing Pipeline
 * Actual WebGL Demo
 
-<img src="./demo/screens/scr4.png" alt="drawing" width="300"/>
+<img src="./demo/screens/scr5.png" alt="drawing" width="400"/>
+<img src="./demo/screens/scr6.png" alt="drawing" width="400"/>
 
 ## Basic Model Processing Pipeline
 
@@ -22,7 +23,7 @@ The pipeline relies on the fact that the **exported OBJ uses CityJSON IDs as obj
 All source can be found in [the demo folder](./demo), the project is written in TypeScript and compiled into a single `.js` file - see output [script.js](./demo/build/script.js).
 
 ### How to run
-**The repo does not contain the terrain OBJ and CityJson files since they are together over 1GB.**
+*The repo does not contain the terrain OBJ and CityJson files since they are together over 1GB.*
 You need the following files in the `/demo/assets/bubny` folder:
 
 * bubny_bud.json
@@ -30,10 +31,6 @@ You need the following files in the `/demo/assets/bubny` folder:
 * bubny_ter.obj
 
 Run `make serve` or `python3 -m http.server` from the `demo` folder, pull up the address `0.0.0.0:8000` in your browser.
-
-<img src="./demo/screens/scr1.png" alt="drawing" width="300"/>
-<img src="./demo/screens/scr2.png" alt="drawing" width="300"/>
-<img src="./demo/screens/scr3.png" alt="drawing" width="300"/>
 
 
 ## TODOs
@@ -45,7 +42,7 @@ Checked marks done:
 * [x] process the OBJ in order to allow for picking (objects must not share vertices (via elements))
 * [x] allow for object picking - [source](http://learnwebgl.brown37.net/11_advanced_rendering/selecting_objects.html), [another source](https://webglfundamentals.org/webgl/lessons/webgl-picking.html)
 * [ ] **WORK IN PROGRESS** - load CityJSON and pair the picked building with its metadata 
-* [ ] add terain
+* [x] add terain
 * [ ] add street data (not present in CityJSON)
 * [ ] would be nice to have custom exporter from CityGML or CityJson to obj so we don't rely on consistency of the exported IDs
 * [ ] combine with simulated winds

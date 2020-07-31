@@ -5,18 +5,22 @@ module GLCamera {
     const ZOOM_STEP = 0.0025;
     const ROT_STEP = 0.5;
 
+    const GLOBAL_SCALE = 0.001;
+
     export class Camera extends GLBase.GLObject {
         position: Vec3Array;
         up: Vec3Array;
         center: Vec3Array;
+        geometryCenter: Vec3Array;
         actualPosition: Vec3Array;
         actualUp: Vec3Array;
         actualCenter: Vec3Array;
         normal: Vec3Array;
         scale: number;
-        geoCenter: Vec3Array;
+        defaultCenter: Vec3Array;
 
         viewMatrix: Float32Array;
+        worldMatrix: Float32Array;
         projectionMatrix: Float32Array;
         rotateMatrix: Float32Array;
         frontVector: Float32Array;
@@ -40,7 +44,8 @@ module GLCamera {
             super(gl);
             this.position = new Float32Array([0, 0, 0]);
             this.up = new Float32Array([0, 1, 0]);
-            this.center = new Float32Array([, 0, 100]);
+            this.geometryCenter = new Float32Array([0, 0, 0]);
+            this.center = new Float32Array([0, 0, 100]);
             this.actualPosition = new Float32Array([0, 0, 0]);
             this.actualUp = new Float32Array([0, 1, 0]);
             this.actualCenter = new Float32Array([, 0, 100]);
@@ -51,6 +56,8 @@ module GLCamera {
             this.frontVector = new Float32Array(3);
             this.tmp = new Float32Array(3);
             this.tmp2 = new Float32Array(3);
+
+            this.worldMatrix = glMatrix.mat4.create();
 
             this.screenX = 0;
             this.screenY = 0;
@@ -73,7 +80,11 @@ module GLCamera {
         }
 
         get projection() {
-                return glMatrix.mat4.perspective(this.projectionMatrix, glMatrix.glMatrix.toRadian(45), this.aspect, 0.1, this.farplane);
+            return glMatrix.mat4.perspective(this.projectionMatrix, glMatrix.glMatrix.toRadian(45), this.aspect, 0.01, this.farplane);
+        }
+
+        get world() {
+            return this.worldMatrix;
         }
 
         get front() {
@@ -90,7 +101,7 @@ module GLCamera {
         } 
 
         restoreCenter(){
-            this.center = Object.assign({}, this.geoCenter);
+            this.center = Object.assign({}, this.defaultCenter);
         }
 
         viewTop(){
@@ -150,8 +161,8 @@ module GLCamera {
             let axes_x = glMatrix.vec3.normalize(this.tmp, glMatrix.vec3.cross(this.tmp, this.up, front));
             let axes_y = glMatrix.vec3.normalize(this.tmp2, glMatrix.vec3.copy(this.tmp2, this.up));  
             
-            glMatrix.vec3.scale(axes_x, axes_x, x);
-            glMatrix.vec3.scale(axes_y, axes_y, y);
+            glMatrix.vec3.scale(axes_x, axes_x, x * GLOBAL_SCALE);
+            glMatrix.vec3.scale(axes_y, axes_y, y * GLOBAL_SCALE);
             glMatrix.vec3.add(this.position, this.position, axes_x);
             glMatrix.vec3.add(this.position, this.position, axes_y);
             glMatrix.vec3.add(this.center, this.center, axes_x);
@@ -160,7 +171,7 @@ module GLCamera {
         }
 
         frame(){
-            const limit = 0.04;
+            const limit = 0.001;
 
             glMatrix.vec3.sub(this.tmp, this.position, this.actualPosition);
             this.positionMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
@@ -191,10 +202,30 @@ module GLCamera {
             }
     
             //tmp is now direction of view
-            glMatrix.vec3.sub(this.tmp, this.geoCenter, this.actualPosition); 
+            //glMatrix.vec3.sub(this.tmp, this.defaultCenter, this.actualPosition); 
             //adding dist from position to geometry center and radius of geomtry from the geom center
             //TODO autoset farplane to be optimal
             //this.farplane = vec3.len(this.tmp) + this.geometryRadius;
+        }
+
+        updateScale(stats: GL.OBJstats) {
+            let farplane = 0;
+            for(let i = 0; i < 3; ++i){
+                this.geometryCenter[i] = (stats.min[i] + stats.max[i]) / 2;
+                farplane = Math.max(farplane, (stats.max[i] - stats.min[i]) * GLOBAL_SCALE);
+            }
+            
+            //make a deep copy
+            this.center = glMatrix.vec3.fromValues(0, 0, 0);
+            this.farplane = farplane * 2;
+            this.defaultCenter = Object.assign({}, this.center);
+            this.position = Object.assign({}, this.center);
+            this.position[2] += farplane / 2;
+            
+            glMatrix.mat4.identity(this.worldMatrix);
+            glMatrix.mat4.scale(this.worldMatrix, this.worldMatrix, 
+                glMatrix.vec3.fromValues(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE));
+            glMatrix.mat4.translate(this.worldMatrix, this.worldMatrix, glMatrix.vec3.negate(this.tmp, this.geometryCenter));
         }
     }
 }

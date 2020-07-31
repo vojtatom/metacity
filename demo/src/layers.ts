@@ -22,8 +22,11 @@ module LayerModule {
 
         addTerrain(modelOBJFile: string) {
             let model = Parser.parseOBJ(modelOBJFile, false);
-            this.tmp = model;
-            console.log(model);
+
+            if (model)
+                this.gl.addTerainSegment(model as GL.TerrainModelInterface);
+            else
+                throw 'Terrain models not loaded';
         }
 
     }

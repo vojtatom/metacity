@@ -3918,12 +3918,6 @@ var Parser;
         normalBuffer[filled++] = Number(tokens[2]);
         normalBuffer[filled++] = Number(tokens[3]);
     }
-    function copyVertexToEnd(vertexBuffer, vertexID) {
-        let startID = vertexID * 3;
-        let newVertexID = vertexBuffer.length / 3;
-        vertexBuffer.push(vertexBuffer[startID], vertexBuffer[startID + 1], vertexBuffer[startID + 2]);
-        return newVertexID;
-    }
     function setupNormal(vertexIDs, vertexBuffer) {
         let vs = [];
         for (let id of vertexIDs) {
@@ -4312,6 +4306,10 @@ var GLProgram;
         }
         commonUniforms() {
             this.setupUniforms({
+                world: {
+                    name: 'mWorld',
+                    type: this.GLType.mat4,
+                },
                 view: {
                     name: 'mView',
                     type: this.GLType.mat4,
@@ -4444,6 +4442,53 @@ var GLProgram;
         }
     }
     GLProgram.BuildingProgram = BuildingProgram;
+    class TerrainProgram extends Program {
+        constructor(gl) {
+            super(gl);
+            DataManager.files({
+                files: [
+                    Program.DIR + "terrain-vs.glsl",
+                    Program.DIR + "terrain-fs.glsl",
+                ],
+                success: (files) => {
+                    this.init(files[0], files[1]);
+                    this.setup();
+                },
+                fail: () => {
+                    throw "Terrain shader not loaded";
+                }
+            });
+        }
+        setup() {
+            this.setupAttributes({
+                vertex: 'vertex',
+                normal: 'normal',
+            });
+            this.commonUniforms();
+            this.setupUniforms({});
+        }
+        bindAttrVertex() {
+            this.gl.useProgram(this.program);
+            this.bindAttribute({
+                attribute: this.attributes.vertex,
+                size: 3,
+                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+                offset: 0,
+            });
+            this.gl.useProgram(null);
+        }
+        bindAttrNormal() {
+            this.gl.useProgram(this.program);
+            this.bindAttribute({
+                attribute: this.attributes.normal,
+                size: 3,
+                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+                offset: 0,
+            });
+            this.gl.useProgram(null);
+        }
+    }
+    GLProgram.TerrainProgram = TerrainProgram;
     class BoxProgram extends Program {
         constructor(gl) {
             super(gl);
@@ -4513,6 +4558,7 @@ var GLModels;
         }
         uniformDict(scene) {
             return Object.assign({}, {
+                world: scene.camera.world,
                 view: scene.camera.view,
                 proj: scene.camera.projection,
                 farplane: scene.camera.farplane,
@@ -4620,17 +4666,60 @@ var GLModels;
         }
     }
     GLModels.CityModel = CityModel;
+    class TerrainModel extends GLModel {
+        constructor(gl, programs, model) {
+            super(gl);
+            this.program = programs.terrain;
+            this.data = model;
+            this.init();
+        }
+        init() {
+            if (!this.program.loaded)
+                return;
+            let vao = this.gl.createVertexArray();
+            this.gl.bindVertexArray(vao);
+            this.addBufferVAO(vao);
+            let vertices = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
+            this.addBufferVBO(vertices);
+            this.program.bindAttrVertex();
+            let normals = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normals);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.normals, this.gl.STATIC_DRAW);
+            this.addBufferVBO(normals);
+            this.program.bindAttrNormal();
+            this.gl.bindVertexArray(null);
+            this.triangles = this.data.vertices.length / 3;
+            this.loaded = true;
+            delete this.data;
+        }
+        render(scene) {
+            if (!this.loaded) {
+                this.init();
+                return;
+            }
+            this.bindBuffersAndTextures();
+            let uniforms = this.uniformDict(scene);
+            this.program.bindUniforms(uniforms);
+            this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
+            this.gl.bindVertexArray(null);
+        }
+    }
+    GLModels.TerrainModel = TerrainModel;
 })(GLModels || (GLModels = {}));
 var GLCamera;
 (function (GLCamera) {
     const ZOOM_STEP = 0.0025;
     const ROT_STEP = 0.5;
+    const GLOBAL_SCALE = 0.001;
     class Camera extends GLBase.GLObject {
         constructor(gl) {
             super(gl);
             this.position = new Float32Array([0, 0, 0]);
             this.up = new Float32Array([0, 1, 0]);
-            this.center = new Float32Array([, 0, 100]);
+            this.geometryCenter = new Float32Array([0, 0, 0]);
+            this.center = new Float32Array([0, 0, 100]);
             this.actualPosition = new Float32Array([0, 0, 0]);
             this.actualUp = new Float32Array([0, 1, 0]);
             this.actualCenter = new Float32Array([, 0, 100]);
@@ -4640,6 +4729,7 @@ var GLCamera;
             this.frontVector = new Float32Array(3);
             this.tmp = new Float32Array(3);
             this.tmp2 = new Float32Array(3);
+            this.worldMatrix = glMatrix.mat4.create();
             this.screenX = 0;
             this.screenY = 0;
             this.scale = 100;
@@ -4657,7 +4747,10 @@ var GLCamera;
             return this.viewMatrix;
         }
         get projection() {
-            return glMatrix.mat4.perspective(this.projectionMatrix, glMatrix.glMatrix.toRadian(45), this.aspect, 0.1, this.farplane);
+            return glMatrix.mat4.perspective(this.projectionMatrix, glMatrix.glMatrix.toRadian(45), this.aspect, 0.01, this.farplane);
+        }
+        get world() {
+            return this.worldMatrix;
         }
         get front() {
             glMatrix.vec3.sub(this.frontVector, this.center, this.position);
@@ -4670,7 +4763,7 @@ var GLCamera;
             return this.position;
         }
         restoreCenter() {
-            this.center = Object.assign({}, this.geoCenter);
+            this.center = Object.assign({}, this.defaultCenter);
         }
         viewTop() {
             let dist = glMatrix.vec3.dist(this.center, this.position);
@@ -4718,15 +4811,15 @@ var GLCamera;
             let front = glMatrix.vec3.sub(glMatrix.vec3.create(), this.center, this.position);
             let axes_x = glMatrix.vec3.normalize(this.tmp, glMatrix.vec3.cross(this.tmp, this.up, front));
             let axes_y = glMatrix.vec3.normalize(this.tmp2, glMatrix.vec3.copy(this.tmp2, this.up));
-            glMatrix.vec3.scale(axes_x, axes_x, x);
-            glMatrix.vec3.scale(axes_y, axes_y, y);
+            glMatrix.vec3.scale(axes_x, axes_x, x * GLOBAL_SCALE);
+            glMatrix.vec3.scale(axes_y, axes_y, y * GLOBAL_SCALE);
             glMatrix.vec3.add(this.position, this.position, axes_x);
             glMatrix.vec3.add(this.position, this.position, axes_y);
             glMatrix.vec3.add(this.center, this.center, axes_x);
             glMatrix.vec3.add(this.center, this.center, axes_y);
         }
         frame() {
-            const limit = 0.04;
+            const limit = 0.001;
             glMatrix.vec3.sub(this.tmp, this.position, this.actualPosition);
             this.positionMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
             if (this.positionMomentum > limit) {
@@ -4755,7 +4848,21 @@ var GLCamera;
                 glMatrix.vec3.copy(this.actualCenter, this.center);
                 this.centerMomentum = 0;
             }
-            glMatrix.vec3.sub(this.tmp, this.geoCenter, this.actualPosition);
+        }
+        updateScale(stats) {
+            let farplane = 0;
+            for (let i = 0; i < 3; ++i) {
+                this.geometryCenter[i] = (stats.min[i] + stats.max[i]) / 2;
+                farplane = Math.max(farplane, (stats.max[i] - stats.min[i]) * GLOBAL_SCALE);
+            }
+            this.center = glMatrix.vec3.fromValues(0, 0, 0);
+            this.farplane = farplane * 2;
+            this.defaultCenter = Object.assign({}, this.center);
+            this.position = Object.assign({}, this.center);
+            this.position[2] += farplane / 2;
+            glMatrix.mat4.identity(this.worldMatrix);
+            glMatrix.mat4.scale(this.worldMatrix, this.worldMatrix, glMatrix.vec3.fromValues(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE));
+            glMatrix.mat4.translate(this.worldMatrix, this.worldMatrix, glMatrix.vec3.negate(this.tmp, this.geometryCenter));
         }
     }
     GLCamera.Camera = Camera;
@@ -4795,16 +4902,7 @@ var GL;
             this.stats.max[0] = Math.max(this.stats.max[0], stats.max[0]);
             this.stats.max[1] = Math.max(this.stats.max[1], stats.max[1]);
             this.stats.max[2] = Math.max(this.stats.max[2], stats.max[2]);
-            let farplane = 0;
-            for (let i = 0; i < 3; ++i) {
-                this.center[i] = (this.stats.min[i] + this.stats.max[i]) / 2;
-                farplane = Math.max(farplane, this.stats.max[i] - this.stats.min[i]);
-            }
-            this.camera.farplane = farplane * 3;
-            this.camera.center = Object.assign({}, this.center);
-            this.camera.geoCenter = Object.assign({}, this.center);
-            this.camera.position = Object.assign({}, this.center);
-            this.camera.position[2] += farplane / 2;
+            this.camera.updateScale(this.stats);
         }
     }
     GL.Scene = Scene;
@@ -4820,12 +4918,14 @@ var GL;
             let ext = this.gl.getExtension('OES_element_index_uint');
             this.programs = {
                 building: new GLProgram.BuildingProgram(this.gl),
+                terrain: new GLProgram.TerrainProgram(this.gl),
                 box: new GLProgram.BoxProgram(this.gl),
                 pick: new GLProgram.PickProgram(this.gl)
             };
             this.loaded = false;
             this.models = {
                 city: [],
+                terrain: [],
                 box: []
             };
             this.scene = new Scene(this.gl);
@@ -4842,6 +4942,18 @@ var GL;
                 boxModel: box
             };
         }
+        addTerainSegment(model) {
+            let glmodel = new GLModels.TerrainModel(this.gl, this.programs, model);
+            this.models.terrain.push(glmodel);
+            let box = new GLModels.CubeModel(this.gl, this.programs, model.stats);
+            this.models.box.push(box);
+            this.scene.addModel(model.stats);
+            this.loaded = true;
+            return {
+                terrainModel: glmodel,
+                box: box
+            };
+        }
         render() {
             if (!this.loaded)
                 return;
@@ -4853,6 +4965,11 @@ var GL;
                 c.render(this.scene);
             }
             this.programs.building.unbind();
+            this.programs.terrain.bind();
+            for (let t of this.models.terrain) {
+                t.render(this.scene);
+            }
+            this.programs.terrain.unbind();
             this.programs.box.bind();
             for (let b of this.models.box) {
                 b.render(this.scene);
@@ -5072,8 +5189,10 @@ var LayerModule;
         }
         addTerrain(modelOBJFile) {
             let model = Parser.parseOBJ(modelOBJFile, false);
-            this.tmp = model;
-            console.log(model);
+            if (model)
+                this.gl.addTerainSegment(model);
+            else
+                throw 'Terrain models not loaded';
         }
     }
     LayerModule.LayerManager = LayerManager;
@@ -5161,7 +5280,7 @@ var AppModule;
             DataManager.files({
                 files: ["./assets/bubny/bubny_bud.obj",
                     "./assets/bubny/bubny_bud.json",
-                    "./assets/bubny/terrain2.obj"],
+                    "./assets/bubny/bubny_ter.obj"],
                 success: (files) => {
                     this.layers.addBuidings(files[0], files[1]);
                     this.layers.addTerrain(files[2]);

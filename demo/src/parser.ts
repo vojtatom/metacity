@@ -28,14 +28,6 @@ module Parser {
         normalBuffer[filled++] = Number(tokens[3]); 
     }
 
-    function copyVertexToEnd(vertexBuffer: Array<number>, vertexID: number)
-    {
-        let startID = vertexID * 3;
-        let newVertexID = vertexBuffer.length / 3;
-        vertexBuffer.push(vertexBuffer[startID], vertexBuffer[startID + 1], vertexBuffer[startID + 2]);
-        return newVertexID;
-    }
-
     function setupNormal(vertexIDs: number[], vertexBuffer: Float32Array)
     {
         let vs: Vec3Array[] = [];
@@ -311,72 +303,6 @@ module Parser {
         } else {
             return loadWithNormals(lines, counts, storeIDs);
         }
-        
-        /*let vertices = Array<number>();
-        let normals = Array<number>();
-        let objects = Array<number>();
-        let elements = Array<number>();
-        
-        const lines = contents.split("\n");
-        let triangles = 0;
-        
-        //load all vertices first
-        for(let line of lines) {
-            let tokens = line.split(" ");
-            let type = tokens[0];
-            
-            if (type === "v")
-                parseVertex(tokens, vertices, stats);
-
-            if (type === "vn")
-                parseNormal(tokens, normals);
-
-            if (type === "f")
-                triangles += countTriangles(tokens);
-        }
-
-        //mapping of object IDs in the scene onto json IDs
-        let objectMap: { [name: number]: string }= {};
-        let object = 0;
-        
-        //by now, all normals and vertices are loaded and stored
-        if (normals.length == 0) {
-            //no normals present in OBJ, have to be calculated manually
-            let vertexUsed = new Array(vertices.length / 3).fill(false);
-            normals = new Array(vertices.length).fill(0);
-
-            for(let line of lines) {
-                let tokens = line.split(" ");
-                let type = tokens[0];
-                
-                if (type === "f") {
-                    parseFaceNoNormals(tokens, vertices, elements, normals, objects, vertexUsed, object);
-                } else if (type === "o") {
-                    object++;
-                    objectMap[object] = tokens[1];
-                }
-            }
-
-        } else if (normals.length == vertices.length) {
-            //we have the same abount of vertices and normals, 
-            //there is a chance that the indices will match
-            console.log("same");
-
-            
-        }
-
-
-
-
-
-        return {
-            vertices: new Float32Array(vertices),
-            elements: new Int32Array(elements),
-            normals: new Float32Array(normals),
-            objects: new Uint32Array(objects),
-            objectMap: objectMap,
-            stats: stats
-        };*/
     }
     
     export function parseJson(contents: string) {

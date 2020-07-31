@@ -17,6 +17,12 @@ module GL {
         stats: OBJstats
     }
 
+    export interface TerrainModelInterface {
+        vertices: Float32Array,
+        normals: Float32Array,
+        stats: OBJstats
+    }
+
     export interface BoxModelInterface {
         min: number[],
         max: number[]
@@ -69,24 +75,13 @@ module GL {
             this.stats.max[0] = Math.max(this.stats.max[0], stats.max[0]);
             this.stats.max[1] = Math.max(this.stats.max[1], stats.max[1]);
             this.stats.max[2] = Math.max(this.stats.max[2], stats.max[2]);
-
-            let farplane = 0;
-            for(let i = 0; i < 3; ++i){
-                this.center[i] = (this.stats.min[i] + this.stats.max[i]) / 2;
-                farplane = Math.max(farplane, this.stats.max[i] - this.stats.min[i]);
-            }
-
-            //make a deep copy
-            this.camera.farplane = farplane * 3;
-            this.camera.center = Object.assign({}, this.center);
-            this.camera.geoCenter = Object.assign({}, this.center);
-            this.camera.position = Object.assign({}, this.center);
-            this.camera.position[2] += farplane / 2;
+            this.camera.updateScale(this.stats);
         }
     }
 
     export interface GLProgramList {
         building: GLProgram.BuildingProgram,
+        terrain: GLProgram.TerrainProgram,
         box: GLProgram.BoxProgram,
         pick: GLProgram.PickProgram
     }
@@ -100,7 +95,8 @@ module GL {
         loaded : boolean;
         models: {
             city: Array<GLModels.CityModel>,
-            box: Array<GLModels.CubeModel>,
+            terrain: Array<GLModels.TerrainModel>,
+            box: Array<GLModels.CubeModel>
         };
 
 
@@ -122,6 +118,7 @@ module GL {
             //init GPU programs
             this.programs = {
                 building: new GLProgram.BuildingProgram(this.gl),
+                terrain: new GLProgram.TerrainProgram(this.gl),
                 box: new GLProgram.BoxProgram(this.gl),
                 pick: new GLProgram.PickProgram(this.gl)
             };
@@ -129,14 +126,14 @@ module GL {
             this.loaded = false;
             this.models = {
                 city: [],
+                terrain: [],
                 box: []
             };
 
             this.scene = new Scene(this.gl);
         }
 
-        addCitySegment(model: CityModelInterface)
-        {
+        addCitySegment(model: CityModelInterface) {
             let glmodel = new GLModels.CityModel(this.gl, this.programs, model)
             this.models.city.push(glmodel);
             let box = new GLModels.CubeModel(this.gl, this.programs, model.stats);
@@ -148,6 +145,21 @@ module GL {
             return {
                 cityModel: glmodel,
                 boxModel: box
+            };
+        }
+
+        addTerainSegment(model: TerrainModelInterface) {
+            let glmodel = new GLModels.TerrainModel(this.gl, this.programs, model);
+            this.models.terrain.push(glmodel);
+            let box = new GLModels.CubeModel(this.gl, this.programs, model.stats);
+            this.models.box.push(box);
+
+            this.scene.addModel(model.stats);
+            this.loaded = true;
+
+            return {
+                terrainModel: glmodel,
+                box: box
             };
         }
 
@@ -168,6 +180,13 @@ module GL {
                 c.render(this.scene);
             }
             this.programs.building.unbind();
+
+            //render terrain
+            this.programs.terrain.bind();
+            for(let t of this.models.terrain){
+                t.render(this.scene);
+            }
+            this.programs.terrain.unbind();
 
             //render boxes
             this.programs.box.bind();

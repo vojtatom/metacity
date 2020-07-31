@@ -127,7 +127,7 @@ module AppModule {
             DataManager.files({
                 files: ["./assets/bubny/bubny_bud.obj",
                         "./assets/bubny/bubny_bud.json",
-                        "./assets/bubny/terrain2.obj"],
+                        "./assets/bubny/bubny_ter.obj"],
                 success: (files) => {
                     this.layers.addBuidings(files[0], files[1]);
                     this.layers.addTerrain(files[2]);
