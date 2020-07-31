@@ -226,6 +226,29 @@ module GL {
             return ID;
         }
 
+        saveCanvas(filename: string){
+    
+            this.canvas.toBlob((blob) => {
+                // Function to download data to a file
+                let file = blob;
+                if (window.navigator.msSaveOrOpenBlob) // IE10+
+                    window.navigator.msSaveOrOpenBlob(file, filename);
+                else { // Others
+                    console.log(file);
+                    let a = document.createElement("a"),
+                            url = URL.createObjectURL(file);
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);  
+                    }, 0); 
+                }
+            });
+        }
+
         resize(x: number, y: number) {
             this.canvas.width = x;
             this.canvas.height = y;

@@ -127,10 +127,13 @@ module AppModule {
             DataManager.files({
                 files: ["./assets/bubny/bubny_bud.obj",
                         "./assets/bubny/bubny_bud.json",
+                        "./assets/bubny/bubny_most.obj",
+                        "./assets/bubny/bubny_most.json",
                         "./assets/bubny/bubny_ter.obj"],
                 success: (files) => {
                     this.layers.addBuidings(files[0], files[1]);
-                    this.layers.addTerrain(files[2]);
+                    this.layers.addBuidings(files[2], files[3]);
+                    this.layers.addTerrain(files[4]);
 
 
                     //this.parse_file(FileType.obj, files[0]);
@@ -155,7 +158,7 @@ module AppModule {
                 this.gl.scene.camera.viewSide();
             } else if (key == 105) {
                 this.gl.scene.camera.restoreCenter();
-            }
+            } 
         }
 
         pick(x: number, y: number) {
@@ -170,9 +173,14 @@ module AppModule {
                 let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
                 this.gl.scene.select(selected);
                 this.pickPoint.pick = false;
-            }   
+            } 
             
             this.gl.render();
+
+            if (this.interface.keys[67]) { // letter c
+                this.gl.saveCanvas("screen.png");
+                this.interface.keys[67] = false;
+            }
         }
 
         resize(x: number, y: number){

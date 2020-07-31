@@ -1,15 +1,17 @@
-precision mediump float;
+#version 300 es
+precision highp float;
 precision highp int;
 
-attribute vec3 vertex;
-attribute vec3 normal;
+in vec3 vertex;
+in vec3 normal;
 
 //matrices
 uniform mat4 mWorld;
 uniform mat4 mView;
 uniform mat4 mProj;
 
-varying vec3 fragcolor;
+out vec3 fragcolor;
+out float hight;
 
 /**
  * Phong
@@ -30,6 +32,7 @@ vec3 phong(vec3 light, vec3 ver_position, vec3 ver_normal){
 }
 
 void main() {
-    fragcolor = phong(vec3(1, 0.5, 1), vertex, normal);
+    hight = vertex.z;
+    fragcolor = phong(vec3(1, 0.5, 1), vertex, normal) * 0.2;
     gl_Position =  mProj * mView * mWorld * vec4(vertex, 1.0);
 }

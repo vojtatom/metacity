@@ -4,8 +4,10 @@ Consists of:
 * Model Processing Pipeline
 * Actual WebGL Demo
 
-<img src="./demo/screens/scr5.png" alt="drawing" width="400"/>
-<img src="./demo/screens/scr6.png" alt="drawing" width="400"/>
+<img src="./demo/screens/screen7.png" alt="drawing" width="600"/>
+<br>
+<img src="./demo/screens/scr5.png" alt="drawing" width="300"/>
+<img src="./demo/screens/scr6.png" alt="drawing" width="300"/>
 
 ## Basic Model Processing Pipeline
 

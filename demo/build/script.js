@@ -4242,7 +4242,7 @@ var GLProgram;
             this.loaded = false;
         }
         static get DIR() {
-            return "/src/gl/glsl/";
+            return "./src/gl/glsl/";
         }
         init(vs, fs) {
             this.vs = new Shader(this.gl, vs, ShaderType.vertex);
@@ -4998,6 +4998,25 @@ var GL;
             let ID = new DataView(pixels.buffer).getUint32(0, true);
             return ID;
         }
+        saveCanvas(filename) {
+            this.canvas.toBlob((blob) => {
+                let file = blob;
+                if (window.navigator.msSaveOrOpenBlob)
+                    window.navigator.msSaveOrOpenBlob(file, filename);
+                else {
+                    console.log(file);
+                    let a = document.createElement("a"), url = URL.createObjectURL(file);
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 0);
+                }
+            });
+        }
         resize(x, y) {
             this.canvas.width = x;
             this.canvas.height = y;
@@ -5280,10 +5299,13 @@ var AppModule;
             DataManager.files({
                 files: ["./assets/bubny/bubny_bud.obj",
                     "./assets/bubny/bubny_bud.json",
+                    "./assets/bubny/bubny_most.obj",
+                    "./assets/bubny/bubny_most.json",
                     "./assets/bubny/bubny_ter.obj"],
                 success: (files) => {
                     this.layers.addBuidings(files[0], files[1]);
-                    this.layers.addTerrain(files[2]);
+                    this.layers.addBuidings(files[2], files[3]);
+                    this.layers.addTerrain(files[4]);
                 },
                 fail: () => { console.error("error loading assets"); }
             });
@@ -5315,6 +5337,10 @@ var AppModule;
                 this.pickPoint.pick = false;
             }
             this.gl.render();
+            if (this.interface.keys[67]) {
+                this.gl.saveCanvas("screen.png");
+                this.interface.keys[67] = false;
+            }
         }
         resize(x, y) {
             this.gl.resize(x, y);

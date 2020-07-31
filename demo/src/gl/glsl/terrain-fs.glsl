@@ -1,9 +1,23 @@
-precision mediump float;
+#version 300 es
+precision highp float;
 precision highp int;
 
-varying vec3 fragcolor;
+in vec3 fragcolor;
+in float hight;
+
+
+out vec4 color;
+
+const float strip_width = 0.5; 
 
 void main()
 {
-    gl_FragColor = vec4(fragcolor, 1.0);
+    int ihight = int(hight * (1.0 / strip_width)) % 10;
+    vec3 outColor = fragcolor;
+    if (ihight == 0)
+    {
+        outColor *= vec3(0.9);
+    }
+
+    color = vec4(outColor, 1.0);
 }

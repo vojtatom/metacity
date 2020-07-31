@@ -117,7 +117,7 @@ module GLProgram {
 
         static get DIR()
         {
-            return "/src/gl/glsl/";
+            return "./src/gl/glsl/";
         }
 
         constructor(gl: WebGL2RenderingContext) {
