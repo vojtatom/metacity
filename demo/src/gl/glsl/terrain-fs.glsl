@@ -19,5 +19,5 @@ void main()
         outColor *= vec3(0.9);
     }
 
-    color = vec4(outColor, 1.0);
+    color = vec4(vec3(1.0, 1.0, 0.8) * outColor, 1.0);
 }

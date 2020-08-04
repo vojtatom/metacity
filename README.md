@@ -43,7 +43,7 @@ Checked marks done:
 * [x] allow *smooth* rotation/zoom
 * [x] process the OBJ in order to allow for picking (objects must not share vertices (via elements))
 * [x] allow for object picking - [source](http://learnwebgl.brown37.net/11_advanced_rendering/selecting_objects.html), [another source](https://webglfundamentals.org/webgl/lessons/webgl-picking.html)
-* [ ] **WORK IN PROGRESS** - load CityJSON and pair the picked building with its metadata 
+* [x] load CityJSON and pair the picked building with its metadata 
 * [x] add terain
 * [ ] add street data (not present in CityJSON)
 * [ ] would be nice to have custom exporter from CityGML or CityJson to obj so we don't rely on consistency of the exported IDs
@@ -51,6 +51,8 @@ Checked marks done:
 
 ## How to make it look prettier
 * implement [derrefered Shading](https://learnopengl.com/Advanced-Lighting/Deferred-Shading) for WebGL and [screen space AO](https://learnopengl.com/Advanced-Lighting/SSAO)
+* add some shadows
+* add some pretty colors
 
 ## Existing Solutions and Sources
 * https://github.com/cityjson/ninja

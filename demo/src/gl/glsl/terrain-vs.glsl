@@ -33,6 +33,6 @@ vec3 phong(vec3 light, vec3 ver_position, vec3 ver_normal){
 
 void main() {
     hight = vertex.z;
-    fragcolor = phong(vec3(1, 0.5, 1), vertex, normal) * 0.2;
+    fragcolor = phong(vec3(1, 0.5, 1), vertex, normal) * 0.3;
     gl_Position =  mProj * mView * mWorld * vec4(vertex, 1.0);
 }

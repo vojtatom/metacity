@@ -2,6 +2,9 @@
 
 module Parser {
 
+    //gloabal scene object ID
+    let id = 0;
+
     function parseVertex(tokens: string[], vertexBuffer: Float32Array, stats: GL.OBJstats, filled: number)
     {
         let x = Number(tokens[1]); 
@@ -107,7 +110,6 @@ module Parser {
             objToId = {};
         }
         
-        let id = 0;
         for(let line of lines) {
             let tokens = line.split(" ");
             
@@ -206,7 +208,6 @@ module Parser {
             objToId = {};
         }
         
-        let id = 0;
         for(let line of lines) {
             let tokens = line.split(" ");
             
@@ -306,6 +307,6 @@ module Parser {
     }
     
     export function parseJson(contents: string) {
-        return false;
+        return JSON.parse(contents);
     }
 }

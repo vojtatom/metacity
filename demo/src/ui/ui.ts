@@ -124,6 +124,8 @@ module UI {
     //----------------------------------------------------------------------
 
     export class UIElement {
+        html: HTMLElement;
+
         constructor(){
 
         }
@@ -158,6 +160,9 @@ module UI {
 
 
     export class Canvas extends UIElement {
+        canvas: HTMLElement;
+        html: HTMLElement;
+
         constructor(){
             super();
 
@@ -171,6 +176,137 @@ module UI {
                 id: "canvas",
                 child: canvas
             });
+
+            this.canvas = canvas;
+            this.html = elem;
+
+            return elem;
+        }
+    }
+
+    export class Label extends UIElement {
+        title: string;
+        id: string;
+        html: HTMLElement;
+
+        constructor(title: string)
+        {
+            super();
+            this.id = "";
+            this.title = title;
+        }
+
+
+        render() {
+            let elem = div({
+                class: "label",
+                id: this.id,
+                html: this.title,
+            });
+
+            this.html = elem;
+
+            return elem;
+        }
+    }
+
+    export class Panel extends UIElement {
+        title: string;
+        contents: Array<UIElement>;
+        html: HTMLElement;
+
+        constructor(title: string, contents: Array<UIElement>)
+        {
+            super();
+            this.title = title;
+            this.contents = contents;
+        }
+
+        addLabel(label: UI.Label) {
+            this.contents.push(label);
+            
+            if(this.html) {
+                this.html.appendChild(label.render());
+            }
+        }
+
+        render() {
+            let elem = div({
+                class: "panel",
+            });
+
+            for(let child of this.contents)
+            {
+                elem.appendChild(child.render());
+            }
+            
+            this.html = elem;
+
+            return elem;
+        }
+    }
+
+    interface BuildingData {
+        type: string,
+        attr: { [name: string]: any },
+        children?: string[];
+        appID: number;
+        cjID: string;
+    }
+
+    export class BuildingDetailView extends UIElement {
+        data: BuildingData;
+
+        constructor(data: BuildingData) {
+            super();
+            this.data = data;
+        }
+
+        render() {
+            let attr = [];
+
+            attr.push(
+                div({
+                    class: 'row',
+                    child: [
+                        div({ html: "Type" }),
+                        div({ html: this.data.type })
+                    ]
+                }),
+                div({
+                    class: 'row',
+                    child: [
+                        div({ html: "Application ID" }),
+                        div({ html: this.data.appID.toString() })
+                    ]
+                }),
+                div({
+                    class: 'row',
+                    child: [
+                        div({ html: "CityJSON ID" }),
+                        div({ html: this.data.cjID })
+                    ]
+                })
+            );
+
+            for (let key in this.data.attr) {
+                attr.push(div({
+                    class: 'row',
+                    child: [
+                        div({ html: key }),
+                        div({ html: this.data.attr[key].toString() })
+                    ]
+                }));
+            }
+
+
+            let elem = div({
+                class: 'building-detail',
+                child: attr,
+            });
+
+            this.html = elem;
+
             return elem;
         }
     }
@@ -187,11 +323,30 @@ module UI {
             this.contents = contents;
         }
 
+        addUIElement(elem: UIElement) {
+            this.contents.push(elem);
+
+            if (this.html) {
+                this.html.appendChild(elem.render());
+            }
+
+            return this.contents.length - 1;
+        }
+
+        removeUIElement(elem: UIElement, uiID: number) {
+            this.contents = this.contents.splice(uiID, 1);
+
+            if (this.html) {
+                elem.html.parentElement.removeChild(elem.html);
+            }
+        }
 
         render() {
             let elem = div({
                 class: "window",
             });
+
+            this.html = elem;
 
             for(let child of this.contents)
             {
@@ -259,5 +414,37 @@ module UI {
             this.windowArea.appendChild(this.contents[this.active].render());
             this.windowLabels[this.active].classList.add("active");
         }
+    }
+
+
+    export function resetLoader() {
+        let loader = document.getElementById("loader");
+        loader.innerHTML = "";
+    }
+
+    export function loading(title: string, progress: number) {
+        let loader = document.getElementById("loader");
+        console.log("loading");
+
+        let prog: HTMLElement, stretch: HTMLElement;
+        if (loader.childElementCount == 1) {
+
+            prog = loader.childNodes[0] as HTMLElement;
+            stretch = prog.childNodes[0] as HTMLElement;
+
+        } else {
+            stretch = div({
+                class: "strechy"
+            });
+
+            prog = div({
+                class: "progress",
+                child: stretch
+            });    
+            loader.appendChild(prog);
+        }
+
+        stretch.innerHTML = title;
+        stretch.style.width = (progress * 100).toFixed(2) + "%";
     }
 }

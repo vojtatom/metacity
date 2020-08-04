@@ -3882,8 +3882,19 @@ var DataManager;
         return new Promise(function (resolve, reject) {
             var request = new XMLHttpRequest();
             request.open('GET', url);
+            let loader = document.getElementById("loader");
+            let strechy = UI.div({
+                class: "strechy",
+                html: "waiting for data...",
+            });
+            let bar = UI.div({
+                class: "progress",
+                child: strechy,
+            });
             request.onload = function () {
                 if (request.status == 200) {
+                    if (bar && bar.parentElement)
+                        bar.parentElement.removeChild(bar);
                     resolve(request.response);
                 }
                 else {
@@ -3893,12 +3904,19 @@ var DataManager;
             request.onerror = function () {
                 reject(Error("Network Error"));
             };
+            loader.appendChild(bar);
+            request.onprogress = function (e) {
+                let p = ((e.loaded / e.total) * 100).toFixed(2);
+                strechy.innerHTML = p;
+                strechy.style.width = p + "%";
+            };
             request.send();
         });
     }
 })(DataManager || (DataManager = {}));
 var Parser;
 (function (Parser) {
+    let id = 0;
     function parseVertex(tokens, vertexBuffer, stats, filled) {
         let x = Number(tokens[1]);
         let y = Number(tokens[2]);
@@ -3979,7 +3997,6 @@ var Parser;
             idToObj = {};
             objToId = {};
         }
-        let id = 0;
         for (let line of lines) {
             let tokens = line.split(" ");
             if (tokens[0] === "o" && storeIDs) {
@@ -4060,7 +4077,6 @@ var Parser;
             idToObj = {};
             objToId = {};
         }
-        let id = 0;
         for (let line of lines) {
             let tokens = line.split(" ");
             if (tokens[0] === "o" && storeIDs) {
@@ -4144,7 +4160,7 @@ var Parser;
     }
     Parser.parseOBJ = parseOBJ;
     function parseJson(contents) {
-        return false;
+        return JSON.parse(contents);
     }
     Parser.parseJson = parseJson;
 })(Parser || (Parser = {}));
@@ -5129,20 +5145,121 @@ var UI;
                 id: "canvas",
                 child: canvas
             });
+            this.canvas = canvas;
+            this.html = elem;
             return elem;
         }
     }
     UI.Canvas = Canvas;
+    class Label extends UIElement {
+        constructor(title) {
+            super();
+            this.id = "";
+            this.title = title;
+        }
+        render() {
+            let elem = div({
+                class: "label",
+                id: this.id,
+                html: this.title,
+            });
+            this.html = elem;
+            return elem;
+        }
+    }
+    UI.Label = Label;
+    class Panel extends UIElement {
+        constructor(title, contents) {
+            super();
+            this.title = title;
+            this.contents = contents;
+        }
+        addLabel(label) {
+            this.contents.push(label);
+            if (this.html) {
+                this.html.appendChild(label.render());
+            }
+        }
+        render() {
+            let elem = div({
+                class: "panel",
+            });
+            for (let child of this.contents) {
+                elem.appendChild(child.render());
+            }
+            this.html = elem;
+            return elem;
+        }
+    }
+    UI.Panel = Panel;
+    class BuildingDetailView extends UIElement {
+        constructor(data) {
+            super();
+            this.data = data;
+        }
+        render() {
+            let attr = [];
+            attr.push(div({
+                class: 'row',
+                child: [
+                    div({ html: "Type" }),
+                    div({ html: this.data.type })
+                ]
+            }), div({
+                class: 'row',
+                child: [
+                    div({ html: "Application ID" }),
+                    div({ html: this.data.appID.toString() })
+                ]
+            }), div({
+                class: 'row',
+                child: [
+                    div({ html: "CityJSON ID" }),
+                    div({ html: this.data.cjID })
+                ]
+            }));
+            for (let key in this.data.attr) {
+                attr.push(div({
+                    class: 'row',
+                    child: [
+                        div({ html: key }),
+                        div({ html: this.data.attr[key].toString() })
+                    ]
+                }));
+            }
+            let elem = div({
+                class: 'building-detail',
+                child: attr,
+            });
+            this.html = elem;
+            return elem;
+        }
+    }
+    UI.BuildingDetailView = BuildingDetailView;
     class Window extends UIElement {
         constructor(title, contents) {
             super();
             this.title = title;
             this.contents = contents;
         }
+        addUIElement(elem) {
+            this.contents.push(elem);
+            if (this.html) {
+                this.html.appendChild(elem.render());
+            }
+            return this.contents.length - 1;
+        }
+        removeUIElement(elem, uiID) {
+            this.contents = this.contents.splice(uiID, 1);
+            if (this.html) {
+                elem.html.parentElement.removeChild(elem.html);
+            }
+        }
         render() {
             let elem = div({
                 class: "window",
             });
+            this.html = elem;
             for (let child of this.contents) {
                 elem.appendChild(child.render());
             }
@@ -5192,15 +5309,53 @@ var UI;
         }
     }
     UI.WindowRack = WindowRack;
+    function resetLoader() {
+        let loader = document.getElementById("loader");
+        loader.innerHTML = "";
+    }
+    UI.resetLoader = resetLoader;
+    function loading(title, progress) {
+        let loader = document.getElementById("loader");
+        console.log("loading");
+        let prog, stretch;
+        if (loader.childElementCount == 1) {
+            prog = loader.childNodes[0];
+            stretch = prog.childNodes[0];
+        }
+        else {
+            stretch = div({
+                class: "strechy"
+            });
+            prog = div({
+                class: "progress",
+                child: stretch
+            });
+            loader.appendChild(prog);
+        }
+        stretch.innerHTML = title;
+        stretch.style.width = (progress * 100).toFixed(2) + "%";
+    }
+    UI.loading = loading;
 })(UI || (UI = {}));
 var LayerModule;
 (function (LayerModule) {
     class LayerManager {
-        constructor(gl) {
+        constructor(gl, window) {
             this.gl = gl;
+            this.window = window;
+            this.idToObj = {};
+            this.objToId = {};
+            this.objects = [];
+            this.detail = {
+                ui: undefined,
+                uiID: undefined
+            };
         }
-        addBuidings(modelOBJFile, cityJsonFile) {
+        addBuidings(modelOBJFile, cityJsonFile, title) {
             let model = Parser.parseOBJ(modelOBJFile, true);
+            this.objects.push(Parser.parseJson(cityJsonFile));
+            Object.assign(this.objToId, model.objToId);
+            Object.assign(this.idToObj, model.idToObj);
             if (model)
                 this.gl.addCitySegment(model);
             else
@@ -5212,6 +5367,32 @@ var LayerModule;
                 this.gl.addTerainSegment(model);
             else
                 throw 'Terrain models not loaded';
+        }
+        showDetail(id) {
+            let obj = this.idToObj[id];
+            let data = [];
+            for (let pack of this.objects) {
+                if (obj in pack["CityObjects"])
+                    data.push(pack["CityObjects"][obj]);
+            }
+            let bdata = data[0];
+            if (this.detail.ui !== undefined) {
+                this.window.removeUIElement(this.detail.ui, this.detail.uiID);
+                this.detail.ui = undefined;
+            }
+            if (!bdata)
+                return;
+            let buildData = {
+                type: bdata["type"],
+                appID: id,
+                cjID: this.idToObj[id],
+                attr: {}
+            };
+            if ('attributes' in bdata)
+                Object.assign(buildData.attr, bdata['attributes']);
+            let detail = new UI.BuildingDetailView(buildData);
+            this.detail.ui = detail;
+            this.detail.uiID = this.window.addUIElement(detail);
         }
     }
     LayerModule.LayerManager = LayerManager;
@@ -5280,6 +5461,13 @@ var AppModule;
             this.app.gl.scene.camera.zoom(1, delta);
         }
     }
+    let AppState;
+    (function (AppState) {
+        AppState[AppState["loading"] = 0] = "loading";
+        AppState[AppState["loaded"] = 1] = "loaded";
+        AppState[AppState["parsing"] = 2] = "parsing";
+        AppState[AppState["ready"] = 3] = "ready";
+    })(AppState || (AppState = {}));
     class Application {
         constructor() {
             let windows = new UI.Window("3D view", [
@@ -5290,24 +5478,53 @@ var AppModule;
             let canvas = document.getElementsByTagName("canvas")[0];
             this.gl = new GL.Graphics(canvas);
             this.interface = new Interface(this);
-            this.layers = new LayerModule.LayerManager(this.gl);
+            this.layers = new LayerModule.LayerManager(this.gl, windows);
             this.pickPoint = {
                 pick: false,
                 x: 0,
                 y: 0
             };
+            this.state = AppState.loading;
             DataManager.files({
                 files: ["./assets/bubny/bubny_bud.obj",
-                    "./assets/bubny/bubny_bud.json",
-                    "./assets/bubny/bubny_most.obj",
+                    "./assets/bubny/bubny_bud_min.json",
+                    "./assets/bubny/bubny_most_filtered.obj",
                     "./assets/bubny/bubny_most.json",
                     "./assets/bubny/bubny_ter.obj"],
                 success: (files) => {
-                    this.layers.addBuidings(files[0], files[1]);
-                    this.layers.addBuidings(files[2], files[3]);
-                    this.layers.addTerrain(files[4]);
+                    this.data = files;
+                    this.state = AppState.loaded;
                 },
                 fail: () => { console.error("error loading assets"); }
+            });
+        }
+        load() {
+            let files = this.data;
+            this.state = AppState.parsing;
+            let that = this;
+            new Promise(function (resolve, reject) {
+                UI.resetLoader();
+                UI.loading("Parsing buildings", 0.1);
+                setTimeout(() => resolve(1), 1000);
+            }).then(function () {
+                return new Promise((resolve, reject) => {
+                    that.layers.addBuidings(files[0], files[1], "buildings");
+                    UI.loading("Parsing bridges", 0.3);
+                    setTimeout(() => resolve(1), 1000);
+                }).then(function () {
+                    return new Promise((resolve, reject) => {
+                        that.layers.addBuidings(files[2], files[3], "bridges");
+                        UI.loading("Parsing terrain", 0.5);
+                        setTimeout(() => resolve(1), 1000);
+                    }).then(function () {
+                        return new Promise((resolve, reject) => {
+                            that.layers.addTerrain(files[4]);
+                            UI.resetLoader();
+                            that.state = AppState.ready;
+                            setTimeout(() => resolve(1), 1000);
+                        });
+                    });
+                });
             });
         }
         pressed(key) {
@@ -5330,10 +5547,15 @@ var AppModule;
             this.pickPoint.pick = true;
         }
         render() {
+            if (this.state == AppState.loaded)
+                this.load();
+            if (this.state != AppState.ready)
+                return;
             if (this.pickPoint.pick) {
                 let canvasHeight = this.gl.scene.camera.screenY;
                 let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
                 this.gl.scene.select(selected);
+                this.layers.showDetail(selected);
                 this.pickPoint.pick = false;
             }
             this.gl.render();

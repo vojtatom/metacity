@@ -86,6 +86,13 @@ module AppModule {
         }
     }
 
+    enum AppState {
+        loading,
+        loaded,
+        parsing,
+        ready
+    }
+
     export class Application {
 
         gl: GL.Graphics;
@@ -99,8 +106,12 @@ module AppModule {
             y: number
         };
 
+        data: any;
+        state: AppState;
+
         constructor()
         {
+            
             let windows = new UI.Window("3D view", [ 
                     new UI.Canvas(),
                 ]);
@@ -112,8 +123,9 @@ module AppModule {
             let canvas = document.getElementsByTagName("canvas")[0];
             this.gl = new GL.Graphics(canvas);
             this.interface = new Interface(this);
-
-            this.layers = new LayerModule.LayerManager(this.gl);
+            
+            this.layers = new LayerModule.LayerManager(this.gl, windows);
+            
 
             this.pickPoint = {
                 pick: false,
@@ -124,26 +136,53 @@ module AppModule {
             //------------------------------------------------
             // FOR DEMO PURPOUSES ONLY
             //------------------------------------------------
+            this.state = AppState.loading;
             DataManager.files({
                 files: ["./assets/bubny/bubny_bud.obj",
-                        "./assets/bubny/bubny_bud.json",
-                        "./assets/bubny/bubny_most.obj",
+                        "./assets/bubny/bubny_bud_min.json",
+                        "./assets/bubny/bubny_most_filtered.obj",
                         "./assets/bubny/bubny_most.json",
                         "./assets/bubny/bubny_ter.obj"],
                 success: (files) => {
-                    this.layers.addBuidings(files[0], files[1]);
-                    this.layers.addBuidings(files[2], files[3]);
-                    this.layers.addTerrain(files[4]);
-
-
-                    //this.parse_file(FileType.obj, files[0]);
-                    //this.parse_file(FileType.obj, files[2]);
-                    //this.parse_file(FileType.json, files[1]);
-                    
+                    this.data = files;
+                    this.state = AppState.loaded;
                 },
                 fail: () => { console.error("error loading assets"); }
-            })
+            });
+
+
             //------------------------------------------------
+        }
+
+        load() {
+            let files = this.data;
+            this.state = AppState.parsing;
+
+            let that = this;
+            new Promise(function(resolve, reject) {
+                UI.resetLoader();
+                UI.loading("Parsing buildings", 0.1);
+                setTimeout(() => resolve(1), 1000);
+            }).then(function(){
+                return new Promise((resolve, reject) => {
+                    that.layers.addBuidings(files[0], files[1], "buildings");
+                    UI.loading("Parsing bridges", 0.3);
+                    setTimeout(() => resolve(1), 1000);
+                }).then(function(){
+                    return new Promise((resolve, reject) => {
+                        that.layers.addBuidings(files[2], files[3], "bridges");
+                        UI.loading("Parsing terrain", 0.5);
+                        setTimeout(() => resolve(1), 1000);
+                    }).then(function(){
+                        return new Promise((resolve, reject) => {
+                            that.layers.addTerrain(files[4]);
+                            UI.resetLoader();
+                            that.state = AppState.ready;
+                            setTimeout(() => resolve(1), 1000);
+                        });
+                    });
+                });
+            });
         }
 
         pressed(key: number) {
@@ -168,10 +207,17 @@ module AppModule {
         }
 
         render() {
+            if (this.state == AppState.loaded)
+                this.load();
+            
+            if (this.state != AppState.ready)
+                return;
+
             if (this.pickPoint.pick) {
                 let canvasHeight = this.gl.scene.camera.screenY;
                 let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
                 this.gl.scene.select(selected);
+                this.layers.showDetail(selected);
                 this.pickPoint.pick = false;
             } 
             
