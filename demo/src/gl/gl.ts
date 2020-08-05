@@ -23,6 +23,11 @@ module GL {
         stats: OBJstats
     }
 
+    export interface StreetModelInterface {
+        vertices: Float32Array
+    }
+
+
     export interface BoxModelInterface {
         min: number[],
         max: number[]
@@ -83,7 +88,8 @@ module GL {
         building: GLProgram.BuildingProgram,
         terrain: GLProgram.TerrainProgram,
         box: GLProgram.BoxProgram,
-        pick: GLProgram.PickProgram
+        pick: GLProgram.PickProgram,
+        street: GLProgram.StreetProgram
     }
 
     export class Graphics {
@@ -96,7 +102,8 @@ module GL {
         models: {
             city: Array<GLModels.CityModel>,
             terrain: Array<GLModels.TerrainModel>,
-            box: Array<GLModels.CubeModel>
+            box: Array<GLModels.CubeModel>,
+            streets: Array<GLModels.StreetModel>
         };
 
 
@@ -120,14 +127,16 @@ module GL {
                 building: new GLProgram.BuildingProgram(this.gl),
                 terrain: new GLProgram.TerrainProgram(this.gl),
                 box: new GLProgram.BoxProgram(this.gl),
-                pick: new GLProgram.PickProgram(this.gl)
+                pick: new GLProgram.PickProgram(this.gl),
+                street: new GLProgram.StreetProgram(this.gl)
             };
 
             this.loaded = false;
             this.models = {
                 city: [],
                 terrain: [],
-                box: []
+                box: [],
+                streets: []
             };
 
             this.scene = new Scene(this.gl);
@@ -163,6 +172,15 @@ module GL {
             };
         }
 
+        addStreetSegment(model: StreetModelInterface) {
+            let glmodel = new GLModels.StreetModel(this.gl, this.programs, model);
+            this.models.streets.push(glmodel);
+
+            return {
+                streetModel: glmodel
+            };
+        }
+
         render() {
             if (!this.loaded)
                 return;
@@ -187,6 +205,13 @@ module GL {
                 t.render(this.scene);
             }
             this.programs.terrain.unbind();
+
+            //render streets
+            this.programs.street.bind();
+            for(let s of this.models.streets){
+                s.render(this.scene);
+            }
+            this.programs.street.unbind();
 
             //render boxes
             this.programs.box.bind();

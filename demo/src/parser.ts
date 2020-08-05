@@ -309,4 +309,49 @@ module Parser {
     export function parseJson(contents: string) {
         return JSON.parse(contents);
     }
+
+    function countLinePoints(data: any) {
+        let points = 0;
+        for(let i = 0; i < data.features.length; ++i) {
+            //only support line data for now
+            if (data.features[i].geometry.type == "LineString")
+                points += data.features[i].geometry.coordinates.length * 2 - 2;
+        }
+
+        return points;
+    }
+
+    export function parseGeoJson(contents: string, dims: number) {
+        let data = JSON.parse(contents);;
+
+        //TODO THIS IS HORRIBLE...
+
+        if (data['type'] === 'FeatureCollection')
+        {
+            let points = countLinePoints(data);
+            let filled = 0;
+            let vertices = new Float32Array(points * dims);
+
+            for(let i = 0; i < data.features.length; ++i) {
+                let geo = data.features[i].geometry;
+                if (geo.type == "LineString") {
+                    for (let j = 0; j < geo.coordinates.length; ++j) {
+                        if (j > 0 && j < geo.coordinates.length - 1)
+                            for(let d = 0; d < dims; ++d) {
+                                vertices[filled++] = geo.coordinates[j][d];
+                            }
+
+                        for(let d = 0; d < dims; ++d) {
+                            vertices[filled++] = geo.coordinates[j][d];
+                        }
+                    }
+                }
+            }
+
+            return {
+                vertices: vertices
+            };
+        }
+
+    }
 }

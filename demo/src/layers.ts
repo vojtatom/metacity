@@ -7,7 +7,7 @@ module LayerModule {
         window: UI.Window;
         panel: UI.Panel;
 
-        objects: { [name: string] : any }[];
+        CJmetadata: { [name: string] : any }[];
         idToObj: { [name: number] : string };
         objToId: { [name: string] : number };
 
@@ -23,7 +23,7 @@ module LayerModule {
 
             this.idToObj = {};
             this.objToId = {};
-            this.objects = [];
+            this.CJmetadata = [];
             this.detail = {
                 ui: undefined,
                 uiID: undefined
@@ -34,7 +34,9 @@ module LayerModule {
             //this.panel.addLabel(new UI.Label(title));
             
             let model = Parser.parseOBJ(modelOBJFile, true);
-            this.objects.push(Parser.parseJson(cityJsonFile));
+            let meta = Parser.parseJson(cityJsonFile);
+
+            this.CJmetadata.push(meta);
 
             Object.assign(this.objToId, model.objToId);
             Object.assign(this.idToObj, model.idToObj);
@@ -43,6 +45,7 @@ module LayerModule {
                 this.gl.addCitySegment(model as GL.CityModelInterface);
             else 
                 throw 'Building models not loaded';
+
             
         }
         
@@ -57,11 +60,20 @@ module LayerModule {
                 throw 'Terrain models not loaded';
         }
 
+        addStreets(streets: string) {
+            let model = Parser.parseGeoJson(streets, 2);
+            
+            if (model)
+                this.gl.addStreetSegment(model as GL.StreetModelInterface);
+            else
+                throw 'Street models not loaded';
+        }
+
         showDetail(id: number) {
             let obj = this.idToObj[id];
             let data: any[] = [];
 
-            for (let pack of this.objects) {
+            for (let pack of this.CJmetadata) {
                 if (obj in pack["CityObjects"])
                     data.push(pack["CityObjects"][obj]);
             }

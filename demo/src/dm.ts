@@ -36,6 +36,9 @@ module DataManager {
                 child: strechy,
             });
 
+            let file_title: string[] | string = url.split("/");
+            file_title = file_title[file_title.length - 1];
+
             request.onload = function () {
                 if (request.status == 200) {
                     if (bar && bar.parentElement)
@@ -56,7 +59,7 @@ module DataManager {
 
             request.onprogress = function(e: ProgressEvent) {
                 let p = ((e.loaded / e.total) * 100).toFixed(2);
-                strechy.innerHTML = p;
+                strechy.innerHTML = p + "% " + file_title;
                 strechy.style.width = p + "%";
             }
 

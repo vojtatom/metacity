@@ -142,7 +142,8 @@ module AppModule {
                         "./assets/bubny/bubny_bud_min.json",
                         "./assets/bubny/bubny_most_filtered.obj",
                         "./assets/bubny/bubny_most.json",
-                        "./assets/bubny/bubny_ter.obj"],
+                        "./assets/bubny/bubny_ter.obj",
+                        "./assets/bubny/TSK_ulice_min.json"],
                 success: (files) => {
                     this.data = files;
                     this.state = AppState.loaded;
@@ -176,9 +177,16 @@ module AppModule {
                     }).then(function(){
                         return new Promise((resolve, reject) => {
                             that.layers.addTerrain(files[4]);
-                            UI.resetLoader();
-                            that.state = AppState.ready;
+                            UI.loading("Parsing streets", 0.75);
                             setTimeout(() => resolve(1), 1000);
+                        }).then(function(){
+                            return new Promise((resolve, reject) => {
+                                that.layers.addStreets(files[5]);
+                                UI.resetLoader();
+                                that.state = AppState.ready;
+                                that.data = null; // delete
+                                setTimeout(() => resolve(1), 1000);
+                            });
                         });
                     });
                 });

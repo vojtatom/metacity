@@ -3891,6 +3891,8 @@ var DataManager;
                 class: "progress",
                 child: strechy,
             });
+            let file_title = url.split("/");
+            file_title = file_title[file_title.length - 1];
             request.onload = function () {
                 if (request.status == 200) {
                     if (bar && bar.parentElement)
@@ -3907,7 +3909,7 @@ var DataManager;
             loader.appendChild(bar);
             request.onprogress = function (e) {
                 let p = ((e.loaded / e.total) * 100).toFixed(2);
-                strechy.innerHTML = p;
+                strechy.innerHTML = p + "% " + file_title;
                 strechy.style.width = p + "%";
             };
             request.send();
@@ -4163,6 +4165,41 @@ var Parser;
         return JSON.parse(contents);
     }
     Parser.parseJson = parseJson;
+    function countLinePoints(data) {
+        let points = 0;
+        for (let i = 0; i < data.features.length; ++i) {
+            if (data.features[i].geometry.type == "LineString")
+                points += data.features[i].geometry.coordinates.length * 2 - 2;
+        }
+        return points;
+    }
+    function parseGeoJson(contents, dims) {
+        let data = JSON.parse(contents);
+        ;
+        if (data['type'] === 'FeatureCollection') {
+            let points = countLinePoints(data);
+            let filled = 0;
+            let vertices = new Float32Array(points * dims);
+            for (let i = 0; i < data.features.length; ++i) {
+                let geo = data.features[i].geometry;
+                if (geo.type == "LineString") {
+                    for (let j = 0; j < geo.coordinates.length; ++j) {
+                        if (j > 0 && j < geo.coordinates.length - 1)
+                            for (let d = 0; d < dims; ++d) {
+                                vertices[filled++] = geo.coordinates[j][d];
+                            }
+                        for (let d = 0; d < dims; ++d) {
+                            vertices[filled++] = geo.coordinates[j][d];
+                        }
+                    }
+                }
+            }
+            return {
+                vertices: vertices
+            };
+        }
+    }
+    Parser.parseGeoJson = parseGeoJson;
 })(Parser || (Parser = {}));
 var GLBase;
 (function (GLBase) {
@@ -4395,6 +4432,47 @@ var GLProgram;
         }
     }
     GLProgram.PickProgram = PickProgram;
+    class StreetProgram extends Program {
+        constructor(gl) {
+            super(gl);
+            DataManager.files({
+                files: [
+                    Program.DIR + "street-vs.glsl",
+                    Program.DIR + "street-fs.glsl",
+                ],
+                success: (files) => {
+                    this.init(files[0], files[1]);
+                    this.setup();
+                },
+                fail: () => {
+                    throw "Street shader not loaded";
+                }
+            });
+        }
+        setup() {
+            this.setupAttributes({
+                vertex: 'vertex'
+            });
+            this.commonUniforms();
+            this.setupUniforms({
+                level: {
+                    name: 'level',
+                    type: this.GLType.float,
+                }
+            });
+        }
+        bindAttrVertex() {
+            this.gl.useProgram(this.program);
+            this.bindAttribute({
+                attribute: this.attributes.vertex,
+                size: 2,
+                stride: 2 * Float32Array.BYTES_PER_ELEMENT,
+                offset: 0,
+            });
+            this.gl.useProgram(null);
+        }
+    }
+    GLProgram.StreetProgram = StreetProgram;
     class BuildingProgram extends Program {
         constructor(gl) {
             super(gl);
@@ -4682,6 +4760,43 @@ var GLModels;
         }
     }
     GLModels.CityModel = CityModel;
+    class StreetModel extends GLModel {
+        constructor(gl, programs, model) {
+            super(gl);
+            this.program = programs.street;
+            this.data = model;
+            this.init();
+        }
+        init() {
+            if (!this.program.loaded)
+                return;
+            let vao = this.gl.createVertexArray();
+            this.gl.bindVertexArray(vao);
+            this.addBufferVAO(vao);
+            let vertices = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
+            this.addBufferVBO(vertices);
+            this.program.bindAttrVertex();
+            this.gl.bindVertexArray(null);
+            this.lineSegments = this.data.vertices.length / 2;
+            this.loaded = true;
+            delete this.data;
+        }
+        render(scene) {
+            if (!this.loaded) {
+                this.init();
+                return;
+            }
+            this.bindBuffersAndTextures();
+            let uniforms = this.uniformDict(scene);
+            uniforms['level'] = scene.stats.max[2];
+            this.program.bindUniforms(uniforms);
+            this.gl.drawArrays(this.gl.LINES, 0, this.lineSegments);
+            this.gl.bindVertexArray(null);
+        }
+    }
+    GLModels.StreetModel = StreetModel;
     class TerrainModel extends GLModel {
         constructor(gl, programs, model) {
             super(gl);
@@ -4936,13 +5051,15 @@ var GL;
                 building: new GLProgram.BuildingProgram(this.gl),
                 terrain: new GLProgram.TerrainProgram(this.gl),
                 box: new GLProgram.BoxProgram(this.gl),
-                pick: new GLProgram.PickProgram(this.gl)
+                pick: new GLProgram.PickProgram(this.gl),
+                street: new GLProgram.StreetProgram(this.gl)
             };
             this.loaded = false;
             this.models = {
                 city: [],
                 terrain: [],
-                box: []
+                box: [],
+                streets: []
             };
             this.scene = new Scene(this.gl);
         }
@@ -4970,6 +5087,13 @@ var GL;
                 box: box
             };
         }
+        addStreetSegment(model) {
+            let glmodel = new GLModels.StreetModel(this.gl, this.programs, model);
+            this.models.streets.push(glmodel);
+            return {
+                streetModel: glmodel
+            };
+        }
         render() {
             if (!this.loaded)
                 return;
@@ -4986,6 +5110,11 @@ var GL;
                 t.render(this.scene);
             }
             this.programs.terrain.unbind();
+            this.programs.street.bind();
+            for (let s of this.models.streets) {
+                s.render(this.scene);
+            }
+            this.programs.street.unbind();
             this.programs.box.bind();
             for (let b of this.models.box) {
                 b.render(this.scene);
@@ -5345,7 +5474,7 @@ var LayerModule;
             this.window = window;
             this.idToObj = {};
             this.objToId = {};
-            this.objects = [];
+            this.CJmetadata = [];
             this.detail = {
                 ui: undefined,
                 uiID: undefined
@@ -5353,7 +5482,8 @@ var LayerModule;
         }
         addBuidings(modelOBJFile, cityJsonFile, title) {
             let model = Parser.parseOBJ(modelOBJFile, true);
-            this.objects.push(Parser.parseJson(cityJsonFile));
+            let meta = Parser.parseJson(cityJsonFile);
+            this.CJmetadata.push(meta);
             Object.assign(this.objToId, model.objToId);
             Object.assign(this.idToObj, model.idToObj);
             if (model)
@@ -5368,10 +5498,17 @@ var LayerModule;
             else
                 throw 'Terrain models not loaded';
         }
+        addStreets(streets) {
+            let model = Parser.parseGeoJson(streets, 2);
+            if (model)
+                this.gl.addStreetSegment(model);
+            else
+                throw 'Street models not loaded';
+        }
         showDetail(id) {
             let obj = this.idToObj[id];
             let data = [];
-            for (let pack of this.objects) {
+            for (let pack of this.CJmetadata) {
                 if (obj in pack["CityObjects"])
                     data.push(pack["CityObjects"][obj]);
             }
@@ -5490,7 +5627,8 @@ var AppModule;
                     "./assets/bubny/bubny_bud_min.json",
                     "./assets/bubny/bubny_most_filtered.obj",
                     "./assets/bubny/bubny_most.json",
-                    "./assets/bubny/bubny_ter.obj"],
+                    "./assets/bubny/bubny_ter.obj",
+                    "./assets/bubny/TSK_ulice.json"],
                 success: (files) => {
                     this.data = files;
                     this.state = AppState.loaded;
@@ -5519,9 +5657,16 @@ var AppModule;
                     }).then(function () {
                         return new Promise((resolve, reject) => {
                             that.layers.addTerrain(files[4]);
-                            UI.resetLoader();
-                            that.state = AppState.ready;
+                            UI.loading("Parsing streets", 0.75);
                             setTimeout(() => resolve(1), 1000);
+                        }).then(function () {
+                            return new Promise((resolve, reject) => {
+                                that.layers.addStreets(files[5]);
+                                UI.resetLoader();
+                                that.state = AppState.ready;
+                                that.data = null;
+                                setTimeout(() => resolve(1), 1000);
+                            });
                         });
                     });
                 });

@@ -1,39 +1,18 @@
 # MetaCity Demo
 
-Consists of:
-* Model Processing Pipeline
-* Actual WebGL Demo
-
-<img src="./demo/screens/screen7.png" alt="drawing" width="600"/>
+<img src="./demo/screens/screen8.png" alt="drawing" width="600"/>
 <br>
 <img src="./demo/screens/scr5.png" alt="drawing" width="300"/>
 <img src="./demo/screens/scr6.png" alt="drawing" width="300"/>
 
-## Basic Model Processing Pipeline
-
-Input files: `.gml` (and `.shp` for later)
-1. Create CityJSON from CityGML using [citygml-tools](https://github.com/citygml4j/citygml-tools)
-2. Create OBJ file from CityJSON using [cjio](https://github.com/cityjson/cjio)
-
-The pipeline relies on the fact that the **exported OBJ uses CityJSON IDs as object names**
-
-3. Optimize OBJ in order to allow for faster picking
-4. Visualize using demo
-5. Pick buildings and display information
-
 ## What works so far
 All source can be found in [the demo folder](./demo), the project is written in TypeScript and compiled into a single `.js` file - see output [script.js](./demo/build/script.js).
 
-### How to run
+## How to run
 *The repo does not contain the terrain OBJ and CityJson files since they are together over 1GB.*
-You need the following files in the `/demo/assets/bubny` folder:
+* [Developer preview with frequent updates](https://vojtatom.cz/metacity) - last 5.8.2020
 
-* bubny_bud.json
-* bubny_bud.obj
-* bubny_ter.obj
-
-Run `make serve` or `python3 -m http.server` from the `demo` folder, pull up the address `0.0.0.0:8000` in your browser.
-
+Run `make serve` or `python3 -m http.server` from the `demo` folder, pull up the address `0.0.0.0:8000` or `localhost:8000` in your browser.
 
 ## TODOs
 Checked marks done:
@@ -45,11 +24,23 @@ Checked marks done:
 * [x] allow for object picking - [source](http://learnwebgl.brown37.net/11_advanced_rendering/selecting_objects.html), [another source](https://webglfundamentals.org/webgl/lessons/webgl-picking.html)
 * [x] load CityJSON and pair the picked building with its metadata 
 * [x] add terain
-* [ ] add street data (not present in CityJSON)
+* [x] add street data (not present in CityJSON)
 * [ ] would be nice to have custom exporter from CityGML or CityJson to obj so we don't rely on consistency of the exported IDs
-* [ ] combine with simulated winds
+* [ ] more to be added
 
-## How to make it look prettier
+### Basic Model Processing Pipeline
+
+Input files: `.gml` (and `.shp` for later)
+1. Create CityJSON from CityGML using [citygml-tools](https://github.com/citygml4j/citygml-tools)
+2. Create OBJ file from CityJSON using [cjio](https://github.com/cityjson/cjio)
+
+The pipeline relies on the fact that the **exported OBJ uses CityJSON IDs as object names**
+
+3. Optimize OBJ in order to allow for faster picking
+4. Visualize using demo
+5. Pick buildings and display information
+
+### How to make it look prettier
 * implement [derrefered Shading](https://learnopengl.com/Advanced-Lighting/Deferred-Shading) for WebGL and [screen space AO](https://learnopengl.com/Advanced-Lighting/SSAO)
 * add some shadows
 * add some pretty colors
