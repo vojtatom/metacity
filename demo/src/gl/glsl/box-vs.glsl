@@ -1,14 +1,14 @@
- 
-precision mediump float;
+#version 300 es
+precision highp float;
 precision highp int;
 
-attribute vec3 vertex;
+in vec3 vertex;
 
 uniform mat4 mWorld;
 uniform mat4 mView;
 uniform mat4 mProj;
 
-varying vec3 fragColor;
+out vec3 fragColor;
 
 void main()
 {
