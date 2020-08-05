@@ -24,7 +24,7 @@ Checked marks done:
 * [x] allow for object picking - [source](http://learnwebgl.brown37.net/11_advanced_rendering/selecting_objects.html), [another source](https://webglfundamentals.org/webgl/lessons/webgl-picking.html)
 * [x] load CityJSON and pair the picked building with its metadata 
 * [x] add terain
-* [x] add street data (not present in CityJSON)
+* [ ] **work in progress** - add street data (not present in CityJSON)
 * [ ] would be nice to have custom exporter from CityGML or CityJson to obj so we don't rely on consistency of the exported IDs
 * [ ] more to be added
 
