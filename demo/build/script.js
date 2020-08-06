@@ -4868,10 +4868,10 @@ var GLCamera;
             this.aspect = 0;
             this.sceneChanged = false;
             this.farplane = 1000000;
-            this.positionMomentum = 0;
-            this.centerMomentum = 0;
-            this.rotMomentum = 0;
-            this.scaleMomentum = 0;
+            this.positionMomentum = 1;
+            this.centerMomentum = 1;
+            this.rotMomentum = 1;
+            this.scaleMomentum = 1;
         }
         get view() {
             glMatrix.mat4.lookAt(this.viewMatrix, this.actualPosition, this.actualCenter, this.actualUp);
@@ -4994,6 +4994,9 @@ var GLCamera;
             glMatrix.mat4.identity(this.worldMatrix);
             glMatrix.mat4.scale(this.worldMatrix, this.worldMatrix, glMatrix.vec3.fromValues(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE));
             glMatrix.mat4.translate(this.worldMatrix, this.worldMatrix, glMatrix.vec3.negate(this.tmp, this.geometryCenter));
+        }
+        get needsRedraw() {
+            return this.centerMomentum || this.rotMomentum || this.positionMomentum;
         }
     }
     GLCamera.Camera = Camera;
@@ -5628,7 +5631,7 @@ var AppModule;
                     "./assets/bubny/bubny_most_filtered.obj",
                     "./assets/bubny/bubny_most.json",
                     "./assets/bubny/bubny_ter.obj",
-                    "./assets/bubny/TSK_ulice.json"],
+                    "./assets/bubny/TSK_ulice_min.json"],
                 success: (files) => {
                     this.data = files;
                     this.state = AppState.loaded;

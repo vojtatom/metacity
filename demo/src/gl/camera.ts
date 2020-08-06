@@ -68,10 +68,10 @@ module GLCamera {
             this.farplane = 1000000;
 
                     
-            this.positionMomentum = 0;
-            this.centerMomentum = 0;
-            this.rotMomentum = 0;
-            this.scaleMomentum = 0;
+            this.positionMomentum = 1;
+            this.centerMomentum = 1;
+            this.rotMomentum = 1;
+            this.scaleMomentum = 1;
         }
 
         get view() {
@@ -226,6 +226,10 @@ module GLCamera {
             glMatrix.mat4.scale(this.worldMatrix, this.worldMatrix, 
                 glMatrix.vec3.fromValues(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE));
             glMatrix.mat4.translate(this.worldMatrix, this.worldMatrix, glMatrix.vec3.negate(this.tmp, this.geometryCenter));
+        }
+
+        get needsRedraw() {
+            return this.centerMomentum || this.rotMomentum || this.positionMomentum;
         }
     }
 }
