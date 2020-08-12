@@ -54,7 +54,6 @@ module DataManager {
                 reject(Error("Network Error"));
             };
 
-
             loader.appendChild(bar);
 
             request.onprogress = function(e: ProgressEvent) {
@@ -62,7 +61,6 @@ module DataManager {
                 strechy.innerHTML = p + "% " + file_title;
                 strechy.style.width = p + "%";
             }
-
 
             request.send();
         });

@@ -1,6 +1,6 @@
 
 window.onload = function(e: Event) {
-    let app = new AppModule.Application();
+    let app = new Application();
     //canvas variable is actually parent DIV!!!
     let canvas = document.getElementById("canvas");
 

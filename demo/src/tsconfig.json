@@ -12,16 +12,32 @@
     "files": [
       "externals/glmatrix.d.ts",
       "externals/glmatrix.js",
+      "ui/ui.ts",
       "dm.ts",
       "parser.ts",
-      "gl/base.ts",
+
+      "gl/interface.ts",
+      "gl/object.ts",
+      "gl/scene.ts",
+
+      "gl/programs/base.ts",
+      "gl/programs/pick.ts",
+      "gl/programs/street.ts",
+      "gl/programs/building.ts",
+      "gl/programs/terrain.ts",
+      "gl/programs/box.ts",
+
+      "gl/models/base.ts",
+      "gl/models/city.ts",
+      "gl/models/cube.ts",
+      "gl/models/streets.ts",
+      "gl/models/terrain.ts",
+
       "gl/geometry.ts",
-      "gl/program.ts",
-      "gl/model.ts",
       "gl/camera.ts",
       "gl/gl.ts",
-      "ui/ui.ts",
       "layers.ts",
+      "interface.ts",
       "app.ts",
       "main.ts"
     ]

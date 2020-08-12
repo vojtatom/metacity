@@ -3868,1312 +3868,6 @@
     exports.vec4 = vec4;
     Object.defineProperty(exports, '__esModule', { value: true });
 })));
-var DataManager;
-(function (DataManager) {
-    function files(options) {
-        let requests = [];
-        for (let file of options.files) {
-            requests.push(getPromise(file));
-        }
-        Promise.all(requests).then(options.success, options.fail);
-    }
-    DataManager.files = files;
-    function getPromise(url) {
-        return new Promise(function (resolve, reject) {
-            var request = new XMLHttpRequest();
-            request.open('GET', url);
-            let loader = document.getElementById("loader");
-            let strechy = UI.div({
-                class: "strechy",
-                html: "waiting for data...",
-            });
-            let bar = UI.div({
-                class: "progress",
-                child: strechy,
-            });
-            let file_title = url.split("/");
-            file_title = file_title[file_title.length - 1];
-            request.onload = function () {
-                if (request.status == 200) {
-                    if (bar && bar.parentElement)
-                        bar.parentElement.removeChild(bar);
-                    resolve(request.response);
-                }
-                else {
-                    reject(Error(request.statusText));
-                }
-            };
-            request.onerror = function () {
-                reject(Error("Network Error"));
-            };
-            loader.appendChild(bar);
-            request.onprogress = function (e) {
-                let p = ((e.loaded / e.total) * 100).toFixed(2);
-                strechy.innerHTML = p + "% " + file_title;
-                strechy.style.width = p + "%";
-            };
-            request.send();
-        });
-    }
-})(DataManager || (DataManager = {}));
-var Parser;
-(function (Parser) {
-    let id = 0;
-    function parseVertex(tokens, vertexBuffer, stats, filled) {
-        let x = Number(tokens[1]);
-        let y = Number(tokens[2]);
-        let z = Number(tokens[3]);
-        vertexBuffer[filled++] = Number(x);
-        vertexBuffer[filled++] = Number(y);
-        vertexBuffer[filled++] = Number(z);
-        stats.min[0] = Math.min(stats.min[0], x);
-        stats.min[1] = Math.min(stats.min[1], y);
-        stats.min[2] = Math.min(stats.min[2], z);
-        stats.max[0] = Math.max(stats.max[0], x);
-        stats.max[1] = Math.max(stats.max[1], y);
-        stats.max[2] = Math.max(stats.max[2], z);
-    }
-    function parseNormal(tokens, normalBuffer, filled) {
-        normalBuffer[filled++] = Number(tokens[1]);
-        normalBuffer[filled++] = Number(tokens[2]);
-        normalBuffer[filled++] = Number(tokens[3]);
-    }
-    function setupNormal(vertexIDs, vertexBuffer) {
-        let vs = [];
-        for (let id of vertexIDs) {
-            let rid = 3 * id;
-            vs.push(glMatrix.vec3.fromValues(vertexBuffer[rid], vertexBuffer[rid + 1], vertexBuffer[rid + 2]));
-        }
-        let a = glMatrix.vec3.sub(glMatrix.vec3.create(), vs[2], vs[0]);
-        let b = glMatrix.vec3.sub(glMatrix.vec3.create(), vs[1], vs[0]);
-        let normal = glMatrix.vec3.create();
-        return glMatrix.vec3.normalize(normal, glMatrix.vec3.cross(normal, a, b));
-    }
-    function countPrimitives(lines) {
-        let vertices = 0;
-        let normals = 0;
-        let triangles = 0;
-        for (let line of lines) {
-            let tokens = line.split(" ");
-            let type = tokens[0];
-            if (type === "v")
-                vertices++;
-            if (type === "vn")
-                normals++;
-            if (type === "f")
-                triangles += tokens.length - 3;
-        }
-        return {
-            vertices: vertices,
-            normals: normals,
-            triangles: triangles
-        };
-    }
-    function copyVector(bufferTo, bufferFrom, idTo, idFrom) {
-        for (let i = 0; i < 3; ++i) {
-            bufferTo[idTo * 3 + i] = bufferFrom[idFrom * 3 + i];
-        }
-    }
-    function loadNoNormals(lines, counts, storeIDs) {
-        let rvert = new Float32Array(counts.vertices * 3);
-        let stats = {
-            min: [Infinity, Infinity, Infinity],
-            max: [-Infinity, -Infinity, -Infinity]
-        };
-        let filled = 0;
-        for (let line of lines) {
-            let tokens = line.split(" ");
-            if (tokens[0] === "v") {
-                parseVertex(tokens, rvert, stats, filled);
-                filled += 3;
-            }
-        }
-        filled = 0;
-        let vertices = new Float32Array(counts.triangles * 3 * 3);
-        let normals = new Float32Array(counts.triangles * 3 * 3);
-        let objects;
-        let idToObj;
-        let objToId;
-        if (storeIDs) {
-            objects = new Uint32Array(counts.triangles * 3);
-            idToObj = {};
-            objToId = {};
-        }
-        for (let line of lines) {
-            let tokens = line.split(" ");
-            if (tokens[0] === "o" && storeIDs) {
-                id++;
-                idToObj[id] = tokens[1];
-                objToId[tokens[1]] = id;
-            }
-            else if (tokens[0] === "f") {
-                let faceVertIds = Array(tokens.length - 1);
-                for (let i = 1; i < tokens.length; ++i)
-                    faceVertIds[i - 1] = Number(tokens[i]) - 1;
-                let faceIDs = [faceVertIds[0], 0, 0];
-                for (let i = 0; i < faceVertIds.length - 2; ++i) {
-                    faceIDs[1] = faceVertIds[i + 1];
-                    faceIDs[2] = faceVertIds[i + 2];
-                    copyVector(vertices, rvert, filled, faceIDs[0]);
-                    copyVector(vertices, rvert, filled + 1, faceIDs[1]);
-                    copyVector(vertices, rvert, filled + 2, faceIDs[2]);
-                    let normal = setupNormal(faceIDs, rvert);
-                    copyVector(normals, normal, filled, 0);
-                    copyVector(normals, normal, filled + 1, 0);
-                    copyVector(normals, normal, filled + 2, 0);
-                    if (storeIDs) {
-                        objects[filled] = id;
-                        objects[filled + 1] = id;
-                        objects[filled + 2] = id;
-                    }
-                    filled += 3;
-                }
-            }
-        }
-        if (storeIDs) {
-            return {
-                vertices: vertices,
-                normals: normals,
-                objects: objects,
-                idToObj: idToObj,
-                objToId: objToId,
-                stats: stats
-            };
-        }
-        else {
-            return {
-                vertices: vertices,
-                normals: normals,
-                stats: stats
-            };
-        }
-    }
-    function loadWithNormals(lines, counts, storeIDs) {
-        let rvert = new Float32Array(counts.vertices * 3);
-        let rnorm = new Float32Array(counts.normals * 3);
-        let stats = {
-            min: [Infinity, Infinity, Infinity],
-            max: [-Infinity, -Infinity, -Infinity]
-        };
-        let filledVert = 0;
-        let filledNorm = 0;
-        for (let line of lines) {
-            let tokens = line.split(" ");
-            if (tokens[0] === "v") {
-                parseVertex(tokens, rvert, stats, filledVert);
-                filledVert += 3;
-            }
-            else if (tokens[0] === "vn") {
-                parseNormal(tokens, rnorm, filledNorm);
-                filledNorm += 3;
-            }
-        }
-        let filled = 0;
-        let vertices = new Float32Array(counts.triangles * 3 * 3);
-        let normals = new Float32Array(counts.triangles * 3 * 3);
-        let objects;
-        let idToObj;
-        let objToId;
-        if (storeIDs) {
-            objects = new Uint32Array(counts.triangles * 3);
-            idToObj = {};
-            objToId = {};
-        }
-        for (let line of lines) {
-            let tokens = line.split(" ");
-            if (tokens[0] === "o" && storeIDs) {
-                id++;
-                idToObj[id] = tokens[1];
-                objToId[tokens[1]] = id;
-            }
-            else if (tokens[0] === "f") {
-                let faceVertIds = Array(tokens.length - 1);
-                let faceNormIds = Array(tokens.length - 1);
-                let missingNormal = false;
-                for (let i = 1; i < tokens.length; ++i) {
-                    let vertIds = tokens[i].split("/");
-                    faceVertIds[i - 1] = Number(vertIds[0]) - 1;
-                    if (vertIds.length == 3)
-                        faceNormIds[i - 1] = Number(vertIds[vertIds.length - 1]) - 1;
-                    else {
-                        faceNormIds[i - 1] = -1;
-                        missingNormal = true;
-                    }
-                }
-                let triVertIDs = [faceVertIds[0], 0, 0];
-                let triNormIDs = [faceNormIds[0], 0, 0];
-                for (let i = 0; i < faceVertIds.length - 2; ++i) {
-                    triVertIDs[1] = faceVertIds[i + 1];
-                    triVertIDs[2] = faceVertIds[i + 2];
-                    triNormIDs[1] = faceNormIds[i + 1];
-                    triNormIDs[2] = faceNormIds[i + 2];
-                    copyVector(vertices, rvert, filled, triVertIDs[0]);
-                    copyVector(vertices, rvert, filled + 1, triVertIDs[1]);
-                    copyVector(vertices, rvert, filled + 2, triVertIDs[2]);
-                    if (missingNormal) {
-                        let normal = setupNormal(triVertIDs, rvert);
-                        copyVector(normals, normal, filled, 0);
-                        copyVector(normals, normal, filled + 1, 0);
-                        copyVector(normals, normal, filled + 2, 0);
-                    }
-                    else {
-                        copyVector(normals, rnorm, filled, triNormIDs[0]);
-                        copyVector(normals, rnorm, filled + 1, triNormIDs[1]);
-                        copyVector(normals, rnorm, filled + 2, triNormIDs[2]);
-                    }
-                    if (storeIDs) {
-                        objects[filled] = id;
-                        objects[filled + 1] = id;
-                        objects[filled + 2] = id;
-                    }
-                    filled += 3;
-                }
-            }
-        }
-        if (storeIDs) {
-            return {
-                vertices: vertices,
-                normals: normals,
-                objects: objects,
-                idToObj: idToObj,
-                objToId: objToId,
-                stats: stats
-            };
-        }
-        else {
-            return {
-                vertices: vertices,
-                normals: normals,
-                stats: stats
-            };
-        }
-    }
-    function parseOBJ(contents, storeIDs) {
-        console.log("loading OBJ");
-        const lines = contents.split("\n");
-        const counts = countPrimitives(lines);
-        console.log(counts);
-        if (counts.normals == 0) {
-            return loadNoNormals(lines, counts, storeIDs);
-        }
-        else {
-            return loadWithNormals(lines, counts, storeIDs);
-        }
-    }
-    Parser.parseOBJ = parseOBJ;
-    function parseJson(contents) {
-        return JSON.parse(contents);
-    }
-    Parser.parseJson = parseJson;
-    function countLinePoints(data) {
-        let points = 0;
-        for (let i = 0; i < data.features.length; ++i) {
-            if (data.features[i].geometry.type == "LineString")
-                points += data.features[i].geometry.coordinates.length * 2 - 2;
-        }
-        return points;
-    }
-    function parseGeoJson(contents, dims) {
-        let data = JSON.parse(contents);
-        ;
-        if (data['type'] === 'FeatureCollection') {
-            let points = countLinePoints(data);
-            let filled = 0;
-            let vertices = new Float32Array(points * dims);
-            for (let i = 0; i < data.features.length; ++i) {
-                let geo = data.features[i].geometry;
-                if (geo.type == "LineString") {
-                    for (let j = 0; j < geo.coordinates.length; ++j) {
-                        if (j > 0 && j < geo.coordinates.length - 1)
-                            for (let d = 0; d < dims; ++d) {
-                                vertices[filled++] = geo.coordinates[j][d];
-                            }
-                        for (let d = 0; d < dims; ++d) {
-                            vertices[filled++] = geo.coordinates[j][d];
-                        }
-                    }
-                }
-            }
-            return {
-                vertices: vertices
-            };
-        }
-    }
-    Parser.parseGeoJson = parseGeoJson;
-})(Parser || (Parser = {}));
-var GLBase;
-(function (GLBase) {
-    class GLObject {
-        constructor(gl) {
-            this.gl = gl;
-        }
-    }
-    GLBase.GLObject = GLObject;
-})(GLBase || (GLBase = {}));
-var GLGeometry;
-(function (GLGeometry) {
-    function boxVertices(min, max) {
-        return new Float32Array([
-            min[0], min[1], min[2],
-            max[0], min[1], min[2],
-            max[0], min[1], min[2],
-            max[0], max[1], min[2],
-            max[0], max[1], min[2],
-            min[0], max[1], min[2],
-            min[0], max[1], min[2],
-            min[0], min[1], min[2],
-            min[0], min[1], max[2],
-            max[0], min[1], max[2],
-            max[0], min[1], max[2],
-            max[0], max[1], max[2],
-            max[0], max[1], max[2],
-            min[0], max[1], max[2],
-            min[0], max[1], max[2],
-            min[0], min[1], max[2],
-            min[0], min[1], min[2],
-            min[0], min[1], max[2],
-            max[0], min[1], min[2],
-            max[0], min[1], max[2],
-            min[0], max[1], min[2],
-            min[0], max[1], max[2],
-            max[0], max[1], min[2],
-            max[0], max[1], max[2],
-        ]);
-    }
-    GLGeometry.boxVertices = boxVertices;
-})(GLGeometry || (GLGeometry = {}));
-var GLProgram;
-(function (GLProgram) {
-    let ShaderType;
-    (function (ShaderType) {
-        ShaderType[ShaderType["vertex"] = 0] = "vertex";
-        ShaderType[ShaderType["fragment"] = 1] = "fragment";
-    })(ShaderType || (ShaderType = {}));
-    ;
-    ;
-    class Shader extends GLBase.GLObject {
-        constructor(gl, code, type) {
-            super(gl);
-            this.type = type;
-            this.code = code;
-            this.createShader();
-        }
-        createShader() {
-            let type;
-            if (this.type == ShaderType.vertex)
-                type = this.gl.VERTEX_SHADER;
-            else
-                type = this.gl.FRAGMENT_SHADER;
-            this.shader = this.gl.createShader(type);
-            this.gl.shaderSource(this.shader, this.code);
-            this.gl.compileShader(this.shader);
-            if (!this.gl.getShaderParameter(this.shader, this.gl.COMPILE_STATUS)) {
-                console.error('ERROR compiling shader!', this.gl.getShaderInfoLog(this.shader));
-                console.error(this.code);
-                throw 'ERROR compiling shader!';
-            }
-        }
-    }
-    class Program extends GLBase.GLObject {
-        constructor(gl) {
-            super(gl);
-            this.state = {
-                init: false,
-                attrs: false,
-                unifs: false,
-            };
-            this.GLType = {
-                float: this.gl.uniform1f,
-                int: this.gl.uniform1i,
-                vec2: this.gl.uniform2fv,
-                vec3: this.gl.uniform3fv,
-                vec4: this.gl.uniform4fv,
-                mat4: this.gl.uniformMatrix4fv,
-            };
-            this.uniforms = {};
-            this.attributes = {};
-            this.loaded = false;
-        }
-        static get DIR() {
-            return "./src/gl/glsl/";
-        }
-        init(vs, fs) {
-            this.vs = new Shader(this.gl, vs, ShaderType.vertex);
-            this.fs = new Shader(this.gl, fs, ShaderType.fragment);
-            this.createProgram();
-            this.update('init');
-        }
-        createProgram() {
-            let program = this.gl.createProgram();
-            this.gl.attachShader(program, this.vs.shader);
-            this.gl.attachShader(program, this.fs.shader);
-            this.gl.linkProgram(program);
-            if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-                console.error('ERROR linking program!', this.gl.getProgramInfoLog(program));
-            }
-            this.gl.validateProgram(program);
-            if (!this.gl.getProgramParameter(program, this.gl.VALIDATE_STATUS)) {
-                console.error('ERROR validating program!', this.gl.getProgramInfoLog(program));
-            }
-            this.program = program;
-        }
-        setupAttributes(attr) {
-            this.attributes = {};
-            for (let key in attr) {
-                this.attributes[key] = this.gl.getAttribLocation(this.program, attr[key]);
-            }
-            this.update('attrs');
-        }
-        setupUniforms(unif) {
-            for (let key in unif) {
-                this.uniforms[key] = {
-                    location: this.gl.getUniformLocation(this.program, unif[key].name),
-                    assignFunction: unif[key].type,
-                };
-            }
-            this.update('unifs');
-        }
-        bindAttribute(set) {
-            this.gl.enableVertexAttribArray(set.attribute);
-            this.gl.vertexAttribPointer(set.attribute, set.size, this.gl.FLOAT, false, set.stride, set.offset);
-            if ('divisor' in set) {
-                this.gl.vertexAttribDivisor(set.attribute, set.divisor);
-            }
-        }
-        bindInt32Attribute(set) {
-            this.gl.enableVertexAttribArray(set.attribute);
-            this.gl.vertexAttribPointer(set.attribute, set.size, this.gl.UNSIGNED_BYTE, true, set.stride, set.offset);
-            if ('divisor' in set) {
-                this.gl.vertexAttribDivisor(set.attribute, set.divisor);
-            }
-        }
-        bindUniforms(options) {
-            for (let key in this.uniforms) {
-                if (this.uniforms[key].assignFunction === this.GLType.mat4) {
-                    this.uniforms[key].assignFunction.apply(this.gl, [this.uniforms[key].location, false, options[key]]);
-                }
-                else {
-                    this.uniforms[key].assignFunction.apply(this.gl, [this.uniforms[key].location, options[key]]);
-                }
-            }
-        }
-        commonUniforms() {
-            this.setupUniforms({
-                world: {
-                    name: 'mWorld',
-                    type: this.GLType.mat4,
-                },
-                view: {
-                    name: 'mView',
-                    type: this.GLType.mat4,
-                },
-                proj: {
-                    name: 'mProj',
-                    type: this.GLType.mat4,
-                },
-            });
-        }
-        bind() {
-            this.gl.useProgram(this.program);
-        }
-        unbind() {
-            this.gl.useProgram(null);
-        }
-        update(key) {
-            this.state[key] = true;
-            if (this.state.init && this.state.attrs && this.state.unifs)
-                this.loaded = true;
-        }
-    }
-    class PickProgram extends Program {
-        constructor(gl) {
-            super(gl);
-            DataManager.files({
-                files: [
-                    Program.DIR + "pick-vs.glsl",
-                    Program.DIR + "pick-fs.glsl",
-                ],
-                success: (files) => {
-                    this.init(files[0], files[1]);
-                    this.setup();
-                },
-                fail: () => {
-                    throw "Pick shader not loaded";
-                }
-            });
-        }
-        setup() {
-            this.setupAttributes({
-                vertex: 'vertex',
-                object: 'object'
-            });
-            this.commonUniforms();
-            this.setupUniforms({});
-        }
-        bindAttrVertex() {
-            this.gl.useProgram(this.program);
-            this.bindAttribute({
-                attribute: this.attributes.vertex,
-                size: 3,
-                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
-                offset: 0,
-            });
-            this.gl.useProgram(null);
-        }
-        bindAttrObject() {
-            this.gl.useProgram(this.program);
-            this.bindInt32Attribute({
-                attribute: this.attributes.object,
-                size: 4,
-                stride: 1 * Uint32Array.BYTES_PER_ELEMENT,
-                offset: 0,
-            });
-            this.gl.useProgram(null);
-        }
-    }
-    GLProgram.PickProgram = PickProgram;
-    class StreetProgram extends Program {
-        constructor(gl) {
-            super(gl);
-            DataManager.files({
-                files: [
-                    Program.DIR + "street-vs.glsl",
-                    Program.DIR + "street-fs.glsl",
-                ],
-                success: (files) => {
-                    this.init(files[0], files[1]);
-                    this.setup();
-                },
-                fail: () => {
-                    throw "Street shader not loaded";
-                }
-            });
-        }
-        setup() {
-            this.setupAttributes({
-                vertex: 'vertex'
-            });
-            this.commonUniforms();
-            this.setupUniforms({
-                level: {
-                    name: 'level',
-                    type: this.GLType.float,
-                }
-            });
-        }
-        bindAttrVertex() {
-            this.gl.useProgram(this.program);
-            this.bindAttribute({
-                attribute: this.attributes.vertex,
-                size: 2,
-                stride: 2 * Float32Array.BYTES_PER_ELEMENT,
-                offset: 0,
-            });
-            this.gl.useProgram(null);
-        }
-    }
-    GLProgram.StreetProgram = StreetProgram;
-    class BuildingProgram extends Program {
-        constructor(gl) {
-            super(gl);
-            DataManager.files({
-                files: [
-                    Program.DIR + "building-vs.glsl",
-                    Program.DIR + "building-fs.glsl",
-                ],
-                success: (files) => {
-                    this.init(files[0], files[1]);
-                    this.setup();
-                },
-                fail: () => {
-                    throw "Building shader not loaded";
-                }
-            });
-        }
-        setup() {
-            this.setupAttributes({
-                vertex: 'vertex',
-                normal: 'normal',
-                object: 'object'
-            });
-            this.commonUniforms();
-            this.setupUniforms({
-                selected: {
-                    name: 'selected',
-                    type: this.GLType.vec4,
-                }
-            });
-        }
-        bindAttrVertex() {
-            this.gl.useProgram(this.program);
-            this.bindAttribute({
-                attribute: this.attributes.vertex,
-                size: 3,
-                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
-                offset: 0,
-            });
-            this.gl.useProgram(null);
-        }
-        bindAttrNormal() {
-            this.gl.useProgram(this.program);
-            this.bindAttribute({
-                attribute: this.attributes.normal,
-                size: 3,
-                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
-                offset: 0,
-            });
-            this.gl.useProgram(null);
-        }
-        bindAttrObject() {
-            this.gl.useProgram(this.program);
-            this.bindInt32Attribute({
-                attribute: this.attributes.object,
-                size: 4,
-                stride: 1 * Uint32Array.BYTES_PER_ELEMENT,
-                offset: 0,
-            });
-            this.gl.useProgram(null);
-        }
-    }
-    GLProgram.BuildingProgram = BuildingProgram;
-    class TerrainProgram extends Program {
-        constructor(gl) {
-            super(gl);
-            DataManager.files({
-                files: [
-                    Program.DIR + "terrain-vs.glsl",
-                    Program.DIR + "terrain-fs.glsl",
-                ],
-                success: (files) => {
-                    this.init(files[0], files[1]);
-                    this.setup();
-                },
-                fail: () => {
-                    throw "Terrain shader not loaded";
-                }
-            });
-        }
-        setup() {
-            this.setupAttributes({
-                vertex: 'vertex',
-                normal: 'normal',
-            });
-            this.commonUniforms();
-            this.setupUniforms({});
-        }
-        bindAttrVertex() {
-            this.gl.useProgram(this.program);
-            this.bindAttribute({
-                attribute: this.attributes.vertex,
-                size: 3,
-                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
-                offset: 0,
-            });
-            this.gl.useProgram(null);
-        }
-        bindAttrNormal() {
-            this.gl.useProgram(this.program);
-            this.bindAttribute({
-                attribute: this.attributes.normal,
-                size: 3,
-                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
-                offset: 0,
-            });
-            this.gl.useProgram(null);
-        }
-    }
-    GLProgram.TerrainProgram = TerrainProgram;
-    class BoxProgram extends Program {
-        constructor(gl) {
-            super(gl);
-            DataManager.files({
-                files: [
-                    Program.DIR + "box-vs.glsl",
-                    Program.DIR + "box-fs.glsl",
-                ],
-                success: (files) => {
-                    this.init(files[0], files[1]);
-                    this.setup();
-                },
-                fail: () => {
-                    throw "Box shader not loaded";
-                }
-            });
-        }
-        setup() {
-            this.setupAttributes({
-                vertex: 'vertex',
-            });
-            this.commonUniforms();
-            this.setupUniforms({});
-        }
-        bindAttrVertex() {
-            this.gl.useProgram(this.program);
-            this.bindAttribute({
-                attribute: this.attributes.vertex,
-                size: 3,
-                stride: 3 * Float32Array.BYTES_PER_ELEMENT,
-                offset: 0,
-            });
-            this.gl.useProgram(null);
-        }
-    }
-    GLProgram.BoxProgram = BoxProgram;
-})(GLProgram || (GLProgram = {}));
-var GLModels;
-(function (GLModels) {
-    class GLModel extends GLBase.GLObject {
-        constructor(gl) {
-            super(gl);
-            this.loaded = false;
-            this.buffers = {
-                vao: undefined,
-                ebo: undefined,
-                vbo: [],
-            };
-        }
-        addBufferVAO(buffer) {
-            this.buffers.vao = buffer;
-        }
-        addBufferVBO(buffer) {
-            this.buffers.vbo.push(buffer);
-        }
-        addBufferEBO(buffer) {
-            this.buffers.ebo = buffer;
-        }
-        bindBuffersAndTextures() {
-            this.gl.bindVertexArray(this.buffers.vao);
-            for (let buffer of this.buffers.vbo) {
-                this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-            }
-            if (this.buffers.ebo !== undefined) {
-                this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.buffers.ebo);
-            }
-        }
-        uniformDict(scene) {
-            return Object.assign({}, {
-                world: scene.camera.world,
-                view: scene.camera.view,
-                proj: scene.camera.projection,
-                farplane: scene.camera.farplane,
-            });
-        }
-        render(scene) {
-        }
-        renderPicking(scene) {
-        }
-    }
-    GLModels.GLModel = GLModel;
-    class CubeModel extends GLModel {
-        constructor(gl, programs, model) {
-            super(gl);
-            this.program = programs.box;
-            this.data = model;
-            this.init();
-        }
-        init() {
-            if (!this.program.loaded)
-                return;
-            let vao = this.gl.createVertexArray();
-            this.gl.bindVertexArray(vao);
-            this.addBufferVAO(vao);
-            let vdata = GLGeometry.boxVertices(this.data.min, this.data.max);
-            let vertices = this.gl.createBuffer();
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, vdata, this.gl.STATIC_DRAW);
-            this.addBufferVBO(vertices);
-            this.program.bindAttrVertex();
-            this.gl.bindVertexArray(null);
-            this.loaded = true;
-        }
-        render(scene) {
-            if (!this.loaded) {
-                this.init();
-                return;
-            }
-            this.bindBuffersAndTextures();
-            let uniforms = this.uniformDict(scene);
-            this.program.bindUniforms(uniforms);
-            this.gl.drawArrays(this.gl.LINES, 0, 24);
-            this.gl.bindVertexArray(null);
-        }
-    }
-    GLModels.CubeModel = CubeModel;
-    class CityModel extends GLModel {
-        constructor(gl, programs, model) {
-            super(gl);
-            this.program = programs.building;
-            this.pickingProgram = programs.pick;
-            this.data = model;
-            this.init();
-        }
-        init() {
-            if (!this.program.loaded)
-                return;
-            let vao = this.gl.createVertexArray();
-            this.gl.bindVertexArray(vao);
-            this.addBufferVAO(vao);
-            let vertices = this.gl.createBuffer();
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
-            this.addBufferVBO(vertices);
-            this.program.bindAttrVertex();
-            this.pickingProgram.bindAttrVertex();
-            let normals = this.gl.createBuffer();
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normals);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.normals, this.gl.STATIC_DRAW);
-            this.addBufferVBO(normals);
-            this.program.bindAttrNormal();
-            let objects = this.gl.createBuffer();
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, objects);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.objects, this.gl.STATIC_DRAW);
-            this.addBufferVBO(objects);
-            this.program.bindAttrObject();
-            this.pickingProgram.bindAttrObject();
-            this.gl.bindVertexArray(null);
-            this.triangles = this.data.vertices.length / 3;
-            this.loaded = true;
-            delete this.data;
-        }
-        render(scene) {
-            if (!this.loaded) {
-                this.init();
-                return;
-            }
-            this.bindBuffersAndTextures();
-            let uniforms = this.uniformDict(scene);
-            uniforms["selected"] = scene.selectedv4;
-            this.program.bindUniforms(uniforms);
-            this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
-            this.gl.bindVertexArray(null);
-        }
-        renderPicking(scene) {
-            if (!this.loaded) {
-                this.init();
-                return;
-            }
-            this.bindBuffersAndTextures();
-            let uniforms = this.uniformDict(scene);
-            this.pickingProgram.bindUniforms(uniforms);
-            this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
-            this.gl.bindVertexArray(null);
-        }
-    }
-    GLModels.CityModel = CityModel;
-    class StreetModel extends GLModel {
-        constructor(gl, programs, model) {
-            super(gl);
-            this.program = programs.street;
-            this.data = model;
-            this.init();
-        }
-        init() {
-            if (!this.program.loaded)
-                return;
-            let vao = this.gl.createVertexArray();
-            this.gl.bindVertexArray(vao);
-            this.addBufferVAO(vao);
-            let vertices = this.gl.createBuffer();
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
-            this.addBufferVBO(vertices);
-            this.program.bindAttrVertex();
-            this.gl.bindVertexArray(null);
-            this.lineSegments = this.data.vertices.length / 2;
-            this.loaded = true;
-            delete this.data;
-        }
-        render(scene) {
-            if (!this.loaded) {
-                this.init();
-                return;
-            }
-            this.bindBuffersAndTextures();
-            let uniforms = this.uniformDict(scene);
-            uniforms['level'] = scene.stats.max[2];
-            this.program.bindUniforms(uniforms);
-            this.gl.drawArrays(this.gl.LINES, 0, this.lineSegments);
-            this.gl.bindVertexArray(null);
-        }
-    }
-    GLModels.StreetModel = StreetModel;
-    class TerrainModel extends GLModel {
-        constructor(gl, programs, model) {
-            super(gl);
-            this.program = programs.terrain;
-            this.data = model;
-            this.init();
-        }
-        init() {
-            if (!this.program.loaded)
-                return;
-            let vao = this.gl.createVertexArray();
-            this.gl.bindVertexArray(vao);
-            this.addBufferVAO(vao);
-            let vertices = this.gl.createBuffer();
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
-            this.addBufferVBO(vertices);
-            this.program.bindAttrVertex();
-            let normals = this.gl.createBuffer();
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normals);
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.normals, this.gl.STATIC_DRAW);
-            this.addBufferVBO(normals);
-            this.program.bindAttrNormal();
-            this.gl.bindVertexArray(null);
-            this.triangles = this.data.vertices.length / 3;
-            this.loaded = true;
-            delete this.data;
-        }
-        render(scene) {
-            if (!this.loaded) {
-                this.init();
-                return;
-            }
-            this.bindBuffersAndTextures();
-            let uniforms = this.uniformDict(scene);
-            this.program.bindUniforms(uniforms);
-            this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
-            this.gl.bindVertexArray(null);
-        }
-    }
-    GLModels.TerrainModel = TerrainModel;
-})(GLModels || (GLModels = {}));
-var GLCamera;
-(function (GLCamera) {
-    const ZOOM_STEP = 0.0025;
-    const ROT_STEP = 0.5;
-    const GLOBAL_SCALE = 0.001;
-    class Camera extends GLBase.GLObject {
-        constructor(gl) {
-            super(gl);
-            this.position = new Float32Array([0, 0, 0]);
-            this.up = new Float32Array([0, 1, 0]);
-            this.geometryCenter = new Float32Array([0, 0, 0]);
-            this.center = new Float32Array([0, 0, 100]);
-            this.actualPosition = new Float32Array([0, 0, 0]);
-            this.actualUp = new Float32Array([0, 1, 0]);
-            this.actualCenter = new Float32Array([, 0, 100]);
-            this.viewMatrix = new Float32Array(16);
-            this.projectionMatrix = new Float32Array(16);
-            this.rotateMatrix = new Float32Array(16);
-            this.frontVector = new Float32Array(3);
-            this.tmp = new Float32Array(3);
-            this.tmp2 = new Float32Array(3);
-            this.worldMatrix = glMatrix.mat4.create();
-            this.screenX = 0;
-            this.screenY = 0;
-            this.scale = 100;
-            this.speed = 0.05;
-            this.aspect = 0;
-            this.sceneChanged = false;
-            this.farplane = 1000000;
-            this.positionMomentum = 1;
-            this.centerMomentum = 1;
-            this.rotMomentum = 1;
-            this.scaleMomentum = 1;
-        }
-        get view() {
-            glMatrix.mat4.lookAt(this.viewMatrix, this.actualPosition, this.actualCenter, this.actualUp);
-            return this.viewMatrix;
-        }
-        get projection() {
-            return glMatrix.mat4.perspective(this.projectionMatrix, glMatrix.glMatrix.toRadian(45), this.aspect, 0.01, this.farplane);
-        }
-        get world() {
-            return this.worldMatrix;
-        }
-        get front() {
-            glMatrix.vec3.sub(this.frontVector, this.center, this.position);
-            return glMatrix.vec3.normalize(this.frontVector, this.frontVector);
-        }
-        get screenDim() {
-            return vec2.fromValues(this.screenX, this.screenY);
-        }
-        get pos() {
-            return this.position;
-        }
-        restoreCenter() {
-            this.center = Object.assign({}, this.defaultCenter);
-        }
-        viewTop() {
-            let dist = glMatrix.vec3.dist(this.center, this.position);
-            this.position = Object.assign({}, this.center);
-            this.position[2] += dist;
-            this.up = new Float32Array([0, 1, 0]);
-        }
-        viewFront() {
-            let dist = glMatrix.vec3.dist(this.center, this.position);
-            this.position = Object.assign({}, this.center);
-            this.position[1] -= dist;
-            this.up = new Float32Array([0, 0, 1]);
-        }
-        viewSide() {
-            let dist = glMatrix.vec3.dist(this.center, this.position);
-            this.position = Object.assign({}, this.center);
-            this.position[0] -= dist;
-            this.up = new Float32Array([0, 0, 1]);
-        }
-        resize(x, y) {
-            this.screenX = x;
-            this.screenY = y;
-            this.aspect = x / y;
-            this.sceneChanged = true;
-        }
-        rotate(x, y) {
-            let a_x = glMatrix.glMatrix.toRadian(-x) * ROT_STEP;
-            let a_y = glMatrix.glMatrix.toRadian(y) * ROT_STEP;
-            let front = glMatrix.vec3.sub(glMatrix.vec3.create(), this.center, this.position);
-            let axes_x = glMatrix.vec3.cross(this.tmp, this.up, front);
-            let axes_y = this.up;
-            glMatrix.mat4.fromRotation(this.rotateMatrix, a_x, axes_y);
-            glMatrix.mat4.rotate(this.rotateMatrix, this.rotateMatrix, a_y, axes_x);
-            glMatrix.vec3.transformMat4(front, front, this.rotateMatrix);
-            glMatrix.vec3.add(this.position, this.center, glMatrix.vec3.negate(front, front));
-            glMatrix.vec3.transformMat4(this.up, this.up, this.rotateMatrix);
-        }
-        zoom(direction = 1, scale = 1) {
-            glMatrix.vec3.sub(this.tmp, this.position, this.center);
-            glMatrix.vec3.scale(this.tmp, this.tmp, 1 + direction * (ZOOM_STEP * scale));
-            glMatrix.vec3.add(this.tmp, this.center, this.tmp);
-            glMatrix.vec3.copy(this.position, this.tmp);
-        }
-        move(x, y) {
-            let front = glMatrix.vec3.sub(glMatrix.vec3.create(), this.center, this.position);
-            let axes_x = glMatrix.vec3.normalize(this.tmp, glMatrix.vec3.cross(this.tmp, this.up, front));
-            let axes_y = glMatrix.vec3.normalize(this.tmp2, glMatrix.vec3.copy(this.tmp2, this.up));
-            glMatrix.vec3.scale(axes_x, axes_x, x * GLOBAL_SCALE);
-            glMatrix.vec3.scale(axes_y, axes_y, y * GLOBAL_SCALE);
-            glMatrix.vec3.add(this.position, this.position, axes_x);
-            glMatrix.vec3.add(this.position, this.position, axes_y);
-            glMatrix.vec3.add(this.center, this.center, axes_x);
-            glMatrix.vec3.add(this.center, this.center, axes_y);
-        }
-        frame() {
-            const limit = 0.001;
-            glMatrix.vec3.sub(this.tmp, this.position, this.actualPosition);
-            this.positionMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
-            if (this.positionMomentum > limit) {
-                glMatrix.vec3.scaleAndAdd(this.actualPosition, this.actualPosition, this.tmp, this.positionMomentum);
-            }
-            else {
-                glMatrix.vec3.copy(this.actualPosition, this.position);
-                this.positionMomentum = 0;
-            }
-            this.rotMomentum = Math.min(glMatrix.vec3.angle(this.actualUp, this.up), this.speed * 3.14);
-            if (this.rotMomentum > limit) {
-                let axis = glMatrix.vec3.cross(this.tmp, this.actualUp, this.up);
-                glMatrix.mat4.fromRotation(this.rotateMatrix, this.rotMomentum, axis);
-                glMatrix.vec3.transformMat4(this.actualUp, this.actualUp, this.rotateMatrix);
-            }
-            else {
-                glMatrix.vec3.copy(this.actualUp, this.up);
-                this.rotMomentum = 0;
-            }
-            glMatrix.vec3.sub(this.tmp, this.center, this.actualCenter);
-            this.centerMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
-            if (this.centerMomentum > limit) {
-                glMatrix.vec3.scaleAndAdd(this.actualCenter, this.actualCenter, this.tmp, this.centerMomentum);
-            }
-            else {
-                glMatrix.vec3.copy(this.actualCenter, this.center);
-                this.centerMomentum = 0;
-            }
-        }
-        updateScale(stats) {
-            let farplane = 0;
-            for (let i = 0; i < 3; ++i) {
-                this.geometryCenter[i] = (stats.min[i] + stats.max[i]) / 2;
-                farplane = Math.max(farplane, (stats.max[i] - stats.min[i]) * GLOBAL_SCALE);
-            }
-            this.center = glMatrix.vec3.fromValues(0, 0, 0);
-            this.farplane = farplane * 2;
-            this.defaultCenter = Object.assign({}, this.center);
-            this.position = Object.assign({}, this.center);
-            this.position[2] += farplane / 2;
-            glMatrix.mat4.identity(this.worldMatrix);
-            glMatrix.mat4.scale(this.worldMatrix, this.worldMatrix, glMatrix.vec3.fromValues(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE));
-            glMatrix.mat4.translate(this.worldMatrix, this.worldMatrix, glMatrix.vec3.negate(this.tmp, this.geometryCenter));
-        }
-        get needsRedraw() {
-            return this.centerMomentum || this.rotMomentum || this.positionMomentum;
-        }
-    }
-    GLCamera.Camera = Camera;
-})(GLCamera || (GLCamera = {}));
-var GL;
-(function (GL) {
-    function intToVec4Normalized(i) {
-        let n = new Uint32Array([i]);
-        let b = new Uint8Array(n.buffer);
-        let f = new Float32Array(b);
-        f[0] /= 255;
-        f[1] /= 255;
-        f[2] /= 255;
-        f[3] /= 255;
-        return f;
-    }
-    class Scene extends GLBase.GLObject {
-        constructor(gl) {
-            super(gl);
-            this.camera = new GLCamera.Camera(this.gl);
-            this.center = new Float32Array([0, 0, 0]);
-            this.stats = {
-                min: [Infinity, Infinity, Infinity],
-                max: [-Infinity, -Infinity, -Infinity],
-            };
-            this.selected = 1000;
-            this.selectedv4 = intToVec4Normalized(this.selected);
-        }
-        select(id) {
-            this.selected = id;
-            this.selectedv4 = intToVec4Normalized(this.selected);
-        }
-        addModel(stats) {
-            this.stats.min[0] = Math.min(this.stats.min[0], stats.min[0]);
-            this.stats.min[1] = Math.min(this.stats.min[1], stats.min[1]);
-            this.stats.min[2] = Math.min(this.stats.min[2], stats.min[2]);
-            this.stats.max[0] = Math.max(this.stats.max[0], stats.max[0]);
-            this.stats.max[1] = Math.max(this.stats.max[1], stats.max[1]);
-            this.stats.max[2] = Math.max(this.stats.max[2], stats.max[2]);
-            this.camera.updateScale(this.stats);
-        }
-    }
-    GL.Scene = Scene;
-    class Graphics {
-        constructor(canvas) {
-            this.canvas = canvas;
-            console.log('Getting webgl 2 context');
-            this.gl = this.canvas.getContext('webgl2');
-            if (!this.gl) {
-                console.error('WebGL 2 not supported, please use a different browser.');
-                throw 'WebGL 2 not supported, please use a different browser.';
-            }
-            let ext = this.gl.getExtension('OES_element_index_uint');
-            this.programs = {
-                building: new GLProgram.BuildingProgram(this.gl),
-                terrain: new GLProgram.TerrainProgram(this.gl),
-                box: new GLProgram.BoxProgram(this.gl),
-                pick: new GLProgram.PickProgram(this.gl),
-                street: new GLProgram.StreetProgram(this.gl)
-            };
-            this.loaded = false;
-            this.models = {
-                city: [],
-                terrain: [],
-                box: [],
-                streets: []
-            };
-            this.scene = new Scene(this.gl);
-        }
-        addCitySegment(model) {
-            let glmodel = new GLModels.CityModel(this.gl, this.programs, model);
-            this.models.city.push(glmodel);
-            let box = new GLModels.CubeModel(this.gl, this.programs, model.stats);
-            this.models.box.push(box);
-            this.scene.addModel(model.stats);
-            this.loaded = true;
-            return {
-                cityModel: glmodel,
-                boxModel: box
-            };
-        }
-        addTerainSegment(model) {
-            let glmodel = new GLModels.TerrainModel(this.gl, this.programs, model);
-            this.models.terrain.push(glmodel);
-            let box = new GLModels.CubeModel(this.gl, this.programs, model.stats);
-            this.models.box.push(box);
-            this.scene.addModel(model.stats);
-            this.loaded = true;
-            return {
-                terrainModel: glmodel,
-                box: box
-            };
-        }
-        addStreetSegment(model) {
-            let glmodel = new GLModels.StreetModel(this.gl, this.programs, model);
-            this.models.streets.push(glmodel);
-            return {
-                streetModel: glmodel
-            };
-        }
-        render() {
-            if (!this.loaded)
-                return;
-            this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
-            this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
-            this.gl.enable(this.gl.DEPTH_TEST);
-            this.programs.building.bind();
-            for (let c of this.models.city) {
-                c.render(this.scene);
-            }
-            this.programs.building.unbind();
-            this.programs.terrain.bind();
-            for (let t of this.models.terrain) {
-                t.render(this.scene);
-            }
-            this.programs.terrain.unbind();
-            this.programs.street.bind();
-            for (let s of this.models.streets) {
-                s.render(this.scene);
-            }
-            this.programs.street.unbind();
-            this.programs.box.bind();
-            for (let b of this.models.box) {
-                b.render(this.scene);
-            }
-            this.programs.box.unbind();
-            this.scene.camera.frame();
-        }
-        renderPick(x, y, height) {
-            if (!this.loaded)
-                return;
-            this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
-            this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
-            this.gl.enable(this.gl.DEPTH_TEST);
-            this.programs.pick.bind();
-            for (let c of this.models.city) {
-                c.renderPicking(this.scene);
-            }
-            for (let b of this.models.box) {
-                b.renderPicking(this.scene);
-            }
-            this.programs.pick.unbind();
-            this.scene.camera.frame();
-            y = height - y;
-            let pixels = new Uint8Array(4);
-            this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
-            let ID = new DataView(pixels.buffer).getUint32(0, true);
-            return ID;
-        }
-        saveCanvas(filename) {
-            this.canvas.toBlob((blob) => {
-                let file = blob;
-                if (window.navigator.msSaveOrOpenBlob)
-                    window.navigator.msSaveOrOpenBlob(file, filename);
-                else {
-                    console.log(file);
-                    let a = document.createElement("a"), url = URL.createObjectURL(file);
-                    a.href = url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => {
-                        document.body.removeChild(a);
-                        window.URL.revokeObjectURL(url);
-                    }, 0);
-                }
-            });
-        }
-        resize(x, y) {
-            this.canvas.width = x;
-            this.canvas.height = y;
-            this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
-            this.scene.camera.resize(x, y);
-        }
-    }
-    GL.Graphics = Graphics;
-})(GL || (GL = {}));
 var UI;
 (function (UI) {
     function div(options) {
@@ -5469,6 +4163,1035 @@ var UI;
     }
     UI.loading = loading;
 })(UI || (UI = {}));
+var DataManager;
+(function (DataManager) {
+    function files(options) {
+        let requests = [];
+        for (let file of options.files) {
+            requests.push(getPromise(file));
+        }
+        Promise.all(requests).then(options.success, options.fail);
+    }
+    DataManager.files = files;
+    function getPromise(url) {
+        return new Promise(function (resolve, reject) {
+            var request = new XMLHttpRequest();
+            request.open('GET', url);
+            let loader = document.getElementById("loader");
+            let strechy = UI.div({
+                class: "strechy",
+                html: "waiting for data...",
+            });
+            let bar = UI.div({
+                class: "progress",
+                child: strechy,
+            });
+            let file_title = url.split("/");
+            file_title = file_title[file_title.length - 1];
+            request.onload = function () {
+                if (request.status == 200) {
+                    if (bar && bar.parentElement)
+                        bar.parentElement.removeChild(bar);
+                    resolve(request.response);
+                }
+                else {
+                    reject(Error(request.statusText));
+                }
+            };
+            request.onerror = function () {
+                reject(Error("Network Error"));
+            };
+            loader.appendChild(bar);
+            request.onprogress = function (e) {
+                let p = ((e.loaded / e.total) * 100).toFixed(2);
+                strechy.innerHTML = p + "% " + file_title;
+                strechy.style.width = p + "%";
+            };
+            request.send();
+        });
+    }
+})(DataManager || (DataManager = {}));
+var Parser;
+(function (Parser) {
+    function toFloat32(data) {
+        let blob = window.atob(data);
+        let len = blob.length / Float32Array.BYTES_PER_ELEMENT;
+        let view = new DataView(new ArrayBuffer(Float32Array.BYTES_PER_ELEMENT));
+        let array = new Float32Array(len);
+        for (let p = 0; p < len * 4; p = p + 4) {
+            view.setUint8(0, blob.charCodeAt(p));
+            view.setUint8(1, blob.charCodeAt(p + 1));
+            view.setUint8(2, blob.charCodeAt(p + 2));
+            view.setUint8(3, blob.charCodeAt(p + 3));
+            array[p / 4] = view.getFloat32(0, true);
+        }
+        view = null;
+        blob = null;
+        return array;
+    }
+    Parser.toFloat32 = toFloat32;
+    function toUint32(data) {
+        let blob = window.atob(data);
+        let len = blob.length / Uint32Array.BYTES_PER_ELEMENT;
+        let view = new DataView(new ArrayBuffer(Uint32Array.BYTES_PER_ELEMENT));
+        let array = new Uint32Array(len);
+        for (let p = 0; p < len * 4; p = p + 4) {
+            view.setUint8(0, blob.charCodeAt(p));
+            view.setUint8(1, blob.charCodeAt(p + 1));
+            view.setUint8(2, blob.charCodeAt(p + 2));
+            view.setUint8(3, blob.charCodeAt(p + 3));
+            array[p / 4] = view.getUint32(0, true);
+        }
+        view = null;
+        blob = null;
+        return array;
+    }
+    Parser.toUint32 = toUint32;
+})(Parser || (Parser = {}));
+class GLObject {
+    constructor(gl) {
+        this.gl = gl;
+    }
+}
+function intToVec4Normalized(i) {
+    let n = new Uint32Array([i]);
+    let b = new Uint8Array(n.buffer);
+    let f = new Float32Array(b);
+    f[0] /= 255;
+    f[1] /= 255;
+    f[2] /= 255;
+    f[3] /= 255;
+    return f;
+}
+class Scene extends GLObject {
+    constructor(gl) {
+        super(gl);
+        this.camera = new Camera(this.gl);
+        this.center = new Float32Array([0, 0, 0]);
+        this.stats = {
+            min: [Infinity, Infinity, Infinity],
+            max: [-Infinity, -Infinity, -Infinity],
+        };
+        this.selected = 1000;
+        this.selectedv4 = intToVec4Normalized(this.selected);
+    }
+    select(id) {
+        this.selected = id;
+        this.selectedv4 = intToVec4Normalized(this.selected);
+    }
+    addModel(stats) {
+        this.stats.min[0] = Math.min(this.stats.min[0], stats.min[0]);
+        this.stats.min[1] = Math.min(this.stats.min[1], stats.min[1]);
+        this.stats.min[2] = Math.min(this.stats.min[2], stats.min[2]);
+        this.stats.max[0] = Math.max(this.stats.max[0], stats.max[0]);
+        this.stats.max[1] = Math.max(this.stats.max[1], stats.max[1]);
+        this.stats.max[2] = Math.max(this.stats.max[2], stats.max[2]);
+        this.camera.updateScale(this.stats);
+    }
+}
+var ShaderType;
+(function (ShaderType) {
+    ShaderType[ShaderType["vertex"] = 0] = "vertex";
+    ShaderType[ShaderType["fragment"] = 1] = "fragment";
+})(ShaderType || (ShaderType = {}));
+;
+;
+class Shader extends GLObject {
+    constructor(gl, code, type) {
+        super(gl);
+        this.type = type;
+        this.code = code;
+        this.createShader();
+    }
+    createShader() {
+        let type;
+        if (this.type == ShaderType.vertex)
+            type = this.gl.VERTEX_SHADER;
+        else
+            type = this.gl.FRAGMENT_SHADER;
+        this.shader = this.gl.createShader(type);
+        this.gl.shaderSource(this.shader, this.code);
+        this.gl.compileShader(this.shader);
+        if (!this.gl.getShaderParameter(this.shader, this.gl.COMPILE_STATUS)) {
+            console.error('ERROR compiling shader!', this.gl.getShaderInfoLog(this.shader));
+            console.error(this.code);
+            throw 'ERROR compiling shader!';
+        }
+    }
+}
+class Program extends GLObject {
+    constructor(gl) {
+        super(gl);
+        this.state = {
+            init: false,
+            attrs: false,
+            unifs: false,
+        };
+        this.GLType = {
+            float: this.gl.uniform1f,
+            int: this.gl.uniform1i,
+            vec2: this.gl.uniform2fv,
+            vec3: this.gl.uniform3fv,
+            vec4: this.gl.uniform4fv,
+            mat4: this.gl.uniformMatrix4fv,
+        };
+        this.uniforms = {};
+        this.attributes = {};
+        this.loaded = false;
+    }
+    static get DIR() {
+        return "./src/gl/glsl/";
+    }
+    init(vs, fs) {
+        this.vs = new Shader(this.gl, vs, ShaderType.vertex);
+        this.fs = new Shader(this.gl, fs, ShaderType.fragment);
+        this.createProgram();
+        this.update('init');
+    }
+    createProgram() {
+        let program = this.gl.createProgram();
+        this.gl.attachShader(program, this.vs.shader);
+        this.gl.attachShader(program, this.fs.shader);
+        this.gl.linkProgram(program);
+        if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+            console.error('ERROR linking program!', this.gl.getProgramInfoLog(program));
+        }
+        this.gl.validateProgram(program);
+        if (!this.gl.getProgramParameter(program, this.gl.VALIDATE_STATUS)) {
+            console.error('ERROR validating program!', this.gl.getProgramInfoLog(program));
+        }
+        this.program = program;
+    }
+    setupAttributes(attr) {
+        this.attributes = {};
+        for (let key in attr) {
+            this.attributes[key] = this.gl.getAttribLocation(this.program, attr[key]);
+        }
+        this.update('attrs');
+    }
+    setupUniforms(unif) {
+        for (let key in unif) {
+            this.uniforms[key] = {
+                location: this.gl.getUniformLocation(this.program, unif[key].name),
+                assignFunction: unif[key].type,
+            };
+        }
+        this.update('unifs');
+    }
+    bindAttribute(set) {
+        this.gl.enableVertexAttribArray(set.attribute);
+        this.gl.vertexAttribPointer(set.attribute, set.size, this.gl.FLOAT, false, set.stride, set.offset);
+        if ('divisor' in set) {
+            this.gl.vertexAttribDivisor(set.attribute, set.divisor);
+        }
+    }
+    bindInt32Attribute(set) {
+        this.gl.enableVertexAttribArray(set.attribute);
+        this.gl.vertexAttribPointer(set.attribute, set.size, this.gl.UNSIGNED_BYTE, true, set.stride, set.offset);
+        if ('divisor' in set) {
+            this.gl.vertexAttribDivisor(set.attribute, set.divisor);
+        }
+    }
+    bindUniforms(options) {
+        for (let key in this.uniforms) {
+            if (this.uniforms[key].assignFunction === this.GLType.mat4) {
+                this.uniforms[key].assignFunction.apply(this.gl, [this.uniforms[key].location, false, options[key]]);
+            }
+            else {
+                this.uniforms[key].assignFunction.apply(this.gl, [this.uniforms[key].location, options[key]]);
+            }
+        }
+    }
+    commonUniforms() {
+        this.setupUniforms({
+            world: {
+                name: 'mWorld',
+                type: this.GLType.mat4,
+            },
+            view: {
+                name: 'mView',
+                type: this.GLType.mat4,
+            },
+            proj: {
+                name: 'mProj',
+                type: this.GLType.mat4,
+            },
+        });
+    }
+    bind() {
+        this.gl.useProgram(this.program);
+    }
+    unbind() {
+        this.gl.useProgram(null);
+    }
+    update(key) {
+        this.state[key] = true;
+        if (this.state.init && this.state.attrs && this.state.unifs)
+            this.loaded = true;
+    }
+}
+class PickProgram extends Program {
+    constructor(gl) {
+        super(gl);
+        DataManager.files({
+            files: [
+                Program.DIR + "pick-vs.glsl",
+                Program.DIR + "pick-fs.glsl",
+            ],
+            success: (files) => {
+                this.init(files[0], files[1]);
+                this.setup();
+            },
+            fail: () => {
+                throw "Pick shader not loaded";
+            }
+        });
+    }
+    setup() {
+        this.setupAttributes({
+            vertex: 'vertex',
+            object: 'object'
+        });
+        this.commonUniforms();
+        this.setupUniforms({});
+    }
+    bindAttrVertex() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.vertex,
+            size: 3,
+            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+    bindAttrObject() {
+        this.gl.useProgram(this.program);
+        this.bindInt32Attribute({
+            attribute: this.attributes.object,
+            size: 4,
+            stride: 1 * Uint32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+}
+class StreetProgram extends Program {
+    constructor(gl) {
+        super(gl);
+        DataManager.files({
+            files: [
+                Program.DIR + "street-vs.glsl",
+                Program.DIR + "street-fs.glsl",
+            ],
+            success: (files) => {
+                this.init(files[0], files[1]);
+                this.setup();
+            },
+            fail: () => {
+                throw "Street shader not loaded";
+            }
+        });
+    }
+    setup() {
+        this.setupAttributes({
+            vertex: 'vertex'
+        });
+        this.commonUniforms();
+        this.setupUniforms({
+            level: {
+                name: 'level',
+                type: this.GLType.float,
+            }
+        });
+    }
+    bindAttrVertex() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.vertex,
+            size: 2,
+            stride: 2 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+}
+class BuildingProgram extends Program {
+    constructor(gl) {
+        super(gl);
+        DataManager.files({
+            files: [
+                Program.DIR + "building-vs.glsl",
+                Program.DIR + "building-fs.glsl",
+            ],
+            success: (files) => {
+                this.init(files[0], files[1]);
+                this.setup();
+            },
+            fail: () => {
+                throw "Building shader not loaded";
+            }
+        });
+    }
+    setup() {
+        this.setupAttributes({
+            vertex: 'vertex',
+            normal: 'normal',
+            object: 'object'
+        });
+        this.commonUniforms();
+        this.setupUniforms({
+            selected: {
+                name: 'selected',
+                type: this.GLType.vec4,
+            }
+        });
+    }
+    bindAttrVertex() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.vertex,
+            size: 3,
+            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+    bindAttrNormal() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.normal,
+            size: 3,
+            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+    bindAttrObject() {
+        this.gl.useProgram(this.program);
+        this.bindInt32Attribute({
+            attribute: this.attributes.object,
+            size: 4,
+            stride: 1 * Uint32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+}
+class TerrainProgram extends Program {
+    constructor(gl) {
+        super(gl);
+        DataManager.files({
+            files: [
+                Program.DIR + "terrain-vs.glsl",
+                Program.DIR + "terrain-fs.glsl",
+            ],
+            success: (files) => {
+                this.init(files[0], files[1]);
+                this.setup();
+            },
+            fail: () => {
+                throw "Terrain shader not loaded";
+            }
+        });
+    }
+    setup() {
+        this.setupAttributes({
+            vertex: 'vertex',
+            normal: 'normal',
+        });
+        this.commonUniforms();
+        this.setupUniforms({});
+    }
+    bindAttrVertex() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.vertex,
+            size: 3,
+            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+    bindAttrNormal() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.normal,
+            size: 3,
+            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+}
+class BoxProgram extends Program {
+    constructor(gl) {
+        super(gl);
+        DataManager.files({
+            files: [
+                Program.DIR + "box-vs.glsl",
+                Program.DIR + "box-fs.glsl",
+            ],
+            success: (files) => {
+                this.init(files[0], files[1]);
+                this.setup();
+            },
+            fail: () => {
+                throw "Box shader not loaded";
+            }
+        });
+    }
+    setup() {
+        this.setupAttributes({
+            vertex: 'vertex',
+        });
+        this.commonUniforms();
+        this.setupUniforms({});
+    }
+    bindAttrVertex() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.vertex,
+            size: 3,
+            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+}
+class GLModel extends GLObject {
+    constructor(gl) {
+        super(gl);
+        this.loaded = false;
+        this.buffers = {
+            vao: undefined,
+            ebo: undefined,
+            vbo: [],
+        };
+    }
+    addBufferVAO(buffer) {
+        this.buffers.vao = buffer;
+    }
+    addBufferVBO(buffer) {
+        this.buffers.vbo.push(buffer);
+    }
+    addBufferEBO(buffer) {
+        this.buffers.ebo = buffer;
+    }
+    bindBuffersAndTextures() {
+        this.gl.bindVertexArray(this.buffers.vao);
+        for (let buffer of this.buffers.vbo) {
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+        }
+        if (this.buffers.ebo !== undefined) {
+            this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.buffers.ebo);
+        }
+    }
+    uniformDict(scene) {
+        return Object.assign({}, {
+            world: scene.camera.world,
+            view: scene.camera.view,
+            proj: scene.camera.projection,
+            farplane: scene.camera.farplane,
+        });
+    }
+    render(scene) {
+    }
+    renderPicking(scene) {
+    }
+}
+class CityModel extends GLModel {
+    constructor(gl, programs, model) {
+        super(gl);
+        this.program = programs.building;
+        this.pickingProgram = programs.pick;
+        this.data = model;
+        this.init();
+    }
+    init() {
+        if (!this.program.loaded)
+            return;
+        let vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+        this.addBufferVAO(vao);
+        let vertices = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
+        this.addBufferVBO(vertices);
+        this.program.bindAttrVertex();
+        this.pickingProgram.bindAttrVertex();
+        let normals = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normals);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.normals, this.gl.STATIC_DRAW);
+        this.addBufferVBO(normals);
+        this.program.bindAttrNormal();
+        let objects = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, objects);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.objects, this.gl.STATIC_DRAW);
+        this.addBufferVBO(objects);
+        this.program.bindAttrObject();
+        this.pickingProgram.bindAttrObject();
+        this.gl.bindVertexArray(null);
+        this.triangles = this.data.vertices.length / 3;
+        this.loaded = true;
+        delete this.data;
+    }
+    render(scene) {
+        if (!this.loaded) {
+            this.init();
+            return;
+        }
+        this.bindBuffersAndTextures();
+        let uniforms = this.uniformDict(scene);
+        uniforms["selected"] = scene.selectedv4;
+        this.program.bindUniforms(uniforms);
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
+        this.gl.bindVertexArray(null);
+    }
+    renderPicking(scene) {
+        if (!this.loaded) {
+            this.init();
+            return;
+        }
+        this.bindBuffersAndTextures();
+        let uniforms = this.uniformDict(scene);
+        this.pickingProgram.bindUniforms(uniforms);
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
+        this.gl.bindVertexArray(null);
+    }
+}
+class CubeModel extends GLModel {
+    constructor(gl, programs, model) {
+        super(gl);
+        this.program = programs.box;
+        this.data = model;
+        this.init();
+    }
+    init() {
+        if (!this.program.loaded)
+            return;
+        let vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+        this.addBufferVAO(vao);
+        let vdata = boxVertices(this.data.min, this.data.max);
+        let vertices = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, vdata, this.gl.STATIC_DRAW);
+        this.addBufferVBO(vertices);
+        this.program.bindAttrVertex();
+        this.gl.bindVertexArray(null);
+        this.loaded = true;
+    }
+    render(scene) {
+        if (!this.loaded) {
+            this.init();
+            return;
+        }
+        this.bindBuffersAndTextures();
+        let uniforms = this.uniformDict(scene);
+        this.program.bindUniforms(uniforms);
+        this.gl.drawArrays(this.gl.LINES, 0, 24);
+        this.gl.bindVertexArray(null);
+    }
+}
+class StreetModel extends GLModel {
+    constructor(gl, programs, model) {
+        super(gl);
+        this.program = programs.street;
+        this.data = model;
+        this.init();
+    }
+    init() {
+        if (!this.program.loaded)
+            return;
+        let vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+        this.addBufferVAO(vao);
+        let vertices = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
+        this.addBufferVBO(vertices);
+        this.program.bindAttrVertex();
+        this.gl.bindVertexArray(null);
+        this.lineSegments = this.data.vertices.length / 2;
+        this.loaded = true;
+        delete this.data;
+    }
+    render(scene) {
+        if (!this.loaded) {
+            this.init();
+            return;
+        }
+        this.bindBuffersAndTextures();
+        let uniforms = this.uniformDict(scene);
+        uniforms['level'] = scene.stats.max[2];
+        this.program.bindUniforms(uniforms);
+        this.gl.drawArrays(this.gl.LINES, 0, this.lineSegments);
+        this.gl.bindVertexArray(null);
+    }
+}
+class TerrainModel extends GLModel {
+    constructor(gl, programs, model) {
+        super(gl);
+        this.program = programs.terrain;
+        this.data = model;
+        this.init();
+    }
+    init() {
+        if (!this.program.loaded)
+            return;
+        let vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+        this.addBufferVAO(vao);
+        let vertices = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
+        this.addBufferVBO(vertices);
+        this.program.bindAttrVertex();
+        let normals = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normals);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.normals, this.gl.STATIC_DRAW);
+        this.addBufferVBO(normals);
+        this.program.bindAttrNormal();
+        this.gl.bindVertexArray(null);
+        this.triangles = this.data.vertices.length / 3;
+        this.loaded = true;
+        delete this.data;
+    }
+    render(scene) {
+        if (!this.loaded) {
+            this.init();
+            return;
+        }
+        this.bindBuffersAndTextures();
+        let uniforms = this.uniformDict(scene);
+        this.program.bindUniforms(uniforms);
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
+        this.gl.bindVertexArray(null);
+    }
+}
+function boxVertices(min, max) {
+    return new Float32Array([
+        min[0], min[1], min[2],
+        max[0], min[1], min[2],
+        max[0], min[1], min[2],
+        max[0], max[1], min[2],
+        max[0], max[1], min[2],
+        min[0], max[1], min[2],
+        min[0], max[1], min[2],
+        min[0], min[1], min[2],
+        min[0], min[1], max[2],
+        max[0], min[1], max[2],
+        max[0], min[1], max[2],
+        max[0], max[1], max[2],
+        max[0], max[1], max[2],
+        min[0], max[1], max[2],
+        min[0], max[1], max[2],
+        min[0], min[1], max[2],
+        min[0], min[1], min[2],
+        min[0], min[1], max[2],
+        max[0], min[1], min[2],
+        max[0], min[1], max[2],
+        min[0], max[1], min[2],
+        min[0], max[1], max[2],
+        max[0], max[1], min[2],
+        max[0], max[1], max[2],
+    ]);
+}
+const ZOOM_STEP = 0.0025;
+const ROT_STEP = 0.5;
+const GLOBAL_SCALE = 0.001;
+class Camera extends GLObject {
+    constructor(gl) {
+        super(gl);
+        this.position = new Float32Array([0, 0, 0]);
+        this.up = new Float32Array([0, 1, 0]);
+        this.geometryCenter = new Float32Array([0, 0, 0]);
+        this.center = new Float32Array([0, 0, 100]);
+        this.actualPosition = new Float32Array([0, 0, 0]);
+        this.actualUp = new Float32Array([0, 1, 0]);
+        this.actualCenter = new Float32Array([, 0, 100]);
+        this.viewMatrix = new Float32Array(16);
+        this.projectionMatrix = new Float32Array(16);
+        this.rotateMatrix = new Float32Array(16);
+        this.frontVector = new Float32Array(3);
+        this.tmp = new Float32Array(3);
+        this.tmp2 = new Float32Array(3);
+        this.worldMatrix = glMatrix.mat4.create();
+        this.screenX = 0;
+        this.screenY = 0;
+        this.scale = 100;
+        this.speed = 0.05;
+        this.aspect = 0;
+        this.sceneChanged = false;
+        this.farplane = 1000000;
+        this.positionMomentum = 1;
+        this.centerMomentum = 1;
+        this.rotMomentum = 1;
+        this.scaleMomentum = 1;
+    }
+    get view() {
+        glMatrix.mat4.lookAt(this.viewMatrix, this.actualPosition, this.actualCenter, this.actualUp);
+        return this.viewMatrix;
+    }
+    get projection() {
+        return glMatrix.mat4.perspective(this.projectionMatrix, glMatrix.glMatrix.toRadian(45), this.aspect, 0.01, this.farplane);
+    }
+    get world() {
+        return this.worldMatrix;
+    }
+    get front() {
+        glMatrix.vec3.sub(this.frontVector, this.center, this.position);
+        return glMatrix.vec3.normalize(this.frontVector, this.frontVector);
+    }
+    get screenDim() {
+        return vec2.fromValues(this.screenX, this.screenY);
+    }
+    get pos() {
+        return this.position;
+    }
+    restoreCenter() {
+        this.center = Object.assign({}, this.defaultCenter);
+    }
+    viewTop() {
+        let dist = glMatrix.vec3.dist(this.center, this.position);
+        this.position = Object.assign({}, this.center);
+        this.position[2] += dist;
+        this.up = new Float32Array([0, 1, 0]);
+    }
+    viewFront() {
+        let dist = glMatrix.vec3.dist(this.center, this.position);
+        this.position = Object.assign({}, this.center);
+        this.position[1] -= dist;
+        this.up = new Float32Array([0, 0, 1]);
+    }
+    viewSide() {
+        let dist = glMatrix.vec3.dist(this.center, this.position);
+        this.position = Object.assign({}, this.center);
+        this.position[0] -= dist;
+        this.up = new Float32Array([0, 0, 1]);
+    }
+    resize(x, y) {
+        this.screenX = x;
+        this.screenY = y;
+        this.aspect = x / y;
+        this.sceneChanged = true;
+    }
+    rotate(x, y) {
+        let a_x = glMatrix.glMatrix.toRadian(-x) * ROT_STEP;
+        let a_y = glMatrix.glMatrix.toRadian(y) * ROT_STEP;
+        let front = glMatrix.vec3.sub(glMatrix.vec3.create(), this.center, this.position);
+        let axes_x = glMatrix.vec3.cross(this.tmp, this.up, front);
+        let axes_y = this.up;
+        glMatrix.mat4.fromRotation(this.rotateMatrix, a_x, axes_y);
+        glMatrix.mat4.rotate(this.rotateMatrix, this.rotateMatrix, a_y, axes_x);
+        glMatrix.vec3.transformMat4(front, front, this.rotateMatrix);
+        glMatrix.vec3.add(this.position, this.center, glMatrix.vec3.negate(front, front));
+        glMatrix.vec3.transformMat4(this.up, this.up, this.rotateMatrix);
+    }
+    zoom(direction = 1, scale = 1) {
+        glMatrix.vec3.sub(this.tmp, this.position, this.center);
+        glMatrix.vec3.scale(this.tmp, this.tmp, 1 + direction * (ZOOM_STEP * scale));
+        glMatrix.vec3.add(this.tmp, this.center, this.tmp);
+        glMatrix.vec3.copy(this.position, this.tmp);
+    }
+    move(x, y) {
+        let front = glMatrix.vec3.sub(glMatrix.vec3.create(), this.center, this.position);
+        let axes_x = glMatrix.vec3.normalize(this.tmp, glMatrix.vec3.cross(this.tmp, this.up, front));
+        let axes_y = glMatrix.vec3.normalize(this.tmp2, glMatrix.vec3.copy(this.tmp2, this.up));
+        glMatrix.vec3.scale(axes_x, axes_x, x * GLOBAL_SCALE);
+        glMatrix.vec3.scale(axes_y, axes_y, y * GLOBAL_SCALE);
+        glMatrix.vec3.add(this.position, this.position, axes_x);
+        glMatrix.vec3.add(this.position, this.position, axes_y);
+        glMatrix.vec3.add(this.center, this.center, axes_x);
+        glMatrix.vec3.add(this.center, this.center, axes_y);
+    }
+    frame() {
+        const limit = 0.001;
+        glMatrix.vec3.sub(this.tmp, this.position, this.actualPosition);
+        this.positionMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
+        if (this.positionMomentum > limit) {
+            glMatrix.vec3.scaleAndAdd(this.actualPosition, this.actualPosition, this.tmp, this.positionMomentum);
+        }
+        else {
+            glMatrix.vec3.copy(this.actualPosition, this.position);
+            this.positionMomentum = 0;
+        }
+        this.rotMomentum = Math.min(glMatrix.vec3.angle(this.actualUp, this.up), this.speed * 3.14);
+        if (this.rotMomentum > limit) {
+            let axis = glMatrix.vec3.cross(this.tmp, this.actualUp, this.up);
+            glMatrix.mat4.fromRotation(this.rotateMatrix, this.rotMomentum, axis);
+            glMatrix.vec3.transformMat4(this.actualUp, this.actualUp, this.rotateMatrix);
+        }
+        else {
+            glMatrix.vec3.copy(this.actualUp, this.up);
+            this.rotMomentum = 0;
+        }
+        glMatrix.vec3.sub(this.tmp, this.center, this.actualCenter);
+        this.centerMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
+        if (this.centerMomentum > limit) {
+            glMatrix.vec3.scaleAndAdd(this.actualCenter, this.actualCenter, this.tmp, this.centerMomentum);
+        }
+        else {
+            glMatrix.vec3.copy(this.actualCenter, this.center);
+            this.centerMomentum = 0;
+        }
+    }
+    updateScale(stats) {
+        let farplane = 0;
+        for (let i = 0; i < 3; ++i) {
+            this.geometryCenter[i] = (stats.min[i] + stats.max[i]) / 2;
+            farplane = Math.max(farplane, (stats.max[i] - stats.min[i]) * GLOBAL_SCALE);
+        }
+        this.center = glMatrix.vec3.fromValues(0, 0, 0);
+        this.farplane = farplane * 2;
+        this.defaultCenter = Object.assign({}, this.center);
+        this.position = Object.assign({}, this.center);
+        this.position[2] += farplane / 2;
+        glMatrix.mat4.identity(this.worldMatrix);
+        glMatrix.mat4.scale(this.worldMatrix, this.worldMatrix, glMatrix.vec3.fromValues(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE));
+        glMatrix.mat4.translate(this.worldMatrix, this.worldMatrix, glMatrix.vec3.negate(this.tmp, this.geometryCenter));
+    }
+    get needsRedraw() {
+        return this.centerMomentum || this.rotMomentum || this.positionMomentum;
+    }
+}
+var GL;
+(function (GL) {
+    class Graphics {
+        constructor(canvas) {
+            this.canvas = canvas;
+            console.log('Getting webgl 2 context');
+            this.gl = this.canvas.getContext('webgl2');
+            if (!this.gl) {
+                console.error('WebGL 2 not supported, please use a different browser.');
+                throw 'WebGL 2 not supported, please use a different browser.';
+            }
+            let ext = this.gl.getExtension('OES_element_index_uint');
+            this.programs = {
+                building: new BuildingProgram(this.gl),
+                terrain: new TerrainProgram(this.gl),
+                box: new BoxProgram(this.gl),
+                pick: new PickProgram(this.gl),
+                street: new StreetProgram(this.gl)
+            };
+            this.loaded = false;
+            this.models = {
+                city: [],
+                terrain: [],
+                box: [],
+                streets: []
+            };
+            this.scene = new Scene(this.gl);
+        }
+        addCitySegment(model) {
+            let glmodel = new CityModel(this.gl, this.programs, model);
+            this.models.city.push(glmodel);
+            let box = new CubeModel(this.gl, this.programs, model.stats);
+            this.models.box.push(box);
+            this.scene.addModel(model.stats);
+            this.loaded = true;
+            return {
+                cityModel: glmodel,
+                boxModel: box
+            };
+        }
+        addTerainSegment(model) {
+            let glmodel = new TerrainModel(this.gl, this.programs, model);
+            this.models.terrain.push(glmodel);
+            let box = new CubeModel(this.gl, this.programs, model.stats);
+            this.models.box.push(box);
+            this.scene.addModel(model.stats);
+            this.loaded = true;
+            return {
+                terrainModel: glmodel,
+                box: box
+            };
+        }
+        addStreetSegment(model) {
+            let glmodel = new StreetModel(this.gl, this.programs, model);
+            this.models.streets.push(glmodel);
+            return {
+                streetModel: glmodel
+            };
+        }
+        render() {
+            if (!this.loaded)
+                return;
+            this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
+            this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
+            this.gl.enable(this.gl.DEPTH_TEST);
+            this.programs.building.bind();
+            for (let c of this.models.city) {
+                c.render(this.scene);
+            }
+            this.programs.building.unbind();
+            this.programs.terrain.bind();
+            for (let t of this.models.terrain) {
+                t.render(this.scene);
+            }
+            this.programs.terrain.unbind();
+            this.programs.street.bind();
+            for (let s of this.models.streets) {
+                s.render(this.scene);
+            }
+            this.programs.street.unbind();
+            this.programs.box.bind();
+            for (let b of this.models.box) {
+                b.render(this.scene);
+            }
+            this.programs.box.unbind();
+            this.scene.camera.frame();
+        }
+        renderPick(x, y, height) {
+            if (!this.loaded)
+                return;
+            this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
+            this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
+            this.gl.enable(this.gl.DEPTH_TEST);
+            this.programs.pick.bind();
+            for (let c of this.models.city) {
+                c.renderPicking(this.scene);
+            }
+            for (let b of this.models.box) {
+                b.renderPicking(this.scene);
+            }
+            this.programs.pick.unbind();
+            this.scene.camera.frame();
+            y = height - y;
+            let pixels = new Uint8Array(4);
+            this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
+            let ID = new DataView(pixels.buffer).getUint32(0, true);
+            return ID;
+        }
+        saveCanvas(filename) {
+            this.canvas.toBlob((blob) => {
+                let file = blob;
+                if (window.navigator.msSaveOrOpenBlob)
+                    window.navigator.msSaveOrOpenBlob(file, filename);
+                else {
+                    console.log(file);
+                    let a = document.createElement("a"), url = URL.createObjectURL(file);
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 0);
+                }
+            });
+        }
+        resize(x, y) {
+            this.canvas.width = x;
+            this.canvas.height = y;
+            this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+            this.scene.camera.resize(x, y);
+        }
+    }
+    GL.Graphics = Graphics;
+})(GL || (GL = {}));
 var LayerModule;
 (function (LayerModule) {
     class LayerManager {
@@ -5483,30 +5206,16 @@ var LayerModule;
                 uiID: undefined
             };
         }
-        addBuidings(modelOBJFile, cityJsonFile, title) {
-            let model = Parser.parseOBJ(modelOBJFile, true);
-            let meta = Parser.parseJson(cityJsonFile);
-            this.CJmetadata.push(meta);
-            Object.assign(this.objToId, model.objToId);
-            Object.assign(this.idToObj, model.idToObj);
-            if (model)
-                this.gl.addCitySegment(model);
-            else
-                throw 'Building models not loaded';
-        }
-        addTerrain(modelOBJFile) {
-            let model = Parser.parseOBJ(modelOBJFile, false);
-            if (model)
-                this.gl.addTerainSegment(model);
+        addTerrain(terrain) {
+            terrain.vertices = Parser.toFloat32(terrain.vertices);
+            terrain.normals = Parser.toFloat32(terrain.normals);
+            terrain.stats.min = Parser.toFloat32(terrain.stats.min);
+            terrain.stats.max = Parser.toFloat32(terrain.stats.max);
+            console.log(terrain);
+            if (terrain)
+                this.gl.addTerainSegment(terrain);
             else
                 throw 'Terrain models not loaded';
-        }
-        addStreets(streets) {
-            let model = Parser.parseGeoJson(streets, 2);
-            if (model)
-                this.gl.addStreetSegment(model);
-            else
-                throw 'Street models not loaded';
         }
         showDetail(id) {
             let obj = this.idToObj[id];
@@ -5537,189 +5246,152 @@ var LayerModule;
     }
     LayerModule.LayerManager = LayerManager;
 })(LayerModule || (LayerModule = {}));
-var AppModule;
-(function (AppModule) {
-    let FileType;
-    (function (FileType) {
-        FileType[FileType["obj"] = 0] = "obj";
-        FileType[FileType["json"] = 1] = "json";
-        FileType[FileType["unknown"] = 2] = "unknown";
-    })(FileType || (FileType = {}));
-    class Interface {
-        constructor(app) {
-            this.app = app;
-            this.keys = {};
-            this.mouse = {
-                x: null,
-                y: null,
-                down: false,
-                button: 0,
-                time: 0
-            };
-        }
-        onKeyDown(key) {
-            this.keys[key] = true;
-            this.app.pressed(key);
-            console.log(key);
-        }
-        onKeyUp(key) {
-            this.keys[key] = false;
-        }
-        onMouseDown(x, y, button) {
-            this.mouse.down = true;
-            this.mouse.x = x;
-            this.mouse.y = y;
-            this.mouse.button = button;
-            this.mouse.time = Date.now();
-        }
-        ;
-        onMouseUp(x, y) {
-            this.mouse.down = false;
-            let now = Date.now();
-            if (now - this.mouse.time < 300 && this.mouse.button == 0) {
-                this.app.pick(x, y);
-            }
-        }
-        ;
-        onMouseMove(x, y) {
-            if (!this.mouse.down) {
-                return;
-            }
-            let delta_x = x - this.mouse.x;
-            let delta_y = y - this.mouse.y;
-            this.mouse.x = x;
-            this.mouse.y = y;
-            if (this.mouse.button == 0) {
-                this.app.gl.scene.camera.rotate(delta_x, delta_y);
-            }
-            else if (this.mouse.button == 1) {
-                this.app.gl.scene.camera.move(delta_x, delta_y);
-            }
-        }
-        ;
-        wheel(delta) {
-            this.app.gl.scene.camera.zoom(1, delta);
+class Interface {
+    constructor(app) {
+        this.app = app;
+        this.keys = {};
+        this.mouse = {
+            x: null,
+            y: null,
+            down: false,
+            button: 0,
+            time: 0
+        };
+    }
+    onKeyDown(key) {
+        this.keys[key] = true;
+        this.app.pressed(key);
+        console.log(key);
+    }
+    onKeyUp(key) {
+        this.keys[key] = false;
+    }
+    onMouseDown(x, y, button) {
+        this.mouse.down = true;
+        this.mouse.x = x;
+        this.mouse.y = y;
+        this.mouse.button = button;
+        this.mouse.time = Date.now();
+    }
+    ;
+    onMouseUp(x, y) {
+        this.mouse.down = false;
+        let now = Date.now();
+        if (now - this.mouse.time < 300 && this.mouse.button == 0) {
+            this.app.pick(x, y);
         }
     }
-    let AppState;
-    (function (AppState) {
-        AppState[AppState["loading"] = 0] = "loading";
-        AppState[AppState["loaded"] = 1] = "loaded";
-        AppState[AppState["parsing"] = 2] = "parsing";
-        AppState[AppState["ready"] = 3] = "ready";
-    })(AppState || (AppState = {}));
-    class Application {
-        constructor() {
-            let windows = new UI.Window("3D view", [
-                new UI.Canvas(),
-            ]);
-            let main = document.getElementById("main");
-            main.appendChild(windows.render());
-            let canvas = document.getElementsByTagName("canvas")[0];
-            this.gl = new GL.Graphics(canvas);
-            this.interface = new Interface(this);
-            this.layers = new LayerModule.LayerManager(this.gl, windows);
-            this.pickPoint = {
-                pick: false,
-                x: 0,
-                y: 0
-            };
-            this.state = AppState.loading;
-            DataManager.files({
-                files: ["./assets/bubny/bubny_bud.obj",
-                    "./assets/bubny/bubny_bud_min.json",
-                    "./assets/bubny/bubny_most_filtered.obj",
-                    "./assets/bubny/bubny_most.json",
-                    "./assets/bubny/bubny_ter.obj",
-                    "./assets/bubny/TSK_ulice_min.json"],
-                success: (files) => {
-                    this.data = files;
-                    this.state = AppState.loaded;
-                },
-                fail: () => { console.error("error loading assets"); }
-            });
+    ;
+    onMouseMove(x, y) {
+        if (!this.mouse.down) {
+            return;
         }
-        load() {
-            let files = this.data;
-            this.state = AppState.parsing;
-            let that = this;
-            new Promise(function (resolve, reject) {
-                UI.resetLoader();
-                UI.loading("Parsing buildings", 0.1);
-                setTimeout(() => resolve(1), 1000);
-            }).then(function () {
-                return new Promise((resolve, reject) => {
-                    that.layers.addBuidings(files[0], files[1], "buildings");
-                    UI.loading("Parsing bridges", 0.3);
-                    setTimeout(() => resolve(1), 1000);
-                }).then(function () {
-                    return new Promise((resolve, reject) => {
-                        that.layers.addBuidings(files[2], files[3], "bridges");
-                        UI.loading("Parsing terrain", 0.5);
-                        setTimeout(() => resolve(1), 1000);
-                    }).then(function () {
-                        return new Promise((resolve, reject) => {
-                            that.layers.addTerrain(files[4]);
-                            UI.loading("Parsing streets", 0.75);
-                            setTimeout(() => resolve(1), 1000);
-                        }).then(function () {
-                            return new Promise((resolve, reject) => {
-                                that.layers.addStreets(files[5]);
-                                UI.resetLoader();
-                                that.state = AppState.ready;
-                                that.data = null;
-                                setTimeout(() => resolve(1), 1000);
-                            });
-                        });
-                    });
-                });
-            });
+        let delta_x = x - this.mouse.x;
+        let delta_y = y - this.mouse.y;
+        this.mouse.x = x;
+        this.mouse.y = y;
+        if (this.mouse.button == 0) {
+            this.app.gl.scene.camera.rotate(delta_x, delta_y);
         }
-        pressed(key) {
-            if (key == 103) {
-                this.gl.scene.camera.viewTop();
-            }
-            else if (key == 97) {
-                this.gl.scene.camera.viewFront();
-            }
-            else if (key == 99) {
-                this.gl.scene.camera.viewSide();
-            }
-            else if (key == 105) {
-                this.gl.scene.camera.restoreCenter();
-            }
-        }
-        pick(x, y) {
-            this.pickPoint.x = x;
-            this.pickPoint.y = y;
-            this.pickPoint.pick = true;
-        }
-        render() {
-            if (this.state == AppState.loaded)
-                this.load();
-            if (this.state != AppState.ready)
-                return;
-            if (this.pickPoint.pick) {
-                let canvasHeight = this.gl.scene.camera.screenY;
-                let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
-                this.gl.scene.select(selected);
-                this.layers.showDetail(selected);
-                this.pickPoint.pick = false;
-            }
-            this.gl.render();
-            if (this.interface.keys[67]) {
-                this.gl.saveCanvas("screen.png");
-                this.interface.keys[67] = false;
-            }
-        }
-        resize(x, y) {
-            this.gl.resize(x, y);
+        else if (this.mouse.button == 1) {
+            this.app.gl.scene.camera.move(delta_x, delta_y);
         }
     }
-    AppModule.Application = Application;
-})(AppModule || (AppModule = {}));
+    ;
+    wheel(delta) {
+        this.app.gl.scene.camera.zoom(1, delta);
+    }
+}
+var FileType;
+(function (FileType) {
+    FileType[FileType["obj"] = 0] = "obj";
+    FileType[FileType["json"] = 1] = "json";
+    FileType[FileType["unknown"] = 2] = "unknown";
+})(FileType || (FileType = {}));
+var AppState;
+(function (AppState) {
+    AppState[AppState["loading"] = 0] = "loading";
+    AppState[AppState["loaded"] = 1] = "loaded";
+    AppState[AppState["parsing"] = 2] = "parsing";
+    AppState[AppState["ready"] = 3] = "ready";
+})(AppState || (AppState = {}));
+class Application {
+    constructor() {
+        let windows = new UI.Window("3D view", [
+            new UI.Canvas(),
+        ]);
+        let main = document.getElementById("main");
+        main.appendChild(windows.render());
+        let canvas = document.getElementsByTagName("canvas")[0];
+        this.gl = new GL.Graphics(canvas);
+        this.interface = new Interface(this);
+        this.layers = new LayerModule.LayerManager(this.gl, windows);
+        this.pickPoint = {
+            pick: false,
+            x: 0,
+            y: 0
+        };
+        this.state = AppState.loading;
+        DataManager.files({
+            files: ["./assets/bubny/bubny.json"],
+            success: (files) => {
+                this.data = files;
+                this.state = AppState.loaded;
+            },
+            fail: () => { console.error("error loading assets"); }
+        });
+    }
+    load() {
+        let data = JSON.parse(this.data);
+        this.state = AppState.parsing;
+        console.log(data);
+        this.layers.addTerrain(data.terrain);
+        this.state = AppState.ready;
+        this.data = null;
+    }
+    pressed(key) {
+        if (key == 103) {
+            this.gl.scene.camera.viewTop();
+        }
+        else if (key == 97) {
+            this.gl.scene.camera.viewFront();
+        }
+        else if (key == 99) {
+            this.gl.scene.camera.viewSide();
+        }
+        else if (key == 105) {
+            this.gl.scene.camera.restoreCenter();
+        }
+    }
+    pick(x, y) {
+        this.pickPoint.x = x;
+        this.pickPoint.y = y;
+        this.pickPoint.pick = true;
+    }
+    render() {
+        if (this.state == AppState.loaded)
+            this.load();
+        if (this.state != AppState.ready)
+            return;
+        if (this.pickPoint.pick) {
+            let canvasHeight = this.gl.scene.camera.screenY;
+            let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
+            this.gl.scene.select(selected);
+            this.layers.showDetail(selected);
+            this.pickPoint.pick = false;
+        }
+        this.gl.render();
+        if (this.interface.keys[67]) {
+            this.gl.saveCanvas("screen.png");
+            this.interface.keys[67] = false;
+        }
+    }
+    resize(x, y) {
+        this.gl.resize(x, y);
+    }
+}
 window.onload = function (e) {
-    let app = new AppModule.Application();
+    let app = new Application();
     let canvas = document.getElementById("canvas");
     document.onkeydown = function (event) {
         app.interface.onKeyDown(event.keyCode);
