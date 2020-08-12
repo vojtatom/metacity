@@ -10,27 +10,30 @@ function intToVec4Normalized(i: number) {
 }
 
 class Scene extends GLObject {
-    stats: OBJstats;
+    stats: F32OBJstats;
     camera: Camera;
     center: Vec3Array;
     selected: number;
     selectedv4: Float32Array;
 
-    constructor(gl: WebGL2RenderingContext) {
+    textures: {[name: string]: Texture};
+
+    constructor(gl: WebGL2RenderingContext, textures: {[name: string]: Texture}) {
         super(gl);
 
         this.camera = new Camera(this.gl);
         this.center = new Float32Array([0, 0, 0]);
 
         this.stats = {
-            min: [Infinity, Infinity, Infinity],
-            max: [-Infinity, -Infinity, -Infinity],
+            min: new Float32Array([Infinity, Infinity, Infinity]),
+            max: new Float32Array([-Infinity, -Infinity, -Infinity]),
         };
 
         //this.selected = 4294967295;
         this.selected = 1000;
         this.selectedv4 = intToVec4Normalized(this.selected);
         
+        this.textures = textures;
     }
 
     select(id: number) {

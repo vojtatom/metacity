@@ -24,9 +24,17 @@ class StreetProgram extends Program {
 
         this.commonUniforms();
         this.setupUniforms({
-            level: {
-                name: 'level',
-                type: this.GLType.float,
+            displacement: {
+                name: 'displacement',
+                type: this.GLType.int
+            },
+            border_min: {
+                name: 'border_min',
+                type: this.GLType.vec3
+            },
+            border_max: {
+                name: 'border_max',
+                type: this.GLType.vec3
             }
         });
     }

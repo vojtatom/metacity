@@ -18,6 +18,7 @@
 
       "gl/interface.ts",
       "gl/object.ts",
+      "gl/texture.ts",
       "gl/scene.ts",
 
       "gl/programs/base.ts",
@@ -36,8 +37,13 @@
       "gl/geometry.ts",
       "gl/camera.ts",
       "gl/gl.ts",
+
+      "layers/layer.ts",
+      "layers/terrain.ts",
+      "layers/streets.ts",
+
       "layers.ts",
-      "interface.ts",
+      "io.ts",
       "app.ts",
       "main.ts"
     ]

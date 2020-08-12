@@ -4253,6 +4253,22 @@ class GLObject {
         this.gl = gl;
     }
 }
+class Texture extends GLObject {
+    constructor(gl, data, w, h) {
+        super(gl);
+        let tdata = Parser.toFloat32(data);
+        this.id = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.id);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, w, h, 0, gl.RED, gl.FLOAT, tdata);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.bindTexture(this.gl.TEXTURE_2D, null);
+    }
+    bind(unif) {
+    }
+}
 function intToVec4Normalized(i) {
     let n = new Uint32Array([i]);
     let b = new Uint8Array(n.buffer);
@@ -4264,16 +4280,17 @@ function intToVec4Normalized(i) {
     return f;
 }
 class Scene extends GLObject {
-    constructor(gl) {
+    constructor(gl, textures) {
         super(gl);
         this.camera = new Camera(this.gl);
         this.center = new Float32Array([0, 0, 0]);
         this.stats = {
-            min: [Infinity, Infinity, Infinity],
-            max: [-Infinity, -Infinity, -Infinity],
+            min: new Float32Array([Infinity, Infinity, Infinity]),
+            max: new Float32Array([-Infinity, -Infinity, -Infinity]),
         };
         this.selected = 1000;
         this.selectedv4 = intToVec4Normalized(this.selected);
+        this.textures = textures;
     }
     select(id) {
         this.selected = id;
@@ -4499,9 +4516,17 @@ class StreetProgram extends Program {
         });
         this.commonUniforms();
         this.setupUniforms({
-            level: {
-                name: 'level',
-                type: this.GLType.float,
+            displacement: {
+                name: 'displacement',
+                type: this.GLType.int
+            },
+            border_min: {
+                name: 'border_min',
+                type: this.GLType.vec3
+            },
+            border_max: {
+                name: 'border_max',
+                type: this.GLType.vec3
             }
         });
     }
@@ -4809,11 +4834,11 @@ class StreetModel extends GLModel {
         this.addBufferVAO(vao);
         let vertices = this.gl.createBuffer();
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.lineVertices, this.gl.STATIC_DRAW);
         this.addBufferVBO(vertices);
         this.program.bindAttrVertex();
         this.gl.bindVertexArray(null);
-        this.lineSegments = this.data.vertices.length / 2;
+        this.lineSegments = this.data.lineVertices.length / 2;
         this.loaded = true;
         delete this.data;
     }
@@ -4823,11 +4848,15 @@ class StreetModel extends GLModel {
             return;
         }
         this.bindBuffersAndTextures();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, scene.textures['height'].id);
         let uniforms = this.uniformDict(scene);
-        uniforms['level'] = scene.stats.max[2];
+        uniforms['displacement'] = scene.textures['height'].id;
+        uniforms['border_min'] = scene.stats.min;
+        uniforms['border_max'] = scene.stats.max;
         this.program.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.LINES, 0, this.lineSegments);
         this.gl.bindVertexArray(null);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
     }
 }
 class TerrainModel extends GLModel {
@@ -5056,197 +5085,179 @@ class Camera extends GLObject {
         return this.centerMomentum || this.rotMomentum || this.positionMomentum;
     }
 }
-var GL;
-(function (GL) {
-    class Graphics {
-        constructor(canvas) {
-            this.canvas = canvas;
-            console.log('Getting webgl 2 context');
-            this.gl = this.canvas.getContext('webgl2');
-            if (!this.gl) {
-                console.error('WebGL 2 not supported, please use a different browser.');
-                throw 'WebGL 2 not supported, please use a different browser.';
-            }
-            let ext = this.gl.getExtension('OES_element_index_uint');
-            this.programs = {
-                building: new BuildingProgram(this.gl),
-                terrain: new TerrainProgram(this.gl),
-                box: new BoxProgram(this.gl),
-                pick: new PickProgram(this.gl),
-                street: new StreetProgram(this.gl)
-            };
-            this.loaded = false;
-            this.models = {
-                city: [],
-                terrain: [],
-                box: [],
-                streets: []
-            };
-            this.scene = new Scene(this.gl);
+class Graphics {
+    constructor(canvas) {
+        this.canvas = canvas;
+        console.log('Getting webgl 2 context');
+        this.gl = this.canvas.getContext('webgl2');
+        if (!this.gl) {
+            console.error('WebGL 2 not supported, please use a different browser.');
+            throw 'WebGL 2 not supported, please use a different browser.';
         }
-        addCitySegment(model) {
-            let glmodel = new CityModel(this.gl, this.programs, model);
-            this.models.city.push(glmodel);
-            let box = new CubeModel(this.gl, this.programs, model.stats);
-            this.models.box.push(box);
-            this.scene.addModel(model.stats);
-            this.loaded = true;
-            return {
-                cityModel: glmodel,
-                boxModel: box
-            };
-        }
-        addTerainSegment(model) {
-            let glmodel = new TerrainModel(this.gl, this.programs, model);
-            this.models.terrain.push(glmodel);
-            let box = new CubeModel(this.gl, this.programs, model.stats);
-            this.models.box.push(box);
-            this.scene.addModel(model.stats);
-            this.loaded = true;
-            return {
-                terrainModel: glmodel,
-                box: box
-            };
-        }
-        addStreetSegment(model) {
-            let glmodel = new StreetModel(this.gl, this.programs, model);
-            this.models.streets.push(glmodel);
-            return {
-                streetModel: glmodel
-            };
-        }
-        render() {
-            if (!this.loaded)
-                return;
-            this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
-            this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
-            this.gl.enable(this.gl.DEPTH_TEST);
-            this.programs.building.bind();
-            for (let c of this.models.city) {
-                c.render(this.scene);
-            }
-            this.programs.building.unbind();
-            this.programs.terrain.bind();
-            for (let t of this.models.terrain) {
-                t.render(this.scene);
-            }
-            this.programs.terrain.unbind();
-            this.programs.street.bind();
-            for (let s of this.models.streets) {
-                s.render(this.scene);
-            }
-            this.programs.street.unbind();
-            this.programs.box.bind();
-            for (let b of this.models.box) {
-                b.render(this.scene);
-            }
-            this.programs.box.unbind();
-            this.scene.camera.frame();
-        }
-        renderPick(x, y, height) {
-            if (!this.loaded)
-                return;
-            this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
-            this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
-            this.gl.enable(this.gl.DEPTH_TEST);
-            this.programs.pick.bind();
-            for (let c of this.models.city) {
-                c.renderPicking(this.scene);
-            }
-            for (let b of this.models.box) {
-                b.renderPicking(this.scene);
-            }
-            this.programs.pick.unbind();
-            this.scene.camera.frame();
-            y = height - y;
-            let pixels = new Uint8Array(4);
-            this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
-            let ID = new DataView(pixels.buffer).getUint32(0, true);
-            return ID;
-        }
-        saveCanvas(filename) {
-            this.canvas.toBlob((blob) => {
-                let file = blob;
-                if (window.navigator.msSaveOrOpenBlob)
-                    window.navigator.msSaveOrOpenBlob(file, filename);
-                else {
-                    console.log(file);
-                    let a = document.createElement("a"), url = URL.createObjectURL(file);
-                    a.href = url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => {
-                        document.body.removeChild(a);
-                        window.URL.revokeObjectURL(url);
-                    }, 0);
-                }
-            });
-        }
-        resize(x, y) {
-            this.canvas.width = x;
-            this.canvas.height = y;
-            this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
-            this.scene.camera.resize(x, y);
-        }
+        let ext = this.gl.getExtension('OES_element_index_uint');
+        this.programs = {
+            building: new BuildingProgram(this.gl),
+            terrain: new TerrainProgram(this.gl),
+            box: new BoxProgram(this.gl),
+            pick: new PickProgram(this.gl),
+            street: new StreetProgram(this.gl)
+        };
+        this.loaded = false;
+        this.models = {
+            city: [],
+            terrain: [],
+            box: [],
+            streets: []
+        };
+        this.textures = {};
+        this.scene = new Scene(this.gl, this.textures);
     }
-    GL.Graphics = Graphics;
-})(GL || (GL = {}));
-var LayerModule;
-(function (LayerModule) {
-    class LayerManager {
-        constructor(gl, window) {
-            this.gl = gl;
-            this.window = window;
-            this.idToObj = {};
-            this.objToId = {};
-            this.CJmetadata = [];
-            this.detail = {
-                ui: undefined,
-                uiID: undefined
-            };
-        }
-        addTerrain(terrain) {
-            terrain.vertices = Parser.toFloat32(terrain.vertices);
-            terrain.normals = Parser.toFloat32(terrain.normals);
-            terrain.stats.min = Parser.toFloat32(terrain.stats.min);
-            terrain.stats.max = Parser.toFloat32(terrain.stats.max);
-            console.log(terrain);
-            if (terrain)
-                this.gl.addTerainSegment(terrain);
-            else
-                throw 'Terrain models not loaded';
-        }
-        showDetail(id) {
-            let obj = this.idToObj[id];
-            let data = [];
-            for (let pack of this.CJmetadata) {
-                if (obj in pack["CityObjects"])
-                    data.push(pack["CityObjects"][obj]);
-            }
-            let bdata = data[0];
-            if (this.detail.ui !== undefined) {
-                this.window.removeUIElement(this.detail.ui, this.detail.uiID);
-                this.detail.ui = undefined;
-            }
-            if (!bdata)
-                return;
-            let buildData = {
-                type: bdata["type"],
-                appID: id,
-                cjID: this.idToObj[id],
-                attr: {}
-            };
-            if ('attributes' in bdata)
-                Object.assign(buildData.attr, bdata['attributes']);
-            let detail = new UI.BuildingDetailView(buildData);
-            this.detail.ui = detail;
-            this.detail.uiID = this.window.addUIElement(detail);
-        }
+    addCitySegment(model) {
+        let glmodel = new CityModel(this.gl, this.programs, model);
+        this.models.city.push(glmodel);
+        let box = new CubeModel(this.gl, this.programs, model.stats);
+        this.models.box.push(box);
+        this.loaded = true;
+        return {
+            cityModel: glmodel,
+            boxModel: box
+        };
     }
-    LayerModule.LayerManager = LayerManager;
-})(LayerModule || (LayerModule = {}));
-class Interface {
+    addTerainSegment(model) {
+        let glmodel = new TerrainModel(this.gl, this.programs, model);
+        this.models.terrain.push(glmodel);
+        let box = new CubeModel(this.gl, this.programs, model.stats);
+        this.models.box.push(box);
+        this.scene.addModel(model.stats);
+        this.loaded = true;
+        return {
+            terrainModel: glmodel,
+            box: box
+        };
+    }
+    addStreetSegment(model) {
+        let glmodel = new StreetModel(this.gl, this.programs, model);
+        this.models.streets.push(glmodel);
+        return {
+            streetModel: glmodel
+        };
+    }
+    addFloat32Texture(title, data) {
+        this.textures[title] = new Texture(this.gl, data.data, data.width, data.height);
+    }
+    render() {
+        if (!this.loaded)
+            return;
+        this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
+        this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
+        this.gl.enable(this.gl.DEPTH_TEST);
+        this.programs.building.bind();
+        for (let c of this.models.city) {
+            c.render(this.scene);
+        }
+        this.programs.building.unbind();
+        this.programs.terrain.bind();
+        for (let t of this.models.terrain) {
+            t.render(this.scene);
+        }
+        this.programs.terrain.unbind();
+        this.programs.street.bind();
+        for (let s of this.models.streets) {
+            s.render(this.scene);
+        }
+        this.programs.street.unbind();
+        this.programs.box.bind();
+        for (let b of this.models.box) {
+            b.render(this.scene);
+        }
+        this.programs.box.unbind();
+        this.scene.camera.frame();
+    }
+    renderPick(x, y, height) {
+        if (!this.loaded)
+            return;
+        this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
+        this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
+        this.gl.enable(this.gl.DEPTH_TEST);
+        this.programs.pick.bind();
+        for (let c of this.models.city) {
+            c.renderPicking(this.scene);
+        }
+        for (let b of this.models.box) {
+            b.renderPicking(this.scene);
+        }
+        this.programs.pick.unbind();
+        this.scene.camera.frame();
+        y = height - y;
+        let pixels = new Uint8Array(4);
+        this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
+        let ID = new DataView(pixels.buffer).getUint32(0, true);
+        return ID;
+    }
+    saveCanvas(filename) {
+        this.canvas.toBlob((blob) => {
+            let file = blob;
+            if (window.navigator.msSaveOrOpenBlob)
+                window.navigator.msSaveOrOpenBlob(file, filename);
+            else {
+                console.log(file);
+                let a = document.createElement("a"), url = URL.createObjectURL(file);
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }, 0);
+            }
+        });
+    }
+    resize(x, y) {
+        this.canvas.width = x;
+        this.canvas.height = y;
+        this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+        this.scene.camera.resize(x, y);
+    }
+}
+class Layer {
+    constructor(gl) {
+        this.gl = gl;
+    }
+}
+class Terrain extends Layer {
+    constructor(gl, data) {
+        super(gl);
+        data.vertices = Parser.toFloat32(data.vertices);
+        data.normals = Parser.toFloat32(data.normals);
+        data.stats.min = Parser.toFloat32(data.stats.min);
+        data.stats.max = Parser.toFloat32(data.stats.max);
+        console.log(data);
+        let models = this.gl.addTerainSegment(data);
+        this.glmodel = models.terrainModel;
+    }
+}
+class Streets extends Layer {
+    constructor(gl, data) {
+        super(gl);
+        data.lineVertices = Parser.toFloat32(data.lineVertices);
+        data.lineObjects = Parser.toUint32(data.lineObjects);
+        console.log(data);
+        let models = this.gl.addStreetSegment(data);
+        this.glmodel = models.streetModel;
+    }
+}
+class LayerManager {
+    constructor(gl, window) {
+        this.gl = gl;
+        this.window = window;
+        this.layers = [];
+    }
+    addLayer(layer) {
+        this.layers.push(layer);
+    }
+}
+class IO {
     constructor(app) {
         this.app = app;
         this.keys = {};
@@ -5302,12 +5313,6 @@ class Interface {
         this.app.gl.scene.camera.zoom(1, delta);
     }
 }
-var FileType;
-(function (FileType) {
-    FileType[FileType["obj"] = 0] = "obj";
-    FileType[FileType["json"] = 1] = "json";
-    FileType[FileType["unknown"] = 2] = "unknown";
-})(FileType || (FileType = {}));
 var AppState;
 (function (AppState) {
     AppState[AppState["loading"] = 0] = "loading";
@@ -5323,9 +5328,9 @@ class Application {
         let main = document.getElementById("main");
         main.appendChild(windows.render());
         let canvas = document.getElementsByTagName("canvas")[0];
-        this.gl = new GL.Graphics(canvas);
-        this.interface = new Interface(this);
-        this.layers = new LayerModule.LayerManager(this.gl, windows);
+        this.gl = new Graphics(canvas);
+        this.interface = new IO(this);
+        this.layers = new LayerManager(this.gl, windows);
         this.pickPoint = {
             pick: false,
             x: 0,
@@ -5345,7 +5350,11 @@ class Application {
         let data = JSON.parse(this.data);
         this.state = AppState.parsing;
         console.log(data);
-        this.layers.addTerrain(data.terrain);
+        let terrain = new Terrain(this.gl, data.terrain);
+        this.layers.addLayer(terrain);
+        this.gl.addFloat32Texture("height", data.height);
+        let streets = new Streets(this.gl, data.streets);
+        this.layers.addLayer(streets);
         this.state = AppState.ready;
         this.data = null;
     }
@@ -5377,7 +5386,6 @@ class Application {
             let canvasHeight = this.gl.scene.camera.screenY;
             let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
             this.gl.scene.select(selected);
-            this.layers.showDetail(selected);
             this.pickPoint.pick = false;
         }
         this.gl.render();

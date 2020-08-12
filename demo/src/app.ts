@@ -1,10 +1,3 @@
-
-enum FileType {
-    obj,
-    json,
-    unknown
-}
-
 enum AppState {
     loading,
     loaded,
@@ -14,10 +7,10 @@ enum AppState {
 
 class Application {
 
-    gl: GL.Graphics;
-    layers: LayerModule.LayerManager;
+    gl: Graphics;
+    layers: LayerManager;
 
-    interface: Interface;
+    interface: IO;
 
     pickPoint: {
         pick: boolean,
@@ -40,10 +33,10 @@ class Application {
 
         //take the first canvas you find
         let canvas = document.getElementsByTagName("canvas")[0];
-        this.gl = new GL.Graphics(canvas);
-        this.interface = new Interface(this);
+        this.gl = new Graphics(canvas);
+        this.interface = new IO(this);
         
-        this.layers = new LayerModule.LayerManager(this.gl, windows);
+        this.layers = new LayerManager(this.gl, windows);
         
 
         this.pickPoint = {
@@ -112,22 +105,34 @@ class Application {
         this.state = AppState.parsing;
         console.log(data);
 
-        this.layers.addTerrain(data.terrain);
+        //terrain loading
+        let terrain = new Terrain(this.gl, data.terrain);
+        this.layers.addLayer(terrain);
+
+        //load texture
+        this.gl.addFloat32Texture("height", data.height as TextureInterface);
+
+        //street loading
+        let streets = new Streets(this.gl, data.streets);
+        this.layers.addLayer(streets);
+        
+
         this.state = AppState.ready;
-        this.data = null; // delete
+        this.data = null; // ensure delete
+
+
+
     }
 
     pressed(key: number) {
-        //TODO instant reactions to keypresses
 
-        //topview: numpad 7
-        if (key == 103){
+        if (key == 103){ // numpad 7
             this.gl.scene.camera.viewTop();
-        } else if (key == 97) {
+        } else if (key == 97) { // numpad 1
             this.gl.scene.camera.viewFront();
-        } else if (key == 99) {
+        } else if (key == 99) { // numpad 3
             this.gl.scene.camera.viewSide();
-        } else if (key == 105) {
+        } else if (key == 105) { // numpad 9
             this.gl.scene.camera.restoreCenter();
         } 
     }
@@ -149,7 +154,7 @@ class Application {
             let canvasHeight = this.gl.scene.camera.screenY;
             let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
             this.gl.scene.select(selected);
-            this.layers.showDetail(selected);
+            //this.layers.showDetail(selected);
             this.pickPoint.pick = false;
         } 
         

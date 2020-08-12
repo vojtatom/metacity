@@ -35,7 +35,7 @@ interface AttributeBinder {
 }
 
 interface UniformBinder {
-    [name: string] : Float32Array | Int32Array | number
+    [name: string] : Float32Array | Int32Array | number | WebGLTexture
 }
 
 

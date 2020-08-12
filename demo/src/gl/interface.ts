@@ -1,6 +1,15 @@
+interface Indexable<T> {
+    [ids: number]: T
+}
+
 interface OBJstats {
-    min : number[],
-    max : number[]
+    min : Indexable<number>,
+    max : Indexable<number>
+}
+
+interface F32OBJstats extends OBJstats {
+    min : Float32Array,
+    max : Float32Array
 }
 
 interface CityModelInterface {
@@ -19,13 +28,13 @@ interface TerrainModelInterface {
 }
 
 interface StreetModelInterface {
-    vertices: Float32Array
+    lineVertices: Float32Array
 }
 
 
 interface BoxModelInterface {
-    min: number[],
-    max: number[]
+    min: Indexable<number>,
+    max: Indexable<number>
 }
 
 
@@ -35,4 +44,10 @@ interface GLProgramList {
     box: BoxProgram,
     pick: PickProgram,
     street: StreetProgram
+}
+
+interface TextureInterface {
+    data: string,
+    width: number,
+    height: number
 }

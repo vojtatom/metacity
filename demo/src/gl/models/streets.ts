@@ -13,7 +13,7 @@ class StreetModel extends GLModel {
     }
 
     init(){
-        //since the method can be called async, check is GPU is up to date
+        //since the method can be called async, check if GPU is up to date
         if (!this.program.loaded)
             return;
 
@@ -25,13 +25,13 @@ class StreetModel extends GLModel {
         //vertices
         let vertices = this.gl.createBuffer();
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.lineVertices, this.gl.STATIC_DRAW);
         this.addBufferVBO(vertices);
         this.program.bindAttrVertex();
 
         this.gl.bindVertexArray(null);
 
-        this.lineSegments = this.data.vertices.length / 2;
+        this.lineSegments = this.data.lineVertices.length / 2;
         this.loaded = true;
 
         //no more references to contents of OBJ file 
@@ -47,12 +47,19 @@ class StreetModel extends GLModel {
         }
 
         this.bindBuffersAndTextures();
+
+        //bind texture
+        this.gl.bindTexture(this.gl.TEXTURE_2D, scene.textures['height'].id);
         let uniforms: UniformBinder = this.uniformDict(scene);
-        uniforms['level'] = scene.stats.max[2];
+        uniforms['displacement'] = scene.textures['height'].id;
+        uniforms['border_min'] = scene.stats.min;
+        uniforms['border_max'] = scene.stats.max;
+
 
         this.program.bindUniforms(uniforms);
 
         this.gl.drawArrays(this.gl.LINES, 0, this.lineSegments);
         this.gl.bindVertexArray(null);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
     }
 }

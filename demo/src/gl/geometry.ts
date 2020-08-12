@@ -1,6 +1,6 @@
 
 
-function boxVertices(min: number[], max: number[]) {
+function boxVertices(min: Indexable<number>, max: Indexable<number>) {
     return new Float32Array([
         min[0], min[1], min[2],
         max[0], min[1], min[2],            
