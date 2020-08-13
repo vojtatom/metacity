@@ -4279,6 +4279,7 @@ function intToVec4Normalized(i) {
     f[3] /= 255;
     return f;
 }
+let TIME_DELTA = 3.0;
 class Scene extends GLObject {
     constructor(gl, textures) {
         super(gl);
@@ -4291,6 +4292,8 @@ class Scene extends GLObject {
         this.selected = 1000;
         this.selectedv4 = intToVec4Normalized(this.selected);
         this.textures = textures;
+        this.time = 0;
+        this.timeMax = 0;
     }
     select(id) {
         this.selected = id;
@@ -4304,6 +4307,13 @@ class Scene extends GLObject {
         this.stats.max[1] = Math.max(this.stats.max[1], stats.max[1]);
         this.stats.max[2] = Math.max(this.stats.max[2], stats.max[2]);
         this.camera.updateScale(this.stats);
+    }
+    frame() {
+        this.camera.frame();
+        this.time = (this.time + TIME_DELTA) % this.timeMax;
+    }
+    setTimeMax(time) {
+        this.timeMax = Math.max(this.timeMax, time);
     }
 }
 var ShaderType;
@@ -4684,6 +4694,73 @@ class BoxProgram extends Program {
         this.gl.useProgram(null);
     }
 }
+class PathProgram extends Program {
+    constructor(gl) {
+        super(gl);
+        DataManager.files({
+            files: [
+                Program.DIR + "path-vs.glsl",
+                Program.DIR + "path-fs.glsl",
+            ],
+            success: (files) => {
+                this.init(files[0], files[1]);
+                this.setup();
+            },
+            fail: () => {
+                throw "Street shader not loaded";
+            }
+        });
+    }
+    setup() {
+        this.setupAttributes({
+            vertex: 'vertex',
+            time: 'time'
+        });
+        this.commonUniforms();
+        this.setupUniforms({
+            displacement: {
+                name: 'displacement',
+                type: this.GLType.int
+            },
+            border_min: {
+                name: 'border_min',
+                type: this.GLType.vec3
+            },
+            border_max: {
+                name: 'border_max',
+                type: this.GLType.vec3
+            },
+            world_time: {
+                name: 'world_time',
+                type: this.GLType.float
+            },
+            max_time: {
+                name: 'max_time',
+                type: this.GLType.float
+            }
+        });
+    }
+    bindAttrVertex() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.vertex,
+            size: 2,
+            stride: 2 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+    bindAttrTime() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.time,
+            size: 1,
+            stride: 1 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+}
 class GLModel extends GLObject {
     constructor(gl) {
         super(gl);
@@ -4899,6 +4976,54 @@ class TerrainModel extends GLModel {
         this.gl.bindVertexArray(null);
     }
 }
+class PathModel extends GLModel {
+    constructor(gl, programs, model) {
+        super(gl);
+        this.program = programs.path;
+        this.data = model;
+        this.init();
+    }
+    init() {
+        if (!this.program.loaded)
+            return;
+        console.log(this.data);
+        let vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+        this.addBufferVAO(vao);
+        let vertices = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
+        this.addBufferVBO(vertices);
+        this.program.bindAttrVertex();
+        let times = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, times);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.times, this.gl.STATIC_DRAW);
+        this.addBufferVBO(times);
+        this.program.bindAttrTime();
+        this.gl.bindVertexArray(null);
+        this.lineSegments = this.data.vertices.length / 2;
+        this.loaded = true;
+        delete this.data;
+    }
+    render(scene) {
+        if (!this.loaded) {
+            this.init();
+            return;
+        }
+        this.bindBuffersAndTextures();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, scene.textures['height'].id);
+        let uniforms = this.uniformDict(scene);
+        uniforms['displacement'] = scene.textures['height'].id;
+        uniforms['border_min'] = scene.stats.min;
+        uniforms['border_max'] = scene.stats.max;
+        uniforms['world_time'] = scene.time;
+        uniforms['max_time'] = scene.timeMax;
+        this.program.bindUniforms(uniforms);
+        this.gl.drawArrays(this.gl.LINES, 0, this.lineSegments);
+        this.gl.bindVertexArray(null);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+    }
+}
 function boxVertices(min, max) {
     return new Float32Array([
         min[0], min[1], min[2],
@@ -5100,14 +5225,16 @@ class Graphics {
             terrain: new TerrainProgram(this.gl),
             box: new BoxProgram(this.gl),
             pick: new PickProgram(this.gl),
-            street: new StreetProgram(this.gl)
+            street: new StreetProgram(this.gl),
+            path: new PathProgram(this.gl)
         };
         this.loaded = false;
         this.models = {
             city: [],
             terrain: [],
             box: [],
-            streets: []
+            streets: [],
+            paths: []
         };
         this.textures = {};
         this.scene = new Scene(this.gl, this.textures);
@@ -5142,15 +5269,24 @@ class Graphics {
             streetModel: glmodel
         };
     }
+    addPath(model) {
+        let glmodel = new PathModel(this.gl, this.programs, model);
+        this.models.paths.push(glmodel);
+        return {
+            pathModel: glmodel
+        };
+    }
     addFloat32Texture(title, data) {
         this.textures[title] = new Texture(this.gl, data.data, data.width, data.height);
     }
     render() {
         if (!this.loaded)
             return;
+        this.gl.depthMask(true);
         this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
         this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
         this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
         this.programs.building.bind();
         for (let c of this.models.city) {
             c.render(this.scene);
@@ -5161,17 +5297,25 @@ class Graphics {
             t.render(this.scene);
         }
         this.programs.terrain.unbind();
+        this.gl.enable(this.gl.BLEND);
+        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
+        this.gl.depthMask(false);
         this.programs.street.bind();
         for (let s of this.models.streets) {
             s.render(this.scene);
         }
         this.programs.street.unbind();
+        this.programs.path.bind();
+        for (let p of this.models.paths) {
+            p.render(this.scene);
+        }
+        this.programs.path.unbind();
         this.programs.box.bind();
         for (let b of this.models.box) {
             b.render(this.scene);
         }
         this.programs.box.unbind();
-        this.scene.camera.frame();
+        this.scene.frame();
     }
     renderPick(x, y, height) {
         if (!this.loaded)
@@ -5187,7 +5331,6 @@ class Graphics {
             b.renderPicking(this.scene);
         }
         this.programs.pick.unbind();
-        this.scene.camera.frame();
         y = height - y;
         let pixels = new Uint8Array(4);
         this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
@@ -5246,6 +5389,23 @@ class Streets extends Layer {
         let models = this.gl.addStreetSegment(data);
         this.glmodel = models.streetModel;
     }
+    addStreetGraph(data) {
+        console.log(data.data);
+        this.graph = data;
+        let len = 1000;
+        let count = 1000;
+        let offset = 0;
+        let vert = new Float32Array(len * count * 4);
+        let times = new Float32Array(len * count * 2);
+        for (let i = 0; i < count; ++i) {
+            offset = Path.randomPath(this.graph.data, 100, vert, times, offset);
+            this.gl.scene.setTimeMax((times[(offset / 2) - 1]));
+        }
+        this.gl.addPath({
+            vertices: new Float32Array(vert.slice(0, offset)),
+            times: new Float32Array(times.slice(0, offset / 2))
+        });
+    }
 }
 class LayerManager {
     constructor(gl, window) {
@@ -5257,6 +5417,80 @@ class LayerManager {
         this.layers.push(layer);
     }
 }
+var Path;
+(function (Path) {
+    function randomProperty(obj) {
+        let keys = Object.keys(obj);
+        return keys[keys.length * Math.random() << 0];
+    }
+    ;
+    function randomElement(array, exclude) {
+        if ((array.length == 0) || (array.length == 1 && array[0] === exclude))
+            return null;
+        let pick;
+        do {
+            pick = array[Math.floor(Math.random() * array.length)];
+        } while (exclude === pick);
+        return pick;
+    }
+    function dist(a, b) {
+        let accu = 0;
+        let dis;
+        for (let i = 0; i < a.length; ++i) {
+            dis = (b[i] - a[i]);
+            accu += dis * dis;
+        }
+        return Math.sqrt(accu);
+    }
+    function cropGraph(graph, low, high) {
+        let nodef32;
+        console.log(low, high);
+        for (let node in graph) {
+            nodef32 = Parser.toFloat32(node);
+            for (let i = 0; i < nodef32.length; ++i) {
+                if (nodef32[i] < low[i] || nodef32[i] > high[i])
+                    delete graph[node];
+            }
+        }
+        for (let node in graph) {
+            for (let i = node.length - 1; i >= 0; --i) {
+                if (!(graph[node][i] in graph))
+                    graph[node].splice(i, 1);
+            }
+        }
+    }
+    Path.cropGraph = cropGraph;
+    function randomPath(graph, length, vertices, times, offset) {
+        let node = randomProperty(graph);
+        let dim = Parser.toFloat32(node).length;
+        let toffset = offset / dim;
+        let t = 0;
+        let prev_node;
+        let next_node;
+        let nodef32;
+        let next_nodef32;
+        prev_node = node;
+        nodef32 = Parser.toFloat32(node);
+        for (let i = 0; i < length; ++i) {
+            next_node = randomElement(graph[node], prev_node);
+            if (!next_node)
+                return offset;
+            for (let j = 0; j < dim; ++j)
+                vertices[offset++] = nodef32[j];
+            times[toffset++] = t;
+            next_nodef32 = Parser.toFloat32(next_node);
+            t += dist(nodef32, next_nodef32);
+            for (let j = 0; j < dim; ++j)
+                vertices[offset++] = next_nodef32[j];
+            times[toffset++] = t;
+            prev_node = node;
+            node = next_node;
+            nodef32 = next_nodef32;
+        }
+        return offset;
+    }
+    Path.randomPath = randomPath;
+})(Path || (Path = {}));
 class IO {
     constructor(app) {
         this.app = app;
@@ -5355,8 +5589,11 @@ class Application {
         this.gl.addFloat32Texture("height", data.height);
         let streets = new Streets(this.gl, data.streets);
         this.layers.addLayer(streets);
+        Path.cropGraph(data.graph.data, this.gl.scene.stats.min, this.gl.scene.stats.max);
+        streets.addStreetGraph(data.graph);
         this.state = AppState.ready;
         this.data = null;
+        data = null;
     }
     pressed(key) {
         if (key == 103) {
@@ -5398,8 +5635,9 @@ class Application {
         this.gl.resize(x, y);
     }
 }
+let app;
 window.onload = function (e) {
-    let app = new Application();
+    app = new Application();
     let canvas = document.getElementById("canvas");
     document.onkeydown = function (event) {
         app.interface.onKeyDown(event.keyCode);

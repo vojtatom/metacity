@@ -32,6 +32,12 @@ interface StreetModelInterface {
 }
 
 
+interface PathModelInterface {
+    vertices: Float32Array,
+    times: Float32Array
+}
+
+
 interface BoxModelInterface {
     min: Indexable<number>,
     max: Indexable<number>
@@ -43,7 +49,8 @@ interface GLProgramList {
     terrain: TerrainProgram,
     box: BoxProgram,
     pick: PickProgram,
-    street: StreetProgram
+    street: StreetProgram,
+    path: PathProgram
 }
 
 interface TextureInterface {

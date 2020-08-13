@@ -11,7 +11,8 @@ class Graphics {
         city: Array<CityModel>,
         terrain: Array<TerrainModel>,
         box: Array<CubeModel>,
-        streets: Array<StreetModel>
+        streets: Array<StreetModel>,
+        paths: Array<PathModel>
     };
 
     textures: { [name: string]: Texture };
@@ -38,7 +39,8 @@ class Graphics {
             terrain: new TerrainProgram(this.gl),
             box: new BoxProgram(this.gl),
             pick: new PickProgram(this.gl),
-            street: new StreetProgram(this.gl)
+            street: new StreetProgram(this.gl),
+            path: new PathProgram(this.gl)
         };
 
         this.loaded = false;
@@ -46,7 +48,8 @@ class Graphics {
             city: [],
             terrain: [],
             box: [],
-            streets: []
+            streets: [],
+            paths: []
         };
 
         this.textures = {};
@@ -93,6 +96,15 @@ class Graphics {
         };
     }
 
+    addPath(model: PathModelInterface) {
+        let glmodel = new PathModel(this.gl, this.programs, model);
+        this.models.paths.push(glmodel);
+
+        return {
+            pathModel: glmodel
+        };
+    }
+
     addFloat32Texture(title: string, data: TextureInterface) {
         this.textures[title] = new Texture(this.gl, data.data, data.width, data.height);
     }
@@ -100,34 +112,45 @@ class Graphics {
     render() {
         if (!this.loaded)
             return;
-
+            
+        this.gl.depthMask(true);      
         this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
         this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);  
-        this.gl.enable(this.gl.DEPTH_TEST); // now repeated call unnecesary, needed for later
-        //this.gl.enable(this.gl.BLEND);
-        //this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
-
-
+        this.gl.enable(this.gl.DEPTH_TEST); // now repeated call unnecesary, needed for later 
+        this.gl.disable(this.gl.BLEND); 
+        
         //render buildings
         this.programs.building.bind();
         for(let c of this.models.city){
             c.render(this.scene);
         }
         this.programs.building.unbind();
-
+        
         //render terrain
         this.programs.terrain.bind();
         for(let t of this.models.terrain){
             t.render(this.scene);
         }
         this.programs.terrain.unbind();
-
+        
+        this.gl.enable(this.gl.BLEND);
+        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
+        this.gl.depthMask(false);      
+        
         //render streets
         this.programs.street.bind();
         for(let s of this.models.streets){
             s.render(this.scene);
         }
         this.programs.street.unbind();
+        
+        
+        //render paths
+        this.programs.path.bind();
+        for(let p of this.models.paths){
+            p.render(this.scene);
+        }
+        this.programs.path.unbind();
 
         //render boxes
         this.programs.box.bind();
@@ -137,7 +160,7 @@ class Graphics {
         this.programs.box.unbind();
 
 
-        this.scene.camera.frame();
+        this.scene.frame();
     }
     
     renderPick(x: number, y: number, height: number) {
@@ -157,7 +180,7 @@ class Graphics {
             b.renderPicking(this.scene);
         }
         this.programs.pick.unbind();
-        this.scene.camera.frame();
+
 
         y = height - y;
         let pixels = new Uint8Array(4); // A single RGBA value

@@ -23,7 +23,6 @@ class Application {
 
     constructor()
     {
-        
         let windows = new UI.Window("3D view", [ 
                 new UI.Canvas(),
             ]);
@@ -116,12 +115,14 @@ class Application {
         let streets = new Streets(this.gl, data.streets);
         this.layers.addLayer(streets);
         
+        //street graph loading
+        Path.cropGraph(data.graph.data, this.gl.scene.stats.min, this.gl.scene.stats.max);
+        streets.addStreetGraph(data.graph);
+
 
         this.state = AppState.ready;
         this.data = null; // ensure delete
-
-
-
+        data = null;
     }
 
     pressed(key: number) {

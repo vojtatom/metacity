@@ -27,12 +27,14 @@
       "gl/programs/building.ts",
       "gl/programs/terrain.ts",
       "gl/programs/box.ts",
+      "gl/programs/path.ts",
 
       "gl/models/base.ts",
       "gl/models/city.ts",
       "gl/models/cube.ts",
       "gl/models/streets.ts",
       "gl/models/terrain.ts",
+      "gl/models/path.ts",
 
       "gl/geometry.ts",
       "gl/camera.ts",
@@ -43,6 +45,7 @@
       "layers/streets.ts",
 
       "layers.ts",
+      "paths.ts",
       "io.ts",
       "app.ts",
       "main.ts"

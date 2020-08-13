@@ -3,6 +3,7 @@ precision highp float;
 precision highp int;
 
 in vec2 vertex;
+in float time;
 
 //displacement
 uniform sampler2D displacement;
@@ -15,25 +16,22 @@ uniform mat4 mWorld;
 uniform mat4 mView;
 uniform mat4 mProj;
 
-uniform float level;
+//animation stuff
+out float path_time;
 
-out vec4 fragcolor;
-out float visible;
-
+//const displacement above surface
 vec3 DISP = vec3(0, 0, 1);
-vec2 SHIFT = vec2(1, 1);
 
 vec3 displace(vec2 pos) {
-    vec2 texcoord = (pos + SHIFT - border_min.xy) / (border_max.xy - border_min.xy);
+    vec2 texcoord = (pos - border_min.xy) / (border_max.xy - border_min.xy);
     return vec3(pos, texture(displacement, texcoord)) + DISP;
 }
 
-
 void main() {
-    fragcolor = vec4(1.0, 1.0, 1.0, 0.2);
     vec3 pos = displace(vertex);
     
-    visible = float(all(greaterThan(pos, border_min)) && all(lessThan(pos, border_max)));
+    //visible = float(all(greaterThan(pos, border_min)) && all(lessThan(pos, border_max)));
+    path_time = time;
 
     gl_Position =  mProj * mView * mWorld * vec4(pos, 1.0);
 }

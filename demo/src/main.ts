@@ -1,6 +1,7 @@
+let app: Application;
 
 window.onload = function(e: Event) {
-    let app = new Application();
+    app = new Application();
     //canvas variable is actually parent DIV!!!
     let canvas = document.getElementById("canvas");
 

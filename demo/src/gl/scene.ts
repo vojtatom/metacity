@@ -9,11 +9,15 @@ function intToVec4Normalized(i: number) {
     return f;
 }
 
+let TIME_DELTA = 3.0;
+
 class Scene extends GLObject {
     stats: F32OBJstats;
     camera: Camera;
     center: Vec3Array;
     selected: number;
+    time: number;
+    timeMax: number;
     selectedv4: Float32Array;
 
     textures: {[name: string]: Texture};
@@ -34,6 +38,8 @@ class Scene extends GLObject {
         this.selectedv4 = intToVec4Normalized(this.selected);
         
         this.textures = textures;
+        this.time = 0;
+        this.timeMax = 0;
     }
 
     select(id: number) {
@@ -49,5 +55,14 @@ class Scene extends GLObject {
         this.stats.max[1] = Math.max(this.stats.max[1], stats.max[1]);
         this.stats.max[2] = Math.max(this.stats.max[2], stats.max[2]);
         this.camera.updateScale(this.stats);
+    }
+
+    frame() {
+        this.camera.frame();
+        this.time = (this.time + TIME_DELTA) % this.timeMax;
+    }
+
+    setTimeMax(time: number) {
+        this.timeMax = Math.max(this.timeMax, time);
     }
 }
