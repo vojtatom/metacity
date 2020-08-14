@@ -110,6 +110,13 @@ class Application {
         let terrain = new Terrain(this.gl, data.terrain);
         this.layers.addLayer(terrain);
 
+        //buildings loading
+        let bridges = new Buildings(this.gl, data.bridges, data.bridges_meta);
+        this.layers.addLayer(bridges);
+
+        let buildings = new Buildings(this.gl, data.buildings, data.buildings_meta);
+        this.layers.addLayer(buildings);
+
         //load texture
         this.gl.addFloat32Texture("height", data.height as TextureInterface);
 
@@ -156,6 +163,7 @@ class Application {
         if (this.pickPoint.pick) {
             let canvasHeight = this.gl.scene.camera.screenY;
             let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
+            
             this.gl.scene.select(selected);
             //this.layers.showDetail(selected);
             this.pickPoint.pick = false;

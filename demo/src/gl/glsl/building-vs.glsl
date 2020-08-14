@@ -33,7 +33,7 @@ vec3 phong(vec3 light, vec3 ver_position, vec3 ver_normal){
 }
 
 void main() {
-    vec3 objColor = object.xyz * vec3(2.0, 5.0, 10.0);
+    vec3 objColor = vec3(0.8); //object.xyz * vec3(2.0, 5.0, 10.0);
 
     int six[4];
     int oix[4];

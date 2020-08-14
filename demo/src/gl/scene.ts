@@ -45,6 +45,7 @@ class Scene extends GLObject {
     select(id: number) {
         this.selected = id;
         this.selectedv4 = intToVec4Normalized(this.selected);
+        console.log(this.selected, this.selectedv4);
     }
 
     addModel(stats: OBJstats) {

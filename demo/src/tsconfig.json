@@ -43,6 +43,7 @@
       "layers/layer.ts",
       "layers/terrain.ts",
       "layers/streets.ts",
+      "layers/buildings.ts",
 
       "layers.ts",
       "paths.ts",

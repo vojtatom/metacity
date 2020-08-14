@@ -171,12 +171,12 @@ class Camera extends GLObject {
     }
 
     frame(){
-        const limit = 0.001;
+        const limit = 0.01 * GLOBAL_SCALE;
 
         glMatrix.vec3.sub(this.tmp, this.position, this.actualPosition);
-        this.positionMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
+        this.positionMomentum = glMatrix.vec3.length(this.tmp);
         if (this.positionMomentum > limit){
-            glMatrix.vec3.scaleAndAdd(this.actualPosition, this.actualPosition, this.tmp, this.positionMomentum);
+            glMatrix.vec3.scaleAndAdd(this.actualPosition, this.actualPosition, this.tmp, this.speed * 4);
         } else {
             glMatrix.vec3.copy(this.actualPosition, this.position);
             this.positionMomentum = 0;
@@ -193,9 +193,9 @@ class Camera extends GLObject {
         }
 
         glMatrix.vec3.sub(this.tmp, this.center, this.actualCenter);
-        this.centerMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
+        this.centerMomentum = glMatrix.vec3.length(this.tmp);
         if (this.centerMomentum > limit){
-            glMatrix.vec3.scaleAndAdd(this.actualCenter, this.actualCenter, this.tmp, this.centerMomentum);
+            glMatrix.vec3.scaleAndAdd(this.actualCenter, this.actualCenter, this.tmp, this.speed * 4);
         } else {
             glMatrix.vec3.copy(this.actualCenter, this.center);
             this.centerMomentum = 0;

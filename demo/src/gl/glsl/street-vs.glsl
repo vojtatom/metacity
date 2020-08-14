@@ -21,10 +21,9 @@ out vec4 fragcolor;
 out float visible;
 
 vec3 DISP = vec3(0, 0, 1);
-vec2 SHIFT = vec2(1, 1);
 
 vec3 displace(vec2 pos) {
-    vec2 texcoord = (pos + SHIFT - border_min.xy) / (border_max.xy - border_min.xy);
+    vec2 texcoord = (pos - border_min.xy) / (border_max.xy - border_min.xy);
     return vec3(pos, texture(displacement, texcoord)) + DISP;
 }
 

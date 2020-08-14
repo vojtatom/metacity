@@ -1,11 +1,11 @@
-class CityModel extends GLModel {
-    data: CityModelInterface;
+class BuildingModel extends GLModel {
+    data: BuildingsModelInterface;
     program: BuildingProgram;
     pickingProgram: PickProgram;
 
     triangles: number;
 
-    constructor(gl: WebGL2RenderingContext, programs: GLProgramList, model: CityModelInterface){
+    constructor(gl: WebGL2RenderingContext, programs: GLProgramList, model: BuildingsModelInterface){
         super(gl);
 
         this.program = programs.building;

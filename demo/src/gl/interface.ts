@@ -12,7 +12,7 @@ interface F32OBJstats extends OBJstats {
     max : Float32Array
 }
 
-interface CityModelInterface {
+interface BuildingsModelInterface {
     vertices: Float32Array,
     normals: Float32Array,
     objects: Uint32Array,

@@ -8,7 +8,7 @@ class Graphics {
 
     loaded : boolean;
     models: {
-        city: Array<CityModel>,
+        city: Array<BuildingModel>,
         terrain: Array<TerrainModel>,
         box: Array<CubeModel>,
         streets: Array<StreetModel>,
@@ -57,8 +57,8 @@ class Graphics {
         this.scene = new Scene(this.gl, this.textures);
     }
 
-    addCitySegment(model: CityModelInterface) {
-        let glmodel = new CityModel(this.gl, this.programs, model)
+    addCitySegment(model: BuildingsModelInterface) {
+        let glmodel = new BuildingModel(this.gl, this.programs, model)
         this.models.city.push(glmodel);
         let box = new CubeModel(this.gl, this.programs, model.stats);
         this.models.box.push(box);
@@ -159,7 +159,6 @@ class Graphics {
         }
         this.programs.box.unbind();
 
-
         this.scene.frame();
     }
     
@@ -167,17 +166,16 @@ class Graphics {
         if (!this.loaded)
         return;
         
+        this.gl.depthMask(true); 
         this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
         this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);  
         this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND); 
         
         //render buildings
         this.programs.pick.bind();
         for(let c of this.models.city){
             c.renderPicking(this.scene);
-        }
-        for(let b of this.models.box){
-            b.renderPicking(this.scene);
         }
         this.programs.pick.unbind();
 

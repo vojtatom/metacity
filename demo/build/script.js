@@ -4298,6 +4298,7 @@ class Scene extends GLObject {
     select(id) {
         this.selected = id;
         this.selectedv4 = intToVec4Normalized(this.selected);
+        console.log(this.selected, this.selectedv4);
     }
     addModel(stats) {
         this.stats.min[0] = Math.min(this.stats.min[0], stats.min[0]);
@@ -4802,7 +4803,7 @@ class GLModel extends GLObject {
     renderPicking(scene) {
     }
 }
-class CityModel extends GLModel {
+class BuildingModel extends GLModel {
     constructor(gl, programs, model) {
         super(gl);
         this.program = programs.building;
@@ -5161,11 +5162,11 @@ class Camera extends GLObject {
         glMatrix.vec3.add(this.center, this.center, axes_y);
     }
     frame() {
-        const limit = 0.001;
+        const limit = 0.01 * GLOBAL_SCALE;
         glMatrix.vec3.sub(this.tmp, this.position, this.actualPosition);
-        this.positionMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
+        this.positionMomentum = glMatrix.vec3.length(this.tmp);
         if (this.positionMomentum > limit) {
-            glMatrix.vec3.scaleAndAdd(this.actualPosition, this.actualPosition, this.tmp, this.positionMomentum);
+            glMatrix.vec3.scaleAndAdd(this.actualPosition, this.actualPosition, this.tmp, this.speed * 4);
         }
         else {
             glMatrix.vec3.copy(this.actualPosition, this.position);
@@ -5182,9 +5183,9 @@ class Camera extends GLObject {
             this.rotMomentum = 0;
         }
         glMatrix.vec3.sub(this.tmp, this.center, this.actualCenter);
-        this.centerMomentum = Math.min(glMatrix.vec3.length(this.tmp), this.speed * 2.0);
+        this.centerMomentum = glMatrix.vec3.length(this.tmp);
         if (this.centerMomentum > limit) {
-            glMatrix.vec3.scaleAndAdd(this.actualCenter, this.actualCenter, this.tmp, this.centerMomentum);
+            glMatrix.vec3.scaleAndAdd(this.actualCenter, this.actualCenter, this.tmp, this.speed * 4);
         }
         else {
             glMatrix.vec3.copy(this.actualCenter, this.center);
@@ -5240,7 +5241,7 @@ class Graphics {
         this.scene = new Scene(this.gl, this.textures);
     }
     addCitySegment(model) {
-        let glmodel = new CityModel(this.gl, this.programs, model);
+        let glmodel = new BuildingModel(this.gl, this.programs, model);
         this.models.city.push(glmodel);
         let box = new CubeModel(this.gl, this.programs, model.stats);
         this.models.box.push(box);
@@ -5320,15 +5321,14 @@ class Graphics {
     renderPick(x, y, height) {
         if (!this.loaded)
             return;
+        this.gl.depthMask(true);
         this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
         this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
         this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
         this.programs.pick.bind();
         for (let c of this.models.city) {
             c.renderPicking(this.scene);
-        }
-        for (let b of this.models.box) {
-            b.renderPicking(this.scene);
         }
         this.programs.pick.unbind();
         y = height - y;
@@ -5405,6 +5405,19 @@ class Streets extends Layer {
             vertices: new Float32Array(vert.slice(0, offset)),
             times: new Float32Array(times.slice(0, offset / 2))
         });
+    }
+}
+class Buildings extends Layer {
+    constructor(gl, data, meta) {
+        super(gl);
+        data.vertices = Parser.toFloat32(data.vertices);
+        data.normals = Parser.toFloat32(data.normals);
+        data.objects = Parser.toUint32(data.objects);
+        data.stats.min = Parser.toFloat32(data.stats.min);
+        data.stats.max = Parser.toFloat32(data.stats.max);
+        console.log(data);
+        let models = this.gl.addCitySegment(data);
+        this.glmodel = models.cityModel;
     }
 }
 class LayerManager {
@@ -5586,6 +5599,10 @@ class Application {
         console.log(data);
         let terrain = new Terrain(this.gl, data.terrain);
         this.layers.addLayer(terrain);
+        let bridges = new Buildings(this.gl, data.bridges, data.bridges_meta);
+        this.layers.addLayer(bridges);
+        let buildings = new Buildings(this.gl, data.buildings, data.buildings_meta);
+        this.layers.addLayer(buildings);
         this.gl.addFloat32Texture("height", data.height);
         let streets = new Streets(this.gl, data.streets);
         this.layers.addLayer(streets);

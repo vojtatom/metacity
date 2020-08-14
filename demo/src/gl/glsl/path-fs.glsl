@@ -32,7 +32,7 @@ void main()
     else if (diff < 1.0f)
         color = vec4(1.0f);
     else if (diff < 100.0f)
-        color = vec4(vec3((VISIBLE_LEN - diff) / VISIBLE_LEN), 1.0);
+        color = vec4(vec2((VISIBLE_LEN - diff) / VISIBLE_LEN), 0.0, 1.0);
     else
         color = vec4(0.0f);
 }
