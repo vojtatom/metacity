@@ -100,6 +100,8 @@ class Application {
     }*/
 
     load() {
+
+        
         let data = JSON.parse(this.data);
         this.state = AppState.parsing;
         console.log(data);

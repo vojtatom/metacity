@@ -116,7 +116,7 @@ class Graphics {
         this.gl.depthMask(true);      
         this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
         this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);  
-        this.gl.enable(this.gl.DEPTH_TEST); // now repeated call unnecesary, needed for later 
+        this.gl.enable(this.gl.DEPTH_TEST);
         this.gl.disable(this.gl.BLEND); 
         
         //render buildings

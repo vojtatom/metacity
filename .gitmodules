@@ -1,3 +1,3 @@
-[submodule "slumpy"]
-	path = slumpy
-	url = git@github.com:vojtatom/slumpy.git
+[submodule "citypy"]
+	path = citypy
+	url = git@github.com:vojtatom/citypy.git
