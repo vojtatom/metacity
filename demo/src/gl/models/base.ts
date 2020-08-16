@@ -49,9 +49,10 @@ class GLModel extends GLObject {
 
     uniformDict(scene: Scene){
         return Object.assign({}, {
-            world: scene.camera.world,
+            /*world: scene.camera.world,
             view: scene.camera.view,
-            proj: scene.camera.projection,
+            proj: scene.camera.projection,*/
+            mvp: scene.camera.mvp,
             farplane: scene.camera.farplane,
         });
     }
@@ -61,6 +62,10 @@ class GLModel extends GLObject {
     }
 
     renderPicking(scene: Scene){
+
+    }
+
+    renderShadow(scene: Scene){
 
     }
 }

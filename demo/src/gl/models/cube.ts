@@ -20,7 +20,7 @@ class CubeModel extends GLModel {
         this.gl.bindVertexArray(vao);
         this.addBufferVAO(vao);
 
-
+        
         let vdata = boxVertices(this.data.min, this.data.max);
         //vertices
         let vertices = this.gl.createBuffer();

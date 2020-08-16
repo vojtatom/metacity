@@ -35,6 +35,14 @@ class StreetProgram extends Program {
             border_max: {
                 name: 'border_max',
                 type: this.GLType.vec3
+            },
+            shift: {
+                name: 'shift',
+                type: this.GLType.float
+            },
+            scale: {
+                name: 'scale',
+                type: this.GLType.float
             }
         });
     }

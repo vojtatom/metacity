@@ -38,6 +38,7 @@
 
       "gl/geometry.ts",
       "gl/camera.ts",
+      "gl/light.ts",
       "gl/gl.ts",
 
       "layers/layer.ts",

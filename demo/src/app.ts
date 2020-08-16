@@ -110,6 +110,8 @@ class Application {
         let terrain = new Terrain(this.gl, data.terrain);
         this.layers.addLayer(terrain);
 
+        console.log(this.gl.scene);
+
         //buildings loading
         let bridges = new Buildings(this.gl, data.bridges, data.bridges_meta);
         this.layers.addLayer(bridges);
@@ -170,6 +172,7 @@ class Application {
         } 
         
         this.gl.render();
+        //this.gl.renderShadow();
 
         if (this.interface.keys[67]) { // letter c
             this.gl.saveCanvas("screen.png");

@@ -9,12 +9,11 @@ in float time;
 uniform sampler2D displacement;
 uniform vec3 border_min;
 uniform vec3 border_max;
-
+uniform float shift;
+uniform float scale;
 
 //matrices
-uniform mat4 mWorld;
-uniform mat4 mView;
-uniform mat4 mProj;
+uniform mat4 mMVP;
 
 //animation stuff
 out float path_time;
@@ -24,7 +23,7 @@ vec3 DISP = vec3(0, 0, 1);
 
 vec3 displace(vec2 pos) {
     vec2 texcoord = (pos - border_min.xy) / (border_max.xy - border_min.xy);
-    return vec3(pos, texture(displacement, texcoord)) + DISP;
+    return vec3(pos, (texture(displacement, texcoord) + shift) * scale) + DISP * scale;
 }
 
 void main() {
@@ -33,5 +32,5 @@ void main() {
     //visible = float(all(greaterThan(pos, border_min)) && all(lessThan(pos, border_max)));
     path_time = time;
 
-    gl_Position =  mProj * mView * mWorld * vec4(pos, 1.0);
+    gl_Position =  mMVP * vec4(pos, 1.0);
 }

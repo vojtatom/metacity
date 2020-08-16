@@ -52,8 +52,10 @@ class StreetModel extends GLModel {
         this.gl.bindTexture(this.gl.TEXTURE_2D, scene.textures['height'].id);
         let uniforms: UniformBinder = this.uniformDict(scene);
         uniforms['displacement'] = scene.textures['height'].id;
-        uniforms['border_min'] = scene.stats.min;
-        uniforms['border_max'] = scene.stats.max;
+        uniforms['border_min'] = scene.scaledStats.min;
+        uniforms['border_max'] = scene.scaledStats.max;
+        uniforms['shift'] = scene.camera.shift[2];
+        uniforms['scale'] = GLOBAL_SCALE;
 
 
         this.program.bindUniforms(uniforms);

@@ -13,7 +13,9 @@ let TIME_DELTA = 3.0;
 
 class Scene extends GLObject {
     stats: F32OBJstats;
+    scaledStats: F32OBJstats;
     camera: Camera;
+    light: Light;
     center: Vec3Array;
     selected: number;
     time: number;
@@ -26,9 +28,15 @@ class Scene extends GLObject {
         super(gl);
 
         this.camera = new Camera(this.gl);
+        this.light = new Light(this.gl, this.camera);
         this.center = new Float32Array([0, 0, 0]);
 
         this.stats = {
+            min: new Float32Array([Infinity, Infinity, Infinity]),
+            max: new Float32Array([-Infinity, -Infinity, -Infinity]),
+        };
+
+        this.scaledStats = {
             min: new Float32Array([Infinity, Infinity, Infinity]),
             max: new Float32Array([-Infinity, -Infinity, -Infinity]),
         };
@@ -55,7 +63,13 @@ class Scene extends GLObject {
         this.stats.max[0] = Math.max(this.stats.max[0], stats.max[0]);
         this.stats.max[1] = Math.max(this.stats.max[1], stats.max[1]);
         this.stats.max[2] = Math.max(this.stats.max[2], stats.max[2]);
+        
         this.camera.updateScale(this.stats);
+
+        glMatrix.vec3.copy(this.scaledStats.min, this.stats.min);
+        glMatrix.vec3.copy(this.scaledStats.max, this.stats.max);
+        this.rescale3D(this.scaledStats.min);
+        this.rescale3D(this.scaledStats.max);
     }
 
     frame() {
@@ -65,5 +79,13 @@ class Scene extends GLObject {
 
     setTimeMax(time: number) {
         this.timeMax = Math.max(this.timeMax, time);
+    }
+
+    rescale3D(data: Float32Array) {
+        rescale3D(data, this.camera.shift, GLOBAL_SCALE);
+    }
+
+    rescale2D(data: Float32Array) {
+        rescale2D(data, this.camera.shift, GLOBAL_SCALE);
     }
 }

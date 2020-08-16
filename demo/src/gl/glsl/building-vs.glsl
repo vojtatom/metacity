@@ -7,9 +7,7 @@ in vec4 object;
 in vec3 normal;
 
 //matrices
-uniform mat4 mWorld;
-uniform mat4 mView;
-uniform mat4 mProj;
+uniform mat4 mMVP;
 
 uniform vec4 selected;
 out vec3 fragcolor;
@@ -46,5 +44,5 @@ void main() {
         objColor = vec3(1.0);
     
     fragcolor = phong(vec3(1, 0.5, 1), vertex, normal) * objColor;
-    gl_Position =  mProj * mView * mWorld * vec4(vertex, 1.0);
+    gl_Position =  mMVP * vec4(vertex, 1.0);
 }

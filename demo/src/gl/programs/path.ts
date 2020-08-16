@@ -37,6 +37,14 @@ class PathProgram extends Program {
                 name: 'border_max',
                 type: this.GLType.vec3
             },
+            shift: {
+                name: 'shift',
+                type: this.GLType.float
+            },
+            scale: {
+                name: 'scale',
+                type: this.GLType.float
+            },
             world_time: {
                 name: 'world_time',
                 type: this.GLType.float
@@ -44,7 +52,7 @@ class PathProgram extends Program {
             max_time: {
                 name: 'max_time',
                 type: this.GLType.float
-            }
+            },
         });
     }
 

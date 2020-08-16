@@ -6,14 +6,12 @@ in vec3 vertex;
 in vec4 object;
 
 //matrices
-uniform mat4 mWorld;
-uniform mat4 mView;
-uniform mat4 mProj;
+uniform mat4 mMVP;
 
 out vec4 fragcolor;
 
 
 void main() {
     fragcolor = vec4(object.xyzw);
-    gl_Position =  mProj * mView * mWorld * vec4(vertex, 1.0);
+    gl_Position =  mMVP * vec4(vertex, 1.0);
 }

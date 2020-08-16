@@ -21,7 +21,9 @@ class Buildings extends Layer {
         data.stats.min = Parser.toFloat32(data.stats.min);
         data.stats.max = Parser.toFloat32(data.stats.max);
 
-        console.log(data);
+        this.gl.scene.rescale3D(data.vertices);
+        this.gl.scene.rescale3D(data.stats.min);
+        this.gl.scene.rescale3D(data.stats.max);
 
         let models = this.gl.addCitySegment(data as BuildingsInterface);
         this.glmodel = models.cityModel;

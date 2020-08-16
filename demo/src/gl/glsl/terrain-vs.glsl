@@ -6,9 +6,7 @@ in vec3 vertex;
 in vec3 normal;
 
 //matrices
-uniform mat4 mWorld;
-uniform mat4 mView;
-uniform mat4 mProj;
+uniform mat4 mMVP;
 
 out vec3 fragcolor;
 out float hight;
@@ -34,5 +32,5 @@ vec3 phong(vec3 light, vec3 ver_position, vec3 ver_normal){
 void main() {
     hight = vertex.z;
     fragcolor = phong(vec3(1, 0.5, 1), vertex, normal) * 0.3;
-    gl_Position =  mProj * mView * mWorld * vec4(vertex, 1.0);
+    gl_Position =  mMVP * vec4(vertex, 1.0);
 }

@@ -4284,8 +4284,13 @@ class Scene extends GLObject {
     constructor(gl, textures) {
         super(gl);
         this.camera = new Camera(this.gl);
+        this.light = new Light(this.gl, this.camera);
         this.center = new Float32Array([0, 0, 0]);
         this.stats = {
+            min: new Float32Array([Infinity, Infinity, Infinity]),
+            max: new Float32Array([-Infinity, -Infinity, -Infinity]),
+        };
+        this.scaledStats = {
             min: new Float32Array([Infinity, Infinity, Infinity]),
             max: new Float32Array([-Infinity, -Infinity, -Infinity]),
         };
@@ -4308,6 +4313,10 @@ class Scene extends GLObject {
         this.stats.max[1] = Math.max(this.stats.max[1], stats.max[1]);
         this.stats.max[2] = Math.max(this.stats.max[2], stats.max[2]);
         this.camera.updateScale(this.stats);
+        glMatrix.vec3.copy(this.scaledStats.min, this.stats.min);
+        glMatrix.vec3.copy(this.scaledStats.max, this.stats.max);
+        this.rescale3D(this.scaledStats.min);
+        this.rescale3D(this.scaledStats.max);
     }
     frame() {
         this.camera.frame();
@@ -4315,6 +4324,12 @@ class Scene extends GLObject {
     }
     setTimeMax(time) {
         this.timeMax = Math.max(this.timeMax, time);
+    }
+    rescale3D(data) {
+        rescale3D(data, this.camera.shift, GLOBAL_SCALE);
+    }
+    rescale2D(data) {
+        rescale2D(data, this.camera.shift, GLOBAL_SCALE);
     }
 }
 var ShaderType;
@@ -4432,18 +4447,10 @@ class Program extends GLObject {
     }
     commonUniforms() {
         this.setupUniforms({
-            world: {
-                name: 'mWorld',
-                type: this.GLType.mat4,
-            },
-            view: {
-                name: 'mView',
-                type: this.GLType.mat4,
-            },
-            proj: {
-                name: 'mProj',
-                type: this.GLType.mat4,
-            },
+            mvp: {
+                name: 'mMVP',
+                type: this.GLType.mat4
+            }
         });
     }
     bind() {
@@ -4538,6 +4545,14 @@ class StreetProgram extends Program {
             border_max: {
                 name: 'border_max',
                 type: this.GLType.vec3
+            },
+            shift: {
+                name: 'shift',
+                type: this.GLType.float
+            },
+            scale: {
+                name: 'scale',
+                type: this.GLType.float
             }
         });
     }
@@ -4731,6 +4746,14 @@ class PathProgram extends Program {
                 name: 'border_max',
                 type: this.GLType.vec3
             },
+            shift: {
+                name: 'shift',
+                type: this.GLType.float
+            },
+            scale: {
+                name: 'scale',
+                type: this.GLType.float
+            },
             world_time: {
                 name: 'world_time',
                 type: this.GLType.float
@@ -4738,7 +4761,7 @@ class PathProgram extends Program {
             max_time: {
                 name: 'max_time',
                 type: this.GLType.float
-            }
+            },
         });
     }
     bindAttrVertex() {
@@ -4792,15 +4815,15 @@ class GLModel extends GLObject {
     }
     uniformDict(scene) {
         return Object.assign({}, {
-            world: scene.camera.world,
-            view: scene.camera.view,
-            proj: scene.camera.projection,
+            mvp: scene.camera.mvp,
             farplane: scene.camera.farplane,
         });
     }
     render(scene) {
     }
     renderPicking(scene) {
+    }
+    renderShadow(scene) {
     }
 }
 class BuildingModel extends GLModel {
@@ -4846,6 +4869,19 @@ class BuildingModel extends GLModel {
         }
         this.bindBuffersAndTextures();
         let uniforms = this.uniformDict(scene);
+        uniforms["selected"] = scene.selectedv4;
+        this.program.bindUniforms(uniforms);
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
+        this.gl.bindVertexArray(null);
+    }
+    renderShadow(scene) {
+        if (!this.loaded) {
+            this.init();
+            return;
+        }
+        this.bindBuffersAndTextures();
+        let uniforms = this.uniformDict(scene);
+        uniforms["proj"] = scene.light.proj;
         uniforms["selected"] = scene.selectedv4;
         this.program.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
@@ -4929,8 +4965,10 @@ class StreetModel extends GLModel {
         this.gl.bindTexture(this.gl.TEXTURE_2D, scene.textures['height'].id);
         let uniforms = this.uniformDict(scene);
         uniforms['displacement'] = scene.textures['height'].id;
-        uniforms['border_min'] = scene.stats.min;
-        uniforms['border_max'] = scene.stats.max;
+        uniforms['border_min'] = scene.scaledStats.min;
+        uniforms['border_max'] = scene.scaledStats.max;
+        uniforms['shift'] = scene.camera.shift[2];
+        uniforms['scale'] = GLOBAL_SCALE;
         this.program.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.LINES, 0, this.lineSegments);
         this.gl.bindVertexArray(null);
@@ -4966,6 +5004,17 @@ class TerrainModel extends GLModel {
         delete this.data;
     }
     render(scene) {
+        if (!this.loaded) {
+            this.init();
+            return;
+        }
+        this.bindBuffersAndTextures();
+        let uniforms = this.uniformDict(scene);
+        this.program.bindUniforms(uniforms);
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
+        this.gl.bindVertexArray(null);
+    }
+    renderShadow(scene) {
         if (!this.loaded) {
             this.init();
             return;
@@ -5015,8 +5064,10 @@ class PathModel extends GLModel {
         this.gl.bindTexture(this.gl.TEXTURE_2D, scene.textures['height'].id);
         let uniforms = this.uniformDict(scene);
         uniforms['displacement'] = scene.textures['height'].id;
-        uniforms['border_min'] = scene.stats.min;
-        uniforms['border_max'] = scene.stats.max;
+        uniforms['border_min'] = scene.scaledStats.min;
+        uniforms['border_max'] = scene.scaledStats.max;
+        uniforms['shift'] = scene.camera.shift[2];
+        uniforms['scale'] = GLOBAL_SCALE;
         uniforms['world_time'] = scene.time;
         uniforms['max_time'] = scene.timeMax;
         this.program.bindUniforms(uniforms);
@@ -5053,6 +5104,19 @@ function boxVertices(min, max) {
         max[0], max[1], max[2],
     ]);
 }
+function rescale3D(data, shift, scale) {
+    for (let i = 0; i < data.length; i += 3) {
+        data[i] = (data[i] + shift[0]) * scale;
+        data[i + 1] = (data[i + 1] + shift[1]) * scale;
+        data[i + 2] = (data[i + 2] + shift[2]) * scale;
+    }
+}
+function rescale2D(data, shift, scale) {
+    for (let i = 0; i < data.length; i += 2) {
+        data[i] = (data[i] + shift[0]) * scale;
+        data[i + 1] = (data[i + 1] + shift[1]) * scale;
+    }
+}
 const ZOOM_STEP = 0.0025;
 const ROT_STEP = 0.5;
 const GLOBAL_SCALE = 0.001;
@@ -5062,12 +5126,14 @@ class Camera extends GLObject {
         this.position = new Float32Array([0, 0, 0]);
         this.up = new Float32Array([0, 1, 0]);
         this.geometryCenter = new Float32Array([0, 0, 0]);
+        this.shift = new Float32Array([0, 0, 0]);
         this.center = new Float32Array([0, 0, 100]);
         this.actualPosition = new Float32Array([0, 0, 0]);
         this.actualUp = new Float32Array([0, 1, 0]);
         this.actualCenter = new Float32Array([, 0, 100]);
         this.viewMatrix = new Float32Array(16);
         this.projectionMatrix = new Float32Array(16);
+        this.MVPmatrix = new Float32Array(16);
         this.rotateMatrix = new Float32Array(16);
         this.frontVector = new Float32Array(3);
         this.tmp = new Float32Array(3);
@@ -5094,6 +5160,12 @@ class Camera extends GLObject {
     }
     get world() {
         return this.worldMatrix;
+    }
+    get mvp() {
+        glMatrix.mat4.copy(this.MVPmatrix, this.projection);
+        glMatrix.mat4.mul(this.MVPmatrix, this.MVPmatrix, this.view);
+        glMatrix.mat4.mul(this.MVPmatrix, this.MVPmatrix, this.world);
+        return this.MVPmatrix;
     }
     get front() {
         glMatrix.vec3.sub(this.frontVector, this.center, this.position);
@@ -5204,11 +5276,22 @@ class Camera extends GLObject {
         this.position = Object.assign({}, this.center);
         this.position[2] += farplane / 2;
         glMatrix.mat4.identity(this.worldMatrix);
-        glMatrix.mat4.scale(this.worldMatrix, this.worldMatrix, glMatrix.vec3.fromValues(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE));
-        glMatrix.mat4.translate(this.worldMatrix, this.worldMatrix, glMatrix.vec3.negate(this.tmp, this.geometryCenter));
+        glMatrix.vec3.copy(this.shift, glMatrix.vec3.negate(this.tmp, this.geometryCenter));
     }
     get needsRedraw() {
         return this.centerMomentum || this.rotMomentum || this.positionMomentum;
+    }
+}
+class Light extends GLObject {
+    constructor(gl, cam) {
+        super(gl);
+        this.dir = new Float32Array([0, 0, 0]);
+        this.projectMatrix = new Float32Array(16);
+        this.camera = cam;
+    }
+    get proj() {
+        glMatrix.mat4.ortho(this.projectMatrix, -10, 10, -10, 10, 0.01, this.camera.farplane);
+        return this.projectMatrix;
     }
 }
 class Graphics {
@@ -5256,7 +5339,6 @@ class Graphics {
         this.models.terrain.push(glmodel);
         let box = new CubeModel(this.gl, this.programs, model.stats);
         this.models.box.push(box);
-        this.scene.addModel(model.stats);
         this.loaded = true;
         return {
             terrainModel: glmodel,
@@ -5318,6 +5400,26 @@ class Graphics {
         this.programs.box.unbind();
         this.scene.frame();
     }
+    renderShadow() {
+        if (!this.loaded)
+            return;
+        this.gl.depthMask(true);
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
+        this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
+        this.programs.building.bind();
+        for (let c of this.models.city) {
+            c.renderShadow(this.scene);
+        }
+        this.programs.building.unbind();
+        this.programs.terrain.bind();
+        for (let t of this.models.terrain) {
+            t.renderShadow(this.scene);
+        }
+        this.programs.terrain.unbind();
+        this.scene.frame();
+    }
     renderPick(x, y, height) {
         if (!this.loaded)
             return;
@@ -5375,7 +5477,10 @@ class Terrain extends Layer {
         data.normals = Parser.toFloat32(data.normals);
         data.stats.min = Parser.toFloat32(data.stats.min);
         data.stats.max = Parser.toFloat32(data.stats.max);
-        console.log(data);
+        this.gl.scene.addModel(data.stats);
+        this.gl.scene.rescale3D(data.vertices);
+        this.gl.scene.rescale3D(data.stats.min);
+        this.gl.scene.rescale3D(data.stats.max);
         let models = this.gl.addTerainSegment(data);
         this.glmodel = models.terrainModel;
     }
@@ -5385,7 +5490,9 @@ class Streets extends Layer {
         super(gl);
         data.lineVertices = Parser.toFloat32(data.lineVertices);
         data.lineObjects = Parser.toUint32(data.lineObjects);
-        console.log(data);
+        console.log("lines", data);
+        this.gl.scene.rescale2D(data.lineVertices);
+        console.log("lines", data);
         let models = this.gl.addStreetSegment(data);
         this.glmodel = models.streetModel;
     }
@@ -5401,9 +5508,12 @@ class Streets extends Layer {
             offset = Path.randomPath(this.graph.data, 100, vert, times, offset);
             this.gl.scene.setTimeMax((times[(offset / 2) - 1]));
         }
+        vert = new Float32Array(vert.slice(0, offset));
+        times = new Float32Array(times.slice(0, offset / 2));
+        this.gl.scene.rescale2D(vert);
         this.gl.addPath({
-            vertices: new Float32Array(vert.slice(0, offset)),
-            times: new Float32Array(times.slice(0, offset / 2))
+            vertices: vert,
+            times: times
         });
     }
 }
@@ -5415,7 +5525,9 @@ class Buildings extends Layer {
         data.objects = Parser.toUint32(data.objects);
         data.stats.min = Parser.toFloat32(data.stats.min);
         data.stats.max = Parser.toFloat32(data.stats.max);
-        console.log(data);
+        this.gl.scene.rescale3D(data.vertices);
+        this.gl.scene.rescale3D(data.stats.min);
+        this.gl.scene.rescale3D(data.stats.max);
         let models = this.gl.addCitySegment(data);
         this.glmodel = models.cityModel;
     }
@@ -5599,6 +5711,7 @@ class Application {
         console.log(data);
         let terrain = new Terrain(this.gl, data.terrain);
         this.layers.addLayer(terrain);
+        console.log(this.gl.scene);
         let bridges = new Buildings(this.gl, data.bridges, data.bridges_meta);
         this.layers.addLayer(bridges);
         let buildings = new Buildings(this.gl, data.buildings, data.buildings_meta);

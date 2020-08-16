@@ -224,7 +224,7 @@ class Program extends GLObject {
 
     commonUniforms() {
         this.setupUniforms({
-            world: {
+            /*world: {
                 name: 'mWorld',
                 type: this.GLType.mat4,
             },
@@ -235,7 +235,11 @@ class Program extends GLObject {
             proj: {
                 name: 'mProj',
                 type: this.GLType.mat4,
-            },
+            },*/
+            mvp: {
+                name: 'mMVP',
+                type: this.GLType.mat4
+            }
         });
     }
 

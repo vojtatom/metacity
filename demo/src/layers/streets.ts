@@ -22,8 +22,11 @@ class Streets extends Layer {
 
         data.lineVertices = Parser.toFloat32(data.lineVertices as string);
         data.lineObjects = Parser.toUint32(data.lineObjects as string);
-        console.log(data);
-
+        console.log("lines", data);
+        
+        this.gl.scene.rescale2D(data.lineVertices);
+        console.log("lines", data);
+        
         let models = this.gl.addStreetSegment(data as StreetModelInterface);
         this.glmodel = models.streetModel;
     }
@@ -43,9 +46,14 @@ class Streets extends Layer {
             this.gl.scene.setTimeMax((times[(offset / 2) - 1]));
         }
 
+        vert = new Float32Array(vert.slice(0, offset));
+        times = new Float32Array(times.slice(0, offset / 2));
+
+        this.gl.scene.rescale2D(vert);
+
         this.gl.addPath({
-            vertices: new Float32Array(vert.slice(0, offset)),
-            times: new Float32Array(times.slice(0, offset / 2))
+            vertices: vert,
+            times: times
         });
     }
 }

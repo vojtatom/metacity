@@ -77,8 +77,6 @@ class Graphics {
         this.models.terrain.push(glmodel);
         let box = new CubeModel(this.gl, this.programs, model.stats);
         this.models.box.push(box);
-
-        this.scene.addModel(model.stats);
         this.loaded = true;
 
         return {
@@ -160,6 +158,33 @@ class Graphics {
         this.programs.box.unbind();
 
         this.scene.frame();
+    }
+
+    renderShadow() {
+        if (!this.loaded)
+            return;
+
+        this.gl.depthMask(true);      
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);  
+        this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND); 
+        
+        //render buildings
+        this.programs.building.bind();
+        for(let c of this.models.city){
+            c.renderShadow(this.scene);
+        }
+        this.programs.building.unbind();
+        
+        //render terrain
+        this.programs.terrain.bind();
+        for(let t of this.models.terrain){
+            t.renderShadow(this.scene);
+        }
+        this.programs.terrain.unbind();
+        this.scene.frame();
+            
     }
     
     renderPick(x: number, y: number, height: number) {

@@ -75,6 +75,24 @@ class BuildingModel extends GLModel {
         this.gl.bindVertexArray(null);
     }
 
+    renderShadow(scene: Scene){
+        if (!this.loaded)
+        {
+            this.init();
+            return;
+        }
+
+        this.bindBuffersAndTextures();
+        let uniforms : UniformBinder = this.uniformDict(scene);
+        uniforms["proj"] = scene.light.proj;
+        uniforms["selected"] = scene.selectedv4;
+
+        this.program.bindUniforms(uniforms);
+
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
+        this.gl.bindVertexArray(null);
+    }
+
     renderPicking(scene: Scene) {
         if (!this.loaded)
         {
