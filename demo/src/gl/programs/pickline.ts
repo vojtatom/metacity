@@ -1,18 +1,18 @@
-class BuildingProgram extends Program {
+class PickLineProgram extends Program {
     constructor(gl: WebGL2RenderingContext){
         super(gl);
     
         DataManager.files({
             files: [
-                Program.DIR + "building-vs.glsl",
-                Program.DIR + "building-fs.glsl",
+                Program.DIR + "pickline-vs.glsl",
+                Program.DIR + "pickline-fs.glsl",
             ],
             success: (files) => {
                 this.init(files[0], files[1]);
                 this.setup();
             },
             fail: () => {
-                throw "Building shader not loaded";
+                throw "Pick line shader not loaded";
             }
         });
     }
@@ -20,31 +20,24 @@ class BuildingProgram extends Program {
     setup() {
         this.setupAttributes({
             vertex: 'vertex',
-            normal: 'normal',
-            object: 'object'
+            startVert: 'startVert',
+            endVert: 'endVert',
+            object: 'object',
         });
 
         this.commonUniforms();
         this.setupUniforms({
-            selected: {
-                name: 'selected',
-                type: this.GLType.vec4,
-            },
-            mLVP: {
-                name: 'mLVP',
-                type: this.GLType.mat4
-            },
-            shadowmap: {
-                name: 'shadowmap',
+            displacement: {
+                name: 'displacement',
                 type: this.GLType.int
             },
-            texSize: {
-                name: 'texSize',
-                type: this.GLType.float
+            border_min: {
+                name: 'border_min',
+                type: this.GLType.vec3
             },
-            tolerance: {
-                name: 'tolerance',
-                type: this.GLType.float
+            border_max: {
+                name: 'border_max',
+                type: this.GLType.vec3
             }
         });
     }
@@ -55,18 +48,31 @@ class BuildingProgram extends Program {
             attribute: this.attributes.vertex,
             size: 3,
             stride: 3 * Float32Array.BYTES_PER_ELEMENT,
-            offset: 0,
+            offset: 0
         });
         this.gl.useProgram(null);
     }
 
-    bindAttrNormal() {
+    bindAttrStartVert() {
         this.gl.useProgram(this.program);
         this.bindAttribute({
-            attribute: this.attributes.normal,
-            size: 3,
-            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+            attribute: this.attributes.startVert,
+            size: 2,
+            stride: 4 * Float32Array.BYTES_PER_ELEMENT,
             offset: 0,
+            divisor: 1
+        });
+        this.gl.useProgram(null);
+    }
+
+    bindAttrEndVert() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.endVert,
+            size: 2,
+            stride: 4 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 2 * Float32Array.BYTES_PER_ELEMENT,
+            divisor: 1
         });
         this.gl.useProgram(null);
     }
@@ -76,8 +82,9 @@ class BuildingProgram extends Program {
         this.bindInt32Attribute({
             attribute: this.attributes.object,
             size: 4, // has to be 4
-            stride: 1 * Uint32Array.BYTES_PER_ELEMENT,
+            stride: 2 * Uint32Array.BYTES_PER_ELEMENT,
             offset: 0,
+            divisor: 1
         });
         this.gl.useProgram(null);
     }

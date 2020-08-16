@@ -68,6 +68,7 @@ class TerrainModel extends GLModel {
         this.program.bindUniforms(uniforms);
 
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
+        
         this.gl.bindVertexArray(null);
         this.gl.bindTexture(this.gl.TEXTURE_2D, null);
     }

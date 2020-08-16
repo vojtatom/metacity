@@ -28,7 +28,8 @@ interface TerrainModelInterface {
 }
 
 interface StreetModelInterface {
-    lineVertices: Float32Array
+    lineVertices: Float32Array,
+    lineObjects: Uint32Array
 }
 
 
@@ -49,6 +50,7 @@ interface GLProgramList {
     terrain: TerrainProgram,
     box: BoxProgram,
     pick: PickProgram,
+    pickLine: PickLineProgram,
     street: StreetProgram,
     path: PathProgram,
     triangle: TriangleProgram,

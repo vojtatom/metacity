@@ -24,7 +24,7 @@ class Light extends GLObject {
         glMatrix.mat4.lookAt(this.viewMatrix, this.pos, center, up);
         this.camera = cam;
         this.texSize = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), 8192);
-        this.tolerance = 0.0005;
+        this.tolerance = 0.0007;
     }
 
     get vp() {

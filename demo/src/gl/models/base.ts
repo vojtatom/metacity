@@ -34,13 +34,13 @@ class GLModel extends GLObject {
     bindBuffersAndTextures(){
         this.gl.bindVertexArray(this.buffers.vao);
 
-        for (let buffer of this.buffers.vbo){
+        /*for (let buffer of this.buffers.vbo){
             this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
         }
         
         if (this.buffers.ebo !== undefined) {
             this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.buffers.ebo);
-        }
+        }*/
 
         /*for (let texture of this.textures){
             this.gl.bindTexture(this.gl.TEXTURE_2D, texture);

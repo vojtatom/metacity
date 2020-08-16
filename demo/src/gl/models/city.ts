@@ -69,13 +69,20 @@ class BuildingModel extends GLModel {
         }
 
         this.bindBuffersAndTextures();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, scene.light.depth);
+
         let uniforms : UniformBinder = this.uniformDict(scene);
         uniforms["selected"] = scene.selectedv4;
+        uniforms['mLVP'] = scene.light.vp;
+        uniforms['shadowmap'] = scene.light.depth;
+        uniforms['texSize'] = scene.light.texSize;
+        uniforms['tolerance'] = scene.light.tolerance;
 
         this.program.bindUniforms(uniforms);
 
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
         this.gl.bindVertexArray(null);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
     }
 
     renderShadow(scene: Scene){

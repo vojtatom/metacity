@@ -23,6 +23,7 @@
 
       "gl/programs/base.ts",
       "gl/programs/pick.ts",
+      "gl/programs/pickline.ts",
       "gl/programs/street.ts",
       "gl/programs/building.ts",
       "gl/programs/terrain.ts",

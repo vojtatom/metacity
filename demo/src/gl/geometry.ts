@@ -43,3 +43,33 @@ function rescale2D(data: Float32Array, shift: Float32Array, scale: number) {
         data[i + 1] = (data[i + 1] + shift[1]) * scale;
     }
 }*/
+
+function glyphVertLine(sampling: number, height = 2){
+    let vert = [];
+    let add = 2 * Math.PI / sampling;
+    let size = 0.5;
+
+    for (let i = 0; i < 2 * Math.PI; i += add){
+        vert.push(0, size * Math.cos(i), size * Math.sin(i));
+        vert.push(0, size * Math.cos(i + add), size * Math.sin(i + add));
+        vert.push(size * height, size * Math.cos(i), size * Math.sin(i));
+
+        vert.push(0, size * Math.cos(i + add), size * Math.sin(i + add));
+        vert.push(size * height, size * Math.cos(i + add), size * Math.sin(i + add));
+        vert.push(size * height, size * Math.cos(i), size * Math.sin(i));
+    }
+
+    for (let i = 0; i < 2 * Math.PI; i += add){
+        vert.push(0, size * Math.cos(i + add), size * Math.sin(i + add));
+        vert.push(0, size * Math.cos(i), size * Math.sin(i));
+        vert.push(0, 0, 0);
+    }
+
+    for (let i = 0; i < 2 * Math.PI; i += add){
+        vert.push(size * height, size * Math.cos(i), size * Math.sin(i));
+        vert.push(size * height, size * Math.cos(i + add), size * Math.sin(i + add));
+        vert.push(size * height, 0, 0);
+    }
+
+    return new Float32Array(vert);
+}

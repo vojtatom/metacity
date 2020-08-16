@@ -41,8 +41,8 @@ class Graphics {
             throw 'Linear filter unavailable';
 
         ext = this.gl.getExtension('EXT_color_buffer_float');
-            if (!ext)
-                throw 'Color float texture unavailable';
+        if (!ext)
+            throw 'Color float texture unavailable';
 
         //init GPU programs
         this.programs = {
@@ -50,6 +50,7 @@ class Graphics {
             terrain: new TerrainProgram(this.gl),
             box: new BoxProgram(this.gl),
             pick: new PickProgram(this.gl),
+            pickLine: new PickLineProgram(this.gl),
             street: new StreetProgram(this.gl),
             path: new PathProgram(this.gl),
             triangle: new TriangleProgram(this.gl)
@@ -215,6 +216,13 @@ class Graphics {
             c.renderPicking(this.scene);
         }
         this.programs.pick.unbind();
+
+        //render streets
+        this.programs.pickLine.bind();
+        for(let s of this.models.streets){
+            s.renderPicking(this.scene);
+        }
+        this.programs.pickLine.unbind();
 
 
         y = height - y;

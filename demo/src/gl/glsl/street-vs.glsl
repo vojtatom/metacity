@@ -3,12 +3,14 @@ precision highp float;
 precision highp int;
 
 in vec2 vertex;
+in vec4 object;
 
 //displacement
 uniform sampler2D displacement;
 uniform vec3 border_min;
 uniform vec3 border_max;
 
+uniform vec4 selected;
 
 
 //matrices
@@ -31,6 +33,13 @@ vec3 displace(vec2 pos) {
 void main() {
     fragcolor = vec4(1.0, 1.0, 1.0, 0.2);
     vec3 pos = displace(vertex);
+
+    int marked = 1;
+    for(int i = 0; i < 4; ++i)
+        marked *= int(floor(selected[i] * 255.0 + 0.5) == floor(object[i] * 255.0 + 0.5));
+
+    if (bool(marked))
+        fragcolor = vec4(2.0, 1.5, 1.0, 1.0);
     
     visible = float(all(greaterThan(pos, border_min)) && all(lessThan(pos, border_max)));
 

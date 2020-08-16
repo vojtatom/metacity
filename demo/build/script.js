@@ -4501,26 +4501,29 @@ class PickProgram extends Program {
         this.gl.useProgram(null);
     }
 }
-class StreetProgram extends Program {
+class PickLineProgram extends Program {
     constructor(gl) {
         super(gl);
         DataManager.files({
             files: [
-                Program.DIR + "street-vs.glsl",
-                Program.DIR + "street-fs.glsl",
+                Program.DIR + "pickline-vs.glsl",
+                Program.DIR + "pickline-fs.glsl",
             ],
             success: (files) => {
                 this.init(files[0], files[1]);
                 this.setup();
             },
             fail: () => {
-                throw "Street shader not loaded";
+                throw "Pick line shader not loaded";
             }
         });
     }
     setup() {
         this.setupAttributes({
-            vertex: 'vertex'
+            vertex: 'vertex',
+            startVert: 'startVert',
+            endVert: 'endVert',
+            object: 'object',
         });
         this.commonUniforms();
         this.setupUniforms({
@@ -4542,8 +4545,104 @@ class StreetProgram extends Program {
         this.gl.useProgram(this.program);
         this.bindAttribute({
             attribute: this.attributes.vertex,
+            size: 3,
+            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0
+        });
+        this.gl.useProgram(null);
+    }
+    bindAttrStartVert() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.startVert,
+            size: 2,
+            stride: 4 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+            divisor: 1
+        });
+        this.gl.useProgram(null);
+    }
+    bindAttrEndVert() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.endVert,
+            size: 2,
+            stride: 4 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 2 * Float32Array.BYTES_PER_ELEMENT,
+            divisor: 1
+        });
+        this.gl.useProgram(null);
+    }
+    bindAttrObject() {
+        this.gl.useProgram(this.program);
+        this.bindInt32Attribute({
+            attribute: this.attributes.object,
+            size: 4,
+            stride: 2 * Uint32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+            divisor: 1
+        });
+        this.gl.useProgram(null);
+    }
+}
+class StreetProgram extends Program {
+    constructor(gl) {
+        super(gl);
+        DataManager.files({
+            files: [
+                Program.DIR + "street-vs.glsl",
+                Program.DIR + "street-fs.glsl",
+            ],
+            success: (files) => {
+                this.init(files[0], files[1]);
+                this.setup();
+            },
+            fail: () => {
+                throw "Street shader not loaded";
+            }
+        });
+    }
+    setup() {
+        this.setupAttributes({
+            vertex: 'vertex',
+            object: 'object',
+        });
+        this.commonUniforms();
+        this.setupUniforms({
+            displacement: {
+                name: 'displacement',
+                type: this.GLType.int
+            },
+            border_min: {
+                name: 'border_min',
+                type: this.GLType.vec3
+            },
+            border_max: {
+                name: 'border_max',
+                type: this.GLType.vec3
+            },
+            selected: {
+                name: 'selected',
+                type: this.GLType.vec4,
+            },
+        });
+    }
+    bindAttrVertex() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.vertex,
             size: 2,
             stride: 2 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+    bindAttrObject() {
+        this.gl.useProgram(this.program);
+        this.bindInt32Attribute({
+            attribute: this.attributes.object,
+            size: 4,
+            stride: 1 * Uint32Array.BYTES_PER_ELEMENT,
             offset: 0,
         });
         this.gl.useProgram(null);
@@ -4577,6 +4676,22 @@ class BuildingProgram extends Program {
             selected: {
                 name: 'selected',
                 type: this.GLType.vec4,
+            },
+            mLVP: {
+                name: 'mLVP',
+                type: this.GLType.mat4
+            },
+            shadowmap: {
+                name: 'shadowmap',
+                type: this.GLType.int
+            },
+            texSize: {
+                name: 'texSize',
+                type: this.GLType.float
+            },
+            tolerance: {
+                name: 'tolerance',
+                type: this.GLType.float
             }
         });
     }
@@ -4832,12 +4947,6 @@ class GLModel extends GLObject {
     }
     bindBuffersAndTextures() {
         this.gl.bindVertexArray(this.buffers.vao);
-        for (let buffer of this.buffers.vbo) {
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-        }
-        if (this.buffers.ebo !== undefined) {
-            this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.buffers.ebo);
-        }
     }
     uniformDict(scene) {
         return Object.assign({}, {
@@ -4897,11 +5006,17 @@ class BuildingModel extends GLModel {
             return;
         }
         this.bindBuffersAndTextures();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, scene.light.depth);
         let uniforms = this.uniformDict(scene);
         uniforms["selected"] = scene.selectedv4;
+        uniforms['mLVP'] = scene.light.vp;
+        uniforms['shadowmap'] = scene.light.depth;
+        uniforms['texSize'] = scene.light.texSize;
+        uniforms['tolerance'] = scene.light.tolerance;
         this.program.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
         this.gl.bindVertexArray(null);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
     }
     renderShadow(scene) {
         if (!this.loaded) {
@@ -4965,6 +5080,7 @@ class StreetModel extends GLModel {
     constructor(gl, programs, model) {
         super(gl);
         this.program = programs.street;
+        this.pickProgram = programs.pickLine;
         this.data = model;
         this.init();
     }
@@ -4979,8 +5095,27 @@ class StreetModel extends GLModel {
         this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.lineVertices, this.gl.STATIC_DRAW);
         this.addBufferVBO(vertices);
         this.program.bindAttrVertex();
+        let objects = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, objects);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.lineObjects, this.gl.STATIC_DRAW);
+        this.addBufferVBO(objects);
+        this.program.bindAttrObject();
         this.gl.bindVertexArray(null);
         this.lineSegments = this.data.lineVertices.length / 2;
+        this.pickVAO = this.gl.createVertexArray();
+        this.gl.bindVertexArray(this.pickVAO);
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, objects);
+        this.pickProgram.bindAttrObject();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertices);
+        this.pickProgram.bindAttrStartVert();
+        this.pickProgram.bindAttrEndVert();
+        let geometry = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, geometry);
+        let geom = glyphVertLine(4);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, geom, this.gl.STATIC_DRAW);
+        this.addBufferVBO(geometry);
+        this.pickProgram.bindAttrVertex();
+        this.segmentSize = geom.length / 3;
         this.loaded = true;
         delete this.data;
     }
@@ -4992,11 +5127,28 @@ class StreetModel extends GLModel {
         this.bindBuffersAndTextures();
         this.gl.bindTexture(this.gl.TEXTURE_2D, scene.textures['height'].id);
         let uniforms = this.uniformDict(scene);
+        uniforms["selected"] = scene.selectedv4;
         uniforms['displacement'] = scene.textures['height'].id;
         uniforms['border_min'] = scene.stats.min;
         uniforms['border_max'] = scene.stats.max;
         this.program.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.LINES, 0, this.lineSegments);
+        this.gl.bindVertexArray(null);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+    }
+    renderPicking(scene) {
+        if (!this.loaded) {
+            this.init();
+            return;
+        }
+        this.gl.bindVertexArray(this.pickVAO);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, scene.textures['height'].id);
+        let uniforms = this.uniformDict(scene);
+        uniforms['displacement'] = scene.textures['height'].id;
+        uniforms['border_min'] = scene.stats.min;
+        uniforms['border_max'] = scene.stats.max;
+        this.pickProgram.bindUniforms(uniforms);
+        this.gl.drawArraysInstanced(this.gl.TRIANGLES, 0, this.segmentSize, this.lineSegments / 2);
         this.gl.bindVertexArray(null);
         this.gl.bindTexture(this.gl.TEXTURE_2D, null);
     }
@@ -5137,6 +5289,30 @@ function boxVertices(min, max) {
         max[0], max[1], min[2],
         max[0], max[1], max[2],
     ]);
+}
+function glyphVertLine(sampling, height = 2) {
+    let vert = [];
+    let add = 2 * Math.PI / sampling;
+    let size = 0.5;
+    for (let i = 0; i < 2 * Math.PI; i += add) {
+        vert.push(0, size * Math.cos(i), size * Math.sin(i));
+        vert.push(0, size * Math.cos(i + add), size * Math.sin(i + add));
+        vert.push(size * height, size * Math.cos(i), size * Math.sin(i));
+        vert.push(0, size * Math.cos(i + add), size * Math.sin(i + add));
+        vert.push(size * height, size * Math.cos(i + add), size * Math.sin(i + add));
+        vert.push(size * height, size * Math.cos(i), size * Math.sin(i));
+    }
+    for (let i = 0; i < 2 * Math.PI; i += add) {
+        vert.push(0, size * Math.cos(i + add), size * Math.sin(i + add));
+        vert.push(0, size * Math.cos(i), size * Math.sin(i));
+        vert.push(0, 0, 0);
+    }
+    for (let i = 0; i < 2 * Math.PI; i += add) {
+        vert.push(size * height, size * Math.cos(i), size * Math.sin(i));
+        vert.push(size * height, size * Math.cos(i + add), size * Math.sin(i + add));
+        vert.push(size * height, 0, 0);
+    }
+    return new Float32Array(vert);
 }
 const ZOOM_STEP = 0.0025;
 const ROT_STEP = 0.5;
@@ -5315,7 +5491,7 @@ class Light extends GLObject {
         glMatrix.mat4.lookAt(this.viewMatrix, this.pos, center, up);
         this.camera = cam;
         this.texSize = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), 8192);
-        this.tolerance = 0.0005;
+        this.tolerance = 0.0007;
     }
     get vp() {
         glMatrix.mat4.ortho(this.projectMatrix, -5, 5, -5, 5, 0.01, this.camera.farplane / 2);
@@ -5378,6 +5554,7 @@ class Graphics {
             terrain: new TerrainProgram(this.gl),
             box: new BoxProgram(this.gl),
             pick: new PickProgram(this.gl),
+            pickLine: new PickLineProgram(this.gl),
             street: new StreetProgram(this.gl),
             path: new PathProgram(this.gl),
             triangle: new TriangleProgram(this.gl)
@@ -5505,6 +5682,11 @@ class Graphics {
             c.renderPicking(this.scene);
         }
         this.programs.pick.unbind();
+        this.programs.pickLine.bind();
+        for (let s of this.models.streets) {
+            s.renderPicking(this.scene);
+        }
+        this.programs.pickLine.unbind();
         y = height - y;
         let pixels = new Uint8Array(4);
         this.gl.readPixels(x, y, 1, 1, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);

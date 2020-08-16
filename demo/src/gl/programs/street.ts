@@ -19,7 +19,8 @@ class StreetProgram extends Program {
 
     setup() {
         this.setupAttributes({
-            vertex: 'vertex'
+            vertex: 'vertex',
+            object: 'object',
         });
 
         this.commonUniforms();
@@ -35,7 +36,11 @@ class StreetProgram extends Program {
             border_max: {
                 name: 'border_max',
                 type: this.GLType.vec3
-            }
+            },
+            selected: {
+                name: 'selected',
+                type: this.GLType.vec4,
+            },
         });
     }
 
@@ -45,6 +50,17 @@ class StreetProgram extends Program {
             attribute: this.attributes.vertex,
             size: 2,
             stride: 2 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+
+    bindAttrObject() {
+        this.gl.useProgram(this.program);
+        this.bindInt32Attribute({
+            attribute: this.attributes.object,
+            size: 4, // has to be 4
+            stride: 1 * Uint32Array.BYTES_PER_ELEMENT,
             offset: 0,
         });
         this.gl.useProgram(null);
