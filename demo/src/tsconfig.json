@@ -26,6 +26,7 @@
       "gl/programs/street.ts",
       "gl/programs/building.ts",
       "gl/programs/terrain.ts",
+      "gl/programs/triangle.ts",
       "gl/programs/box.ts",
       "gl/programs/path.ts",
 

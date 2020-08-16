@@ -24,7 +24,24 @@ class TerrainProgram extends Program {
         });
 
         this.commonUniforms();
-        this.setupUniforms({});
+        this.setupUniforms({
+            mLVP: {
+                name: 'mLVP',
+                type: this.GLType.mat4
+            },
+            shadowmap: {
+                name: 'shadowmap',
+                type: this.GLType.int
+            },
+            texSize: {
+                name: 'texSize',
+                type: this.GLType.float
+            },
+            tolerance: {
+                name: 'tolerance',
+                type: this.GLType.float
+            }
+        });
     }
 
     bindAttrVertex() {

@@ -52,7 +52,8 @@ class GLModel extends GLObject {
             /*world: scene.camera.world,
             view: scene.camera.view,
             proj: scene.camera.projection,*/
-            mvp: scene.camera.mvp,
+            world: scene.camera.world,
+            vp: scene.camera.vp,
             farplane: scene.camera.farplane,
         });
     }

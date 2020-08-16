@@ -22,7 +22,7 @@ class Camera extends GLObject {
 
     viewMatrix: Float32Array;
     worldMatrix: Float32Array;
-    MVPmatrix: Float32Array;
+    VPmatrix: Float32Array;
     projectionMatrix: Float32Array;
     rotateMatrix: Float32Array;
     frontVector: Float32Array;
@@ -55,7 +55,7 @@ class Camera extends GLObject {
 
         this.viewMatrix = new Float32Array(16);
         this.projectionMatrix = new Float32Array(16);
-        this.MVPmatrix = new Float32Array(16);
+        this.VPmatrix = new Float32Array(16);
         this.rotateMatrix = new Float32Array(16);
         this.frontVector = new Float32Array(3);
         this.tmp = new Float32Array(3);
@@ -91,11 +91,10 @@ class Camera extends GLObject {
         return this.worldMatrix;
     }
 
-    get mvp() {
-        glMatrix.mat4.copy(this.MVPmatrix, this.projection);
-        glMatrix.mat4.mul(this.MVPmatrix, this.MVPmatrix, this.view);
-        glMatrix.mat4.mul(this.MVPmatrix, this.MVPmatrix, this.world);
-        return this.MVPmatrix;
+    get vp() {
+        glMatrix.mat4.copy(this.VPmatrix, this.projection);
+        glMatrix.mat4.mul(this.VPmatrix, this.VPmatrix, this.view);
+        return this.VPmatrix;
     }
 
     get front() {
@@ -234,10 +233,10 @@ class Camera extends GLObject {
         this.position[2] += farplane / 2;
         
         glMatrix.mat4.identity(this.worldMatrix);
-        /*glMatrix.mat4.scale(this.worldMatrix, this.worldMatrix, 
-            glMatrix.vec3.fromValues(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE));*/
+        glMatrix.mat4.scale(this.worldMatrix, this.worldMatrix, 
+            glMatrix.vec3.fromValues(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE));
         glMatrix.vec3.copy(this.shift, glMatrix.vec3.negate(this.tmp, this.geometryCenter));
-        /*glMatrix.mat4.translate(this.worldMatrix, this.worldMatrix, this.shift);*/
+        glMatrix.mat4.translate(this.worldMatrix, this.worldMatrix, this.shift);
     }
 
     get needsRedraw() {

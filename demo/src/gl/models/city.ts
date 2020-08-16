@@ -2,6 +2,7 @@ class BuildingModel extends GLModel {
     data: BuildingsModelInterface;
     program: BuildingProgram;
     pickingProgram: PickProgram;
+    simpleProgram: TriangleProgram;
 
     triangles: number;
 
@@ -10,6 +11,7 @@ class BuildingModel extends GLModel {
 
         this.program = programs.building;
         this.pickingProgram = programs.pick;
+        this.simpleProgram = programs.triangle;
         this.data = model;
         this.init();
     }
@@ -32,6 +34,7 @@ class BuildingModel extends GLModel {
         this.addBufferVBO(vertices);
         this.program.bindAttrVertex();
         this.pickingProgram.bindAttrVertex();
+        this.simpleProgram.bindAttrVertex();
         
         //normals
         let normals = this.gl.createBuffer();
@@ -84,10 +87,9 @@ class BuildingModel extends GLModel {
 
         this.bindBuffersAndTextures();
         let uniforms : UniformBinder = this.uniformDict(scene);
-        uniforms["proj"] = scene.light.proj;
-        uniforms["selected"] = scene.selectedv4;
+        uniforms["vp"] = scene.light.vp;
 
-        this.program.bindUniforms(uniforms);
+        this.simpleProgram.bindUniforms(uniforms);
 
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
         this.gl.bindVertexArray(null);

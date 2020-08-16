@@ -17,8 +17,9 @@ class Graphics {
 
     textures: { [name: string]: Texture };
 
-
     scene: Scene;
+
+    shadowsReady: boolean;
 
     constructor(canvas: HTMLCanvasElement){
         this.canvas = canvas;
@@ -31,7 +32,17 @@ class Graphics {
             throw 'WebGL 2 not supported, please use a different browser.';
         }
 
-        let ext = this.gl.getExtension('OES_element_index_uint');
+        /*let ext = this.gl.getExtension('OES_element_index_uint');
+        if (!ext)
+            throw 'UINT element unavailable';*/
+        
+        let ext = this.gl.getExtension('OES_texture_float_linear');
+        if (!ext)
+            throw 'Linear filter unavailable';
+
+        ext = this.gl.getExtension('EXT_color_buffer_float');
+            if (!ext)
+                throw 'Color float texture unavailable';
 
         //init GPU programs
         this.programs = {
@@ -40,7 +51,8 @@ class Graphics {
             box: new BoxProgram(this.gl),
             pick: new PickProgram(this.gl),
             street: new StreetProgram(this.gl),
-            path: new PathProgram(this.gl)
+            path: new PathProgram(this.gl),
+            triangle: new TriangleProgram(this.gl)
         };
 
         this.loaded = false;
@@ -55,6 +67,7 @@ class Graphics {
         this.textures = {};
 
         this.scene = new Scene(this.gl, this.textures);
+        this.shadowsReady = false;
     }
 
     addCitySegment(model: BuildingsModelInterface) {
@@ -110,6 +123,11 @@ class Graphics {
     render() {
         if (!this.loaded)
             return;
+
+        if (!this.shadowsReady) {
+            this.scene.light.createShadowmap(this);
+            this.shadowsReady = true;
+        }
             
         this.gl.depthMask(true);      
         this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
@@ -162,29 +180,23 @@ class Graphics {
 
     renderShadow() {
         if (!this.loaded)
-            return;
+            throw 'Shadow map is not initalized';
 
         this.gl.depthMask(true);      
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clearColor(Infinity, Infinity, Infinity, Infinity);
         this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);  
         this.gl.enable(this.gl.DEPTH_TEST);
         this.gl.disable(this.gl.BLEND); 
         
-        //render buildings
-        this.programs.building.bind();
+        //render shadow casters
+        this.programs.triangle.bind();
         for(let c of this.models.city){
             c.renderShadow(this.scene);
         }
-        this.programs.building.unbind();
-        
-        //render terrain
-        this.programs.terrain.bind();
         for(let t of this.models.terrain){
             t.renderShadow(this.scene);
         }
-        this.programs.terrain.unbind();
-        this.scene.frame();
-            
+        this.programs.triangle.unbind();         
     }
     
     renderPick(x: number, y: number, height: number) {

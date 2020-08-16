@@ -1,6 +1,7 @@
 class TerrainModel extends GLModel {
     data: TerrainModelInterface;
     program: TerrainProgram;
+    simpleProgram: TriangleProgram;
 
     triangles: number;
 
@@ -8,6 +9,7 @@ class TerrainModel extends GLModel {
         super(gl);
 
         this.program = programs.terrain;
+        this.simpleProgram = programs.triangle;
         this.data = model;
         this.init();
     }
@@ -28,6 +30,7 @@ class TerrainModel extends GLModel {
         this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
         this.addBufferVBO(vertices);
         this.program.bindAttrVertex();
+        this.simpleProgram.bindAttrVertex();
         
         //normals
         let normals = this.gl.createBuffer();
@@ -54,12 +57,19 @@ class TerrainModel extends GLModel {
         }
 
         this.bindBuffersAndTextures();
-        let uniforms = this.uniformDict(scene);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, scene.light.depth);
+
+        let uniforms: UniformBinder = this.uniformDict(scene);
+        uniforms['mLVP'] = scene.light.vp;
+        uniforms['shadowmap'] = scene.light.depth;
+        uniforms['texSize'] = scene.light.texSize;
+        uniforms['tolerance'] = scene.light.tolerance;
 
         this.program.bindUniforms(uniforms);
 
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
         this.gl.bindVertexArray(null);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
     }
 
     renderShadow(scene: Scene){
@@ -71,10 +81,11 @@ class TerrainModel extends GLModel {
 
         this.bindBuffersAndTextures();
         let uniforms = this.uniformDict(scene);
-        //uniforms["proj"] = scene.light.proj;
+        uniforms["vp"] = scene.light.vp;
+        console.log(scene.light.vp);
 
-        this.program.bindUniforms(uniforms);
-
+        this.simpleProgram.bindUniforms(uniforms);
+        
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
         this.gl.bindVertexArray(null);
     }

@@ -236,8 +236,12 @@ class Program extends GLObject {
                 name: 'mProj',
                 type: this.GLType.mat4,
             },*/
-            mvp: {
-                name: 'mMVP',
+            world: {
+                name: 'mM',
+                type: this.GLType.mat4
+            },
+            vp: {
+                name: 'mVP',
                 type: this.GLType.mat4
             }
         });

@@ -50,7 +50,8 @@ interface GLProgramList {
     box: BoxProgram,
     pick: PickProgram,
     street: StreetProgram,
-    path: PathProgram
+    path: PathProgram,
+    triangle: TriangleProgram,
 }
 
 interface TextureInterface {

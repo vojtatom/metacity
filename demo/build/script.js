@@ -4260,8 +4260,8 @@ class Texture extends GLObject {
         this.id = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, this.id);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, w, h, 0, gl.RED, gl.FLOAT, tdata);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.bindTexture(this.gl.TEXTURE_2D, null);
@@ -4290,10 +4290,6 @@ class Scene extends GLObject {
             min: new Float32Array([Infinity, Infinity, Infinity]),
             max: new Float32Array([-Infinity, -Infinity, -Infinity]),
         };
-        this.scaledStats = {
-            min: new Float32Array([Infinity, Infinity, Infinity]),
-            max: new Float32Array([-Infinity, -Infinity, -Infinity]),
-        };
         this.selected = 1000;
         this.selectedv4 = intToVec4Normalized(this.selected);
         this.textures = textures;
@@ -4313,10 +4309,6 @@ class Scene extends GLObject {
         this.stats.max[1] = Math.max(this.stats.max[1], stats.max[1]);
         this.stats.max[2] = Math.max(this.stats.max[2], stats.max[2]);
         this.camera.updateScale(this.stats);
-        glMatrix.vec3.copy(this.scaledStats.min, this.stats.min);
-        glMatrix.vec3.copy(this.scaledStats.max, this.stats.max);
-        this.rescale3D(this.scaledStats.min);
-        this.rescale3D(this.scaledStats.max);
     }
     frame() {
         this.camera.frame();
@@ -4324,12 +4316,6 @@ class Scene extends GLObject {
     }
     setTimeMax(time) {
         this.timeMax = Math.max(this.timeMax, time);
-    }
-    rescale3D(data) {
-        rescale3D(data, this.camera.shift, GLOBAL_SCALE);
-    }
-    rescale2D(data) {
-        rescale2D(data, this.camera.shift, GLOBAL_SCALE);
     }
 }
 var ShaderType;
@@ -4447,8 +4433,12 @@ class Program extends GLObject {
     }
     commonUniforms() {
         this.setupUniforms({
-            mvp: {
-                name: 'mMVP',
+            world: {
+                name: 'mM',
+                type: this.GLType.mat4
+            },
+            vp: {
+                name: 'mVP',
                 type: this.GLType.mat4
             }
         });
@@ -4545,14 +4535,6 @@ class StreetProgram extends Program {
             border_max: {
                 name: 'border_max',
                 type: this.GLType.vec3
-            },
-            shift: {
-                name: 'shift',
-                type: this.GLType.float
-            },
-            scale: {
-                name: 'scale',
-                type: this.GLType.float
             }
         });
     }
@@ -4652,7 +4634,24 @@ class TerrainProgram extends Program {
             normal: 'normal',
         });
         this.commonUniforms();
-        this.setupUniforms({});
+        this.setupUniforms({
+            mLVP: {
+                name: 'mLVP',
+                type: this.GLType.mat4
+            },
+            shadowmap: {
+                name: 'shadowmap',
+                type: this.GLType.int
+            },
+            texSize: {
+                name: 'texSize',
+                type: this.GLType.float
+            },
+            tolerance: {
+                name: 'tolerance',
+                type: this.GLType.float
+            }
+        });
     }
     bindAttrVertex() {
         this.gl.useProgram(this.program);
@@ -4668,6 +4667,41 @@ class TerrainProgram extends Program {
         this.gl.useProgram(this.program);
         this.bindAttribute({
             attribute: this.attributes.normal,
+            size: 3,
+            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+}
+class TriangleProgram extends Program {
+    constructor(gl) {
+        super(gl);
+        DataManager.files({
+            files: [
+                Program.DIR + "triangle-vs.glsl",
+                Program.DIR + "triangle-fs.glsl",
+            ],
+            success: (files) => {
+                this.init(files[0], files[1]);
+                this.setup();
+            },
+            fail: () => {
+                throw "Triangle shader not loaded";
+            }
+        });
+    }
+    setup() {
+        this.setupAttributes({
+            vertex: 'vertex',
+        });
+        this.commonUniforms();
+        this.setupUniforms({});
+    }
+    bindAttrVertex() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.vertex,
             size: 3,
             stride: 3 * Float32Array.BYTES_PER_ELEMENT,
             offset: 0,
@@ -4746,14 +4780,6 @@ class PathProgram extends Program {
                 name: 'border_max',
                 type: this.GLType.vec3
             },
-            shift: {
-                name: 'shift',
-                type: this.GLType.float
-            },
-            scale: {
-                name: 'scale',
-                type: this.GLType.float
-            },
             world_time: {
                 name: 'world_time',
                 type: this.GLType.float
@@ -4815,7 +4841,8 @@ class GLModel extends GLObject {
     }
     uniformDict(scene) {
         return Object.assign({}, {
-            mvp: scene.camera.mvp,
+            world: scene.camera.world,
+            vp: scene.camera.vp,
             farplane: scene.camera.farplane,
         });
     }
@@ -4831,6 +4858,7 @@ class BuildingModel extends GLModel {
         super(gl);
         this.program = programs.building;
         this.pickingProgram = programs.pick;
+        this.simpleProgram = programs.triangle;
         this.data = model;
         this.init();
     }
@@ -4846,6 +4874,7 @@ class BuildingModel extends GLModel {
         this.addBufferVBO(vertices);
         this.program.bindAttrVertex();
         this.pickingProgram.bindAttrVertex();
+        this.simpleProgram.bindAttrVertex();
         let normals = this.gl.createBuffer();
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normals);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.normals, this.gl.STATIC_DRAW);
@@ -4881,9 +4910,8 @@ class BuildingModel extends GLModel {
         }
         this.bindBuffersAndTextures();
         let uniforms = this.uniformDict(scene);
-        uniforms["proj"] = scene.light.proj;
-        uniforms["selected"] = scene.selectedv4;
-        this.program.bindUniforms(uniforms);
+        uniforms["vp"] = scene.light.vp;
+        this.simpleProgram.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
         this.gl.bindVertexArray(null);
     }
@@ -4965,10 +4993,8 @@ class StreetModel extends GLModel {
         this.gl.bindTexture(this.gl.TEXTURE_2D, scene.textures['height'].id);
         let uniforms = this.uniformDict(scene);
         uniforms['displacement'] = scene.textures['height'].id;
-        uniforms['border_min'] = scene.scaledStats.min;
-        uniforms['border_max'] = scene.scaledStats.max;
-        uniforms['shift'] = scene.camera.shift[2];
-        uniforms['scale'] = GLOBAL_SCALE;
+        uniforms['border_min'] = scene.stats.min;
+        uniforms['border_max'] = scene.stats.max;
         this.program.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.LINES, 0, this.lineSegments);
         this.gl.bindVertexArray(null);
@@ -4979,6 +5005,7 @@ class TerrainModel extends GLModel {
     constructor(gl, programs, model) {
         super(gl);
         this.program = programs.terrain;
+        this.simpleProgram = programs.triangle;
         this.data = model;
         this.init();
     }
@@ -4993,6 +5020,7 @@ class TerrainModel extends GLModel {
         this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.vertices, this.gl.STATIC_DRAW);
         this.addBufferVBO(vertices);
         this.program.bindAttrVertex();
+        this.simpleProgram.bindAttrVertex();
         let normals = this.gl.createBuffer();
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normals);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, this.data.normals, this.gl.STATIC_DRAW);
@@ -5009,10 +5037,16 @@ class TerrainModel extends GLModel {
             return;
         }
         this.bindBuffersAndTextures();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, scene.light.depth);
         let uniforms = this.uniformDict(scene);
+        uniforms['mLVP'] = scene.light.vp;
+        uniforms['shadowmap'] = scene.light.depth;
+        uniforms['texSize'] = scene.light.texSize;
+        uniforms['tolerance'] = scene.light.tolerance;
         this.program.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
         this.gl.bindVertexArray(null);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
     }
     renderShadow(scene) {
         if (!this.loaded) {
@@ -5021,7 +5055,9 @@ class TerrainModel extends GLModel {
         }
         this.bindBuffersAndTextures();
         let uniforms = this.uniformDict(scene);
-        this.program.bindUniforms(uniforms);
+        uniforms["vp"] = scene.light.vp;
+        console.log(scene.light.vp);
+        this.simpleProgram.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
         this.gl.bindVertexArray(null);
     }
@@ -5064,10 +5100,8 @@ class PathModel extends GLModel {
         this.gl.bindTexture(this.gl.TEXTURE_2D, scene.textures['height'].id);
         let uniforms = this.uniformDict(scene);
         uniforms['displacement'] = scene.textures['height'].id;
-        uniforms['border_min'] = scene.scaledStats.min;
-        uniforms['border_max'] = scene.scaledStats.max;
-        uniforms['shift'] = scene.camera.shift[2];
-        uniforms['scale'] = GLOBAL_SCALE;
+        uniforms['border_min'] = scene.stats.min;
+        uniforms['border_max'] = scene.stats.max;
         uniforms['world_time'] = scene.time;
         uniforms['max_time'] = scene.timeMax;
         this.program.bindUniforms(uniforms);
@@ -5104,19 +5138,6 @@ function boxVertices(min, max) {
         max[0], max[1], max[2],
     ]);
 }
-function rescale3D(data, shift, scale) {
-    for (let i = 0; i < data.length; i += 3) {
-        data[i] = (data[i] + shift[0]) * scale;
-        data[i + 1] = (data[i + 1] + shift[1]) * scale;
-        data[i + 2] = (data[i + 2] + shift[2]) * scale;
-    }
-}
-function rescale2D(data, shift, scale) {
-    for (let i = 0; i < data.length; i += 2) {
-        data[i] = (data[i] + shift[0]) * scale;
-        data[i + 1] = (data[i + 1] + shift[1]) * scale;
-    }
-}
 const ZOOM_STEP = 0.0025;
 const ROT_STEP = 0.5;
 const GLOBAL_SCALE = 0.001;
@@ -5133,7 +5154,7 @@ class Camera extends GLObject {
         this.actualCenter = new Float32Array([, 0, 100]);
         this.viewMatrix = new Float32Array(16);
         this.projectionMatrix = new Float32Array(16);
-        this.MVPmatrix = new Float32Array(16);
+        this.VPmatrix = new Float32Array(16);
         this.rotateMatrix = new Float32Array(16);
         this.frontVector = new Float32Array(3);
         this.tmp = new Float32Array(3);
@@ -5161,11 +5182,10 @@ class Camera extends GLObject {
     get world() {
         return this.worldMatrix;
     }
-    get mvp() {
-        glMatrix.mat4.copy(this.MVPmatrix, this.projection);
-        glMatrix.mat4.mul(this.MVPmatrix, this.MVPmatrix, this.view);
-        glMatrix.mat4.mul(this.MVPmatrix, this.MVPmatrix, this.world);
-        return this.MVPmatrix;
+    get vp() {
+        glMatrix.mat4.copy(this.VPmatrix, this.projection);
+        glMatrix.mat4.mul(this.VPmatrix, this.VPmatrix, this.view);
+        return this.VPmatrix;
     }
     get front() {
         glMatrix.vec3.sub(this.frontVector, this.center, this.position);
@@ -5276,7 +5296,9 @@ class Camera extends GLObject {
         this.position = Object.assign({}, this.center);
         this.position[2] += farplane / 2;
         glMatrix.mat4.identity(this.worldMatrix);
+        glMatrix.mat4.scale(this.worldMatrix, this.worldMatrix, glMatrix.vec3.fromValues(GLOBAL_SCALE, GLOBAL_SCALE, GLOBAL_SCALE));
         glMatrix.vec3.copy(this.shift, glMatrix.vec3.negate(this.tmp, this.geometryCenter));
+        glMatrix.mat4.translate(this.worldMatrix, this.worldMatrix, this.shift);
     }
     get needsRedraw() {
         return this.centerMomentum || this.rotMomentum || this.positionMomentum;
@@ -5285,13 +5307,55 @@ class Camera extends GLObject {
 class Light extends GLObject {
     constructor(gl, cam) {
         super(gl);
-        this.dir = new Float32Array([0, 0, 0]);
+        let center = new Float32Array([0, 0, 0]);
+        let up = new Float32Array([0, 0, 1]);
+        this.pos = new Float32Array([2.5, 1.25, 2.5]);
         this.projectMatrix = new Float32Array(16);
+        this.viewMatrix = new Float32Array(16);
+        glMatrix.mat4.lookAt(this.viewMatrix, this.pos, center, up);
         this.camera = cam;
+        this.texSize = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), 8192);
+        this.tolerance = 0.0005;
     }
-    get proj() {
-        glMatrix.mat4.ortho(this.projectMatrix, -10, 10, -10, 10, 0.01, this.camera.farplane);
+    get vp() {
+        glMatrix.mat4.ortho(this.projectMatrix, -5, 5, -5, 5, 0.01, this.camera.farplane / 2);
+        glMatrix.mat4.mul(this.projectMatrix, this.projectMatrix, this.viewMatrix);
         return this.projectMatrix;
+    }
+    createFrameBufferObject(width, height) {
+        let frame_buffer = this.gl.createFramebuffer();
+        let color_buffer = this.gl.createTexture();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, color_buffer);
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, width, height, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, null);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        let depth_buffer = this.gl.createTexture();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, depth_buffer);
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.DEPTH_COMPONENT24, width, height, 0, this.gl.DEPTH_COMPONENT, this.gl.UNSIGNED_INT, null);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, frame_buffer);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, color_buffer, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.TEXTURE_2D, depth_buffer, 0);
+        let status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+        if (status !== this.gl.FRAMEBUFFER_COMPLETE)
+            console.log("The created frame buffer is invalid: " + status.toString());
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.fb = frame_buffer;
+        this.depth = depth_buffer;
+    }
+    createShadowmap(graphics) {
+        this.createFrameBufferObject(this.texSize, this.texSize);
+        this.gl.viewport(0, 0, this.texSize, this.texSize);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fb);
+        graphics.renderShadow();
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        graphics.resize(graphics.canvas.width, graphics.canvas.height);
     }
 }
 class Graphics {
@@ -5303,14 +5367,20 @@ class Graphics {
             console.error('WebGL 2 not supported, please use a different browser.');
             throw 'WebGL 2 not supported, please use a different browser.';
         }
-        let ext = this.gl.getExtension('OES_element_index_uint');
+        let ext = this.gl.getExtension('OES_texture_float_linear');
+        if (!ext)
+            throw 'Linear filter unavailable';
+        ext = this.gl.getExtension('EXT_color_buffer_float');
+        if (!ext)
+            throw 'Color float texture unavailable';
         this.programs = {
             building: new BuildingProgram(this.gl),
             terrain: new TerrainProgram(this.gl),
             box: new BoxProgram(this.gl),
             pick: new PickProgram(this.gl),
             street: new StreetProgram(this.gl),
-            path: new PathProgram(this.gl)
+            path: new PathProgram(this.gl),
+            triangle: new TriangleProgram(this.gl)
         };
         this.loaded = false;
         this.models = {
@@ -5322,6 +5392,7 @@ class Graphics {
         };
         this.textures = {};
         this.scene = new Scene(this.gl, this.textures);
+        this.shadowsReady = false;
     }
     addCitySegment(model) {
         let glmodel = new BuildingModel(this.gl, this.programs, model);
@@ -5365,6 +5436,10 @@ class Graphics {
     render() {
         if (!this.loaded)
             return;
+        if (!this.shadowsReady) {
+            this.scene.light.createShadowmap(this);
+            this.shadowsReady = true;
+        }
         this.gl.depthMask(true);
         this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
         this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
@@ -5402,23 +5477,20 @@ class Graphics {
     }
     renderShadow() {
         if (!this.loaded)
-            return;
+            throw 'Shadow map is not initalized';
         this.gl.depthMask(true);
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clearColor(Infinity, Infinity, Infinity, Infinity);
         this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
         this.gl.enable(this.gl.DEPTH_TEST);
         this.gl.disable(this.gl.BLEND);
-        this.programs.building.bind();
+        this.programs.triangle.bind();
         for (let c of this.models.city) {
             c.renderShadow(this.scene);
         }
-        this.programs.building.unbind();
-        this.programs.terrain.bind();
         for (let t of this.models.terrain) {
             t.renderShadow(this.scene);
         }
-        this.programs.terrain.unbind();
-        this.scene.frame();
+        this.programs.triangle.unbind();
     }
     renderPick(x, y, height) {
         if (!this.loaded)
@@ -5478,9 +5550,6 @@ class Terrain extends Layer {
         data.stats.min = Parser.toFloat32(data.stats.min);
         data.stats.max = Parser.toFloat32(data.stats.max);
         this.gl.scene.addModel(data.stats);
-        this.gl.scene.rescale3D(data.vertices);
-        this.gl.scene.rescale3D(data.stats.min);
-        this.gl.scene.rescale3D(data.stats.max);
         let models = this.gl.addTerainSegment(data);
         this.glmodel = models.terrainModel;
     }
@@ -5490,9 +5559,6 @@ class Streets extends Layer {
         super(gl);
         data.lineVertices = Parser.toFloat32(data.lineVertices);
         data.lineObjects = Parser.toUint32(data.lineObjects);
-        console.log("lines", data);
-        this.gl.scene.rescale2D(data.lineVertices);
-        console.log("lines", data);
         let models = this.gl.addStreetSegment(data);
         this.glmodel = models.streetModel;
     }
@@ -5510,7 +5576,6 @@ class Streets extends Layer {
         }
         vert = new Float32Array(vert.slice(0, offset));
         times = new Float32Array(times.slice(0, offset / 2));
-        this.gl.scene.rescale2D(vert);
         this.gl.addPath({
             vertices: vert,
             times: times
@@ -5525,9 +5590,6 @@ class Buildings extends Layer {
         data.objects = Parser.toUint32(data.objects);
         data.stats.min = Parser.toFloat32(data.stats.min);
         data.stats.max = Parser.toFloat32(data.stats.max);
-        this.gl.scene.rescale3D(data.vertices);
-        this.gl.scene.rescale3D(data.stats.min);
-        this.gl.scene.rescale3D(data.stats.max);
         let models = this.gl.addCitySegment(data);
         this.glmodel = models.cityModel;
     }

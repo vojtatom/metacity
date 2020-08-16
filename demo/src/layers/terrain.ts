@@ -20,11 +20,6 @@ class Terrain extends Layer {
         //update scene and camera
         this.gl.scene.addModel(data.stats);
 
-        //shift
-        this.gl.scene.rescale3D(data.vertices);
-        this.gl.scene.rescale3D(data.stats.min);
-        this.gl.scene.rescale3D(data.stats.max);
-
         let models = this.gl.addTerainSegment(data as TerrainModelInterface);
         this.glmodel = models.terrainModel;
     }

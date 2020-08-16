@@ -29,7 +29,7 @@ function boxVertices(min: Indexable<number>, max: Indexable<number>) {
     ])
 }
 
-function rescale3D(data: Float32Array, shift: Float32Array, scale: number) {
+/*function rescale3D(data: Float32Array, shift: Float32Array, scale: number) {
     for(let i = 0; i < data.length; i += 3) {
         data[i] = (data[i] + shift[0]) * scale;
         data[i + 1] = (data[i + 1] + shift[1]) * scale;
@@ -42,4 +42,4 @@ function rescale2D(data: Float32Array, shift: Float32Array, scale: number) {
         data[i] = (data[i] + shift[0]) * scale;
         data[i + 1] = (data[i + 1] + shift[1]) * scale;
     }
-}
+}*/
