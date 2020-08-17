@@ -4254,7 +4254,7 @@ var UI;
             child: [
                 div({
                     class: 'error-apologise',
-                    html: 'We appologise, but there has been an error:'
+                    html: 'We apologise, but there has been an error:'
                 }),
                 div({
                     class: 'error-title',
@@ -4276,11 +4276,11 @@ var UI;
         };
         let shadow_toggle = div({
             class: 'settings-option',
-            html: 'shadows ' + shadow_label(app.gl.scene)
+            html: 'shadows ' + shadow_label(app.gl.scene) + ' (experimental)'
         });
         shadow_toggle.onclick = () => {
             app.gl.scene.toggleShadows();
-            shadow_toggle.innerHTML = 'shadows ' + shadow_label(app.gl.scene);
+            shadow_toggle.innerHTML = 'shadows ' + shadow_label(app.gl.scene) + ' (experimental)';
         };
         let rack = div({
             class: 'settings',
@@ -5579,6 +5579,12 @@ class Camera extends GLObject {
     zoom(direction = 1, scale = 1) {
         glMatrix.vec3.sub(this.tmp, this.position, this.center);
         glMatrix.vec3.scale(this.tmp, this.tmp, 1 + direction * (ZOOM_STEP * scale));
+        let len = glMatrix.vec3.len(this.tmp);
+        let min_len = 0.01;
+        if (len < min_len) {
+            glMatrix.vec3.normalize(this.tmp, this.tmp);
+            glMatrix.vec3.scale(this.tmp, this.tmp, min_len);
+        }
         glMatrix.vec3.add(this.tmp, this.center, this.tmp);
         glMatrix.vec3.copy(this.position, this.tmp);
     }

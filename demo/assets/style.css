@@ -273,3 +273,30 @@ canvas {
 .settings-option:hover {
     background: #444;
 }
+
+#support {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin: 1em;
+    background: #333;
+}
+
+#support a,
+#support a:active,
+#support a:link,
+#support a:visited {
+    display: block;
+    color: #FFF;
+    text-decoration: none;
+    padding: 0.5em 1em;
+}
+
+#support a:hover {
+    background: #444;
+}
+
+#support a::after {
+    content: '\2197';
+    padding-left: 0.5em;
+}

@@ -552,7 +552,7 @@ module UI {
             child: [
                 div({
                     class: 'error-apologise',
-                    html: 'We appologise, but there has been an error:'
+                    html: 'We apologise, but there has been an error:'
                 }),
                 div({
                     class: 'error-title',
@@ -578,13 +578,13 @@ module UI {
 
         let shadow_toggle = div({
             class: 'settings-option',
-            html: 'shadows ' + shadow_label(app.gl.scene)
+            html: 'shadows ' + shadow_label(app.gl.scene) + ' (experimental)'
         });
 
         
         shadow_toggle.onclick = () => {
             app.gl.scene.toggleShadows();
-            shadow_toggle.innerHTML = 'shadows ' + shadow_label(app.gl.scene);
+            shadow_toggle.innerHTML = 'shadows ' + shadow_label(app.gl.scene) + ' (experimental)';
         };
 
         let rack = div({

@@ -160,7 +160,18 @@ class Camera extends GLObject {
 
     zoom(direction: number = 1, scale: number = 1) {
         glMatrix.vec3.sub(this.tmp, this.position, this.center);
+
+        
         glMatrix.vec3.scale(this.tmp, this.tmp, 1 + direction * (ZOOM_STEP * scale));
+        let len = glMatrix.vec3.len(this.tmp)
+        let min_len = 0.01;
+
+        if (len < min_len) {
+            glMatrix.vec3.normalize(this.tmp, this.tmp);
+            glMatrix.vec3.scale(this.tmp, this.tmp, min_len);
+
+        }
+
         glMatrix.vec3.add(this.tmp, this.center, this.tmp);
         glMatrix.vec3.copy(this.position, this.tmp);
     }
