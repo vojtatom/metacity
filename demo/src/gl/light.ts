@@ -12,6 +12,9 @@ class Light extends GLObject {
     depth: WebGLTexture;
     texSize: number;
     tolerance: number;
+
+    useDummy: boolean;
+    dummyTx: Texture;
     
     //the setting is ad-hoc for the bubny example, needs to be imlepemeted properly
     constructor(gl: WebGL2RenderingContext, cam: Camera) {
@@ -25,6 +28,11 @@ class Light extends GLObject {
         this.camera = cam;
         this.texSize = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), 8192);
         this.tolerance = 0.0007;
+
+        this.dummyTx = new Texture(gl, new Float32Array([0]), 1, 1);
+        this.depth = this.dummyTx.id;
+
+        this.useDummy = true;
     }
 
     get vp() {
@@ -61,13 +69,14 @@ class Light extends GLObject {
 
         let status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
         if (status !== this.gl.FRAMEBUFFER_COMPLETE)
-            console.log("The created frame buffer is invalid: " + status.toString());
+            throw "The created frame buffer is invalid: " + status.toString();
 
         this.gl.bindTexture(this.gl.TEXTURE_2D, null);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
 
         this.fb = frame_buffer;
         this.depth = depth_buffer;
+        this.useDummy = false;
     }
 
     createShadowmap(graphics: Graphics) {

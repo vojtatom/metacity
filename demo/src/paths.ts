@@ -32,7 +32,6 @@ module Path {
 
     export function cropGraph(graph: {[node: string]: string[]}, low: Float32Array, high: Float32Array) {
         let nodef32: Float32Array;
-        console.log(low, high);
         
         for (let node in graph) {
             nodef32 = Parser.toFloat32(node);

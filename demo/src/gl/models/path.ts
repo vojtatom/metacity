@@ -16,8 +16,6 @@ class PathModel extends GLModel {
         //since the method can be called async, check if GPU is up to date
         if (!this.program.loaded)
             return;
-
-        console.log(this.data);
         
         //init VAO
         let vao = this.gl.createVertexArray();
@@ -59,7 +57,7 @@ class PathModel extends GLModel {
 
         //bind texture
         this.gl.bindTexture(this.gl.TEXTURE_2D, scene.textures['height'].id);
-        let uniforms: UniformBinder = this.uniformDict(scene);
+        let uniforms = this.uniformDict(scene);
         uniforms['displacement'] = scene.textures['height'].id;
         uniforms['border_min'] = scene.stats.min;
         uniforms['border_max'] = scene.stats.max;

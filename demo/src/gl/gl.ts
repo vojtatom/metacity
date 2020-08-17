@@ -20,6 +20,7 @@ class Graphics {
     scene: Scene;
 
     shadowsReady: boolean;
+    error: boolean;
 
     constructor(canvas: HTMLCanvasElement){
         this.canvas = canvas;
@@ -31,10 +32,6 @@ class Graphics {
             console.error('WebGL 2 not supported, please use a different browser.');
             throw 'WebGL 2 not supported, please use a different browser.';
         }
-
-        /*let ext = this.gl.getExtension('OES_element_index_uint');
-        if (!ext)
-            throw 'UINT element unavailable';*/
         
         let ext = this.gl.getExtension('OES_texture_float_linear');
         if (!ext)
@@ -69,6 +66,7 @@ class Graphics {
 
         this.scene = new Scene(this.gl, this.textures);
         this.shadowsReady = false;
+        this.error = false;
     }
 
     addCitySegment(model: BuildingsModelInterface) {
@@ -125,9 +123,15 @@ class Graphics {
         if (!this.loaded)
             return;
 
-        if (!this.shadowsReady) {
-            this.scene.light.createShadowmap(this);
-            this.shadowsReady = true;
+        if (!this.shadowsReady && this.scene.shadowsEnabled) {
+            try {
+                this.scene.light.createShadowmap(this);
+                this.shadowsReady = true;
+            } catch(error) {
+                UI.glError();
+                this.error = true;
+                throw error;
+            }
         }
             
         this.gl.depthMask(true);      
@@ -241,7 +245,6 @@ class Graphics {
             if (window.navigator.msSaveOrOpenBlob) // IE10+
                 window.navigator.msSaveOrOpenBlob(file, filename);
             else { // Others
-                console.log(file);
                 let a = document.createElement("a"),
                         url = URL.createObjectURL(file);
                 a.href = url;

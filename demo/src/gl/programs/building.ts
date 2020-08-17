@@ -1,4 +1,4 @@
-class BuildingProgram extends Program {
+class BuildingProgram extends ShadowProgram {
     constructor(gl: WebGL2RenderingContext){
         super(gl);
     
@@ -29,22 +29,6 @@ class BuildingProgram extends Program {
             selected: {
                 name: 'selected',
                 type: this.GLType.vec4,
-            },
-            mLVP: {
-                name: 'mLVP',
-                type: this.GLType.mat4
-            },
-            shadowmap: {
-                name: 'shadowmap',
-                type: this.GLType.int
-            },
-            texSize: {
-                name: 'texSize',
-                type: this.GLType.float
-            },
-            tolerance: {
-                name: 'tolerance',
-                type: this.GLType.float
             }
         });
     }

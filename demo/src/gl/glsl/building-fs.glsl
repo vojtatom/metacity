@@ -11,6 +11,7 @@ out vec4 color;
 uniform sampler2D shadowmap;
 uniform float texSize;
 uniform float tolerance;
+uniform float useShadows;
 
 
 float interpolate(vec2 texcoord, float depth) {
@@ -46,5 +47,10 @@ float shadow(void)
 
 void main()
 {
-    color = vec4(fragcolor * shadow() + vec3(0.2), 1.0);
+  vec3 outcolor = fragcolor;
+  
+  if (bool(useShadows))
+    outcolor *= shadow();
+
+  color = vec4(outcolor + vec3(0.2), 1.0);
 }

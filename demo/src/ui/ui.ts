@@ -421,7 +421,6 @@ module UI {
 
     export function loading(title: string, progress: number) {
         let loader = document.getElementById("loader");
-        console.log("loading");
 
         let prog: HTMLElement, stretch: HTMLElement;
         if (loader.childElementCount == 1) {
@@ -443,5 +442,188 @@ module UI {
 
         stretch.innerHTML = title;
         stretch.style.width = (progress * 100).toFixed(2) + "%";
+    }
+
+    export function closeLayerDetial() {
+        let lists = document.getElementsByClassName('layer-list');
+
+        for(let e of lists) {
+            e.classList.remove('open');
+        }
+
+        let details = document.getElementsByClassName('layer-detail');
+
+        for(let e of details) {
+            e.classList.remove('open');
+        }
+    }
+
+    interface UIMeta {
+        [name: string]: any
+    }
+
+    export function jsonToHTML(data: UIMeta, layer: SelectableLayer, selectable: boolean) {
+        let entries = [];
+
+        for(let e in data) {
+            if( typeof(data[e]) === 'string') {
+                let value;
+                
+                if (selectable)
+                    value = div({
+                        class: ['layer-detail-value', 'string', 'active'],
+                        html: data[e],
+                        onclick: () => {
+                            layer.select(data[e]);
+                        }
+                    })
+                else 
+                    value = div({
+                        class: ['layer-detail-value', 'string'],
+                        html: data[e]
+                    })
+                
+                
+                entries.push(div({
+                    class: 'layer-detail-entry',
+                    child: [
+                        div({
+                            class: 'layer-detail-title',
+                            html: e
+                        }),
+                        value
+                    ]
+                }));
+            } else if(typeof(data[e]) === 'number') {
+                entries.push(div({
+                    class: 'layer-detail-entry',
+                    child: [
+                        div({
+                            class: 'layer-detail-title',
+                            html: e
+                        }),
+                        div({
+                            class: ['layer-detail-value', 'number'],
+                            html: data[e]
+                        })
+                    ]
+                }));
+            } else {
+                let clickable = (e === 'parents' ||  e == 'children');
+
+                entries.push(div({
+                    class: 'layer-detail-entry',
+                    child: [
+                        div({
+                            class: 'layer-detail-title',
+                            html: e
+                        }),
+                        jsonToHTML(data[e], layer, clickable)
+                    ]
+                }));
+            }
+        }
+
+        let block = div({
+            class: 'layer-detail-block',
+            child: entries
+        });
+
+        return block;
+    }
+
+
+    function clearAll() {
+        document.getElementById("sidebar").innerHTML = "";
+        document.getElementById("settings").innerHTML = "";
+        document.getElementById("loader").innerHTML = "";
+    }
+
+    export function glError() {
+        clearAll();
+
+        error("WebGL error", "Your browser does not support WebGL2 or needed WebGL extensions," 
+        + " or your GPU does not have the required amount of memory. Try any desktop computer with Google Chrome.");
+    }
+
+    export function error(name: string, message: string) {
+        let err = div({
+            class: 'error',
+            child: [
+                div({
+                    class: 'error-apologise',
+                    html: 'We appologise, but there has been an error:'
+                }),
+                div({
+                    class: 'error-title',
+                    html: name
+                }),
+                div({
+                    class: 'error-message',
+                    html: message
+                })
+            ]
+        });
+
+        let wrap = document.getElementById("error");
+        wrap.appendChild(err);
+
+    }
+
+
+    export function setupSettings(app: Application) {
+        let shadow_label = (scene: Scene) => {
+            return scene.shadowsEnabled ? 'on' : 'off';
+        }
+
+        let shadow_toggle = div({
+            class: 'settings-option',
+            html: 'shadows ' + shadow_label(app.gl.scene)
+        });
+
+        
+        shadow_toggle.onclick = () => {
+            app.gl.scene.toggleShadows();
+            shadow_toggle.innerHTML = 'shadows ' + shadow_label(app.gl.scene);
+        };
+
+        let rack = div({
+            class: 'settings',
+            child: [
+                div({
+                    html: 'top (E/7)',
+                    class: 'settings-option',
+                    onclick: () => {
+                        app.gl.scene.camera.viewTop();
+                    }
+                }),
+                div({
+                    html: 'front (R/1)',
+                    class: 'settings-option',
+                    onclick: () => {
+                        app.gl.scene.camera.viewFront();
+                    }
+                }),
+                div({
+                    html: 'side (T/3)',
+                    class: 'settings-option',
+                    onclick: () => {
+                        app.gl.scene.camera.viewSide();
+                    }
+                }),
+                div({
+                    html: 'center (W/9)',
+                    class: 'settings-option',
+                    onclick: () => {
+                        app.gl.scene.camera.restoreCenter();
+                    }
+                }),
+                shadow_toggle
+            ]
+        });
+
+
+        let s = document.getElementById("settings");
+        s.appendChild(rack);
     }
 }

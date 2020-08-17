@@ -1,4 +1,4 @@
-class TerrainModel extends GLModel {
+class TerrainModel extends ShadowModel {
     data: TerrainModelInterface;
     program: TerrainProgram;
     simpleProgram: TriangleProgram;
@@ -60,11 +60,6 @@ class TerrainModel extends GLModel {
         this.gl.bindTexture(this.gl.TEXTURE_2D, scene.light.depth);
 
         let uniforms: UniformBinder = this.uniformDict(scene);
-        uniforms['mLVP'] = scene.light.vp;
-        uniforms['shadowmap'] = scene.light.depth;
-        uniforms['texSize'] = scene.light.texSize;
-        uniforms['tolerance'] = scene.light.tolerance;
-
         this.program.bindUniforms(uniforms);
 
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
@@ -83,7 +78,6 @@ class TerrainModel extends GLModel {
         this.bindBuffersAndTextures();
         let uniforms = this.uniformDict(scene);
         uniforms["vp"] = scene.light.vp;
-        console.log(scene.light.vp);
 
         this.simpleProgram.bindUniforms(uniforms);
         

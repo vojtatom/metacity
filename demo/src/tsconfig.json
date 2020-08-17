@@ -22,16 +22,18 @@
       "gl/scene.ts",
 
       "gl/programs/base.ts",
+      "gl/programs/shadow.ts",
       "gl/programs/pick.ts",
       "gl/programs/pickline.ts",
       "gl/programs/street.ts",
-      "gl/programs/building.ts",
       "gl/programs/terrain.ts",
+      "gl/programs/building.ts",
       "gl/programs/triangle.ts",
       "gl/programs/box.ts",
       "gl/programs/path.ts",
 
       "gl/models/base.ts",
+      "gl/models/shadow.ts",
       "gl/models/city.ts",
       "gl/models/cube.ts",
       "gl/models/streets.ts",
@@ -44,6 +46,7 @@
       "gl/gl.ts",
 
       "layers/layer.ts",
+      "layers/selectable.ts",
       "layers/terrain.ts",
       "layers/streets.ts",
       "layers/buildings.ts",

@@ -23,8 +23,8 @@ class Application {
 
     constructor()
     {
-        let windows = new UI.Window("3D view", [ 
-                new UI.Canvas(),
+        let windows = new UI.Window("3D view", [     
+            new UI.Canvas(),
             ]);
 
         let main = document.getElementById("main");
@@ -32,7 +32,15 @@ class Application {
 
         //take the first canvas you find
         let canvas = document.getElementsByTagName("canvas")[0];
-        this.gl = new Graphics(canvas);
+
+        try {
+            this.gl = new Graphics(canvas);
+        } catch (error) {
+            UI.glError();
+            throw error;
+        }
+        
+        
         this.interface = new IO(this);
         
         this.layers = new LayerManager(this.gl, windows);
@@ -61,69 +69,98 @@ class Application {
         //------------------------------------------------
     }
 
-    /*load() {
-        let files = this.data;
+    load() {
+        let data = JSON.parse(this.data);
         this.state = AppState.parsing;
-
         let that = this;
+        let streets: Streets;
+
+        UI.resetLoader();
+        UI.loading("Loading terrain", 0.1);
         new Promise(function(resolve, reject) {
-            UI.resetLoader();
-            UI.loading("Parsing buildings", 0.1);
+        
+            //terrain loading
+            let terrain = new Terrain(that.gl, data.terrain);
+            that.layers.addLayer(terrain);
+
+            UI.loading("Loading buildings", 0.3);
+            
             setTimeout(() => resolve(1), 1000);
+        
         }).then(function(){
             return new Promise((resolve, reject) => {
-                that.layers.addBuidings(files[0], files[1], "buildings");
-                UI.loading("Parsing bridges", 0.3);
+             
+                //buildings loading
+                let bridges = new Buildings(that.gl, data.bridges, data.bridges_meta, "bridges");
+                that.layers.addLayer(bridges);
+                
+                let buildings = new Buildings(that.gl, data.buildings, data.buildings_meta, "buildings");
+                that.layers.addLayer(buildings);
+                
+                UI.loading("Loading height map", 0.5);
+                
                 setTimeout(() => resolve(1), 1000);
-            }).then(function(){
+            }
+            ).then(function(){
                 return new Promise((resolve, reject) => {
-                    that.layers.addBuidings(files[2], files[3], "bridges");
-                    UI.loading("Parsing terrain", 0.5);
+                   
+                    //load texture
+                    that.gl.addFloat32Texture("height", data.height as TextureInterface);
+                    UI.loading("Loading streets", 0.7);
+                    
                     setTimeout(() => resolve(1), 1000);
+                    
                 }).then(function(){
                     return new Promise((resolve, reject) => {
-                        that.layers.addTerrain(files[4]);
-                        UI.loading("Parsing streets", 0.75);
+                        
+                        //street loading
+                        streets = new Streets(that.gl, data.streets, "streets");
+                        that.layers.addLayer(streets);
+                        
                         setTimeout(() => resolve(1), 1000);
+                        
                     }).then(function(){
                         return new Promise((resolve, reject) => {
-                            that.layers.addStreets(files[5]);
+                            UI.loading("Loading street graph", 0.9);
+                            
+                            //street graph loading
+                            Path.cropGraph(data.graph.data, that.gl.scene.stats.min, that.gl.scene.stats.max);
+                            streets.addStreetGraph(data.graph);
+                            
+                            
+                            UI.setupSettings(that);
                             UI.resetLoader();
                             that.state = AppState.ready;
                             that.data = null; // delete
+                            
                             setTimeout(() => resolve(1), 1000);
                         });
                     });
                 });
             });
         });
-    }*/
+    }
 
-    load() {
-
-        
+    /*load() {  
         let data = JSON.parse(this.data);
         this.state = AppState.parsing;
-        console.log(data);
 
         //terrain loading
         let terrain = new Terrain(this.gl, data.terrain);
         this.layers.addLayer(terrain);
 
-        console.log(this.gl.scene);
-
         //buildings loading
-        let bridges = new Buildings(this.gl, data.bridges, data.bridges_meta);
+        let bridges = new Buildings(this.gl, data.bridges, data.bridges_meta, "bridges");
         this.layers.addLayer(bridges);
 
-        let buildings = new Buildings(this.gl, data.buildings, data.buildings_meta);
+        let buildings = new Buildings(this.gl, data.buildings, data.buildings_meta, "buildings");
         this.layers.addLayer(buildings);
 
         //load texture
         this.gl.addFloat32Texture("height", data.height as TextureInterface);
 
         //street loading
-        let streets = new Streets(this.gl, data.streets);
+        let streets = new Streets(this.gl, data.streets, "streets");
         this.layers.addLayer(streets);
         
         //street graph loading
@@ -131,20 +168,21 @@ class Application {
         streets.addStreetGraph(data.graph);
 
 
+        UI.setupSettings(this);
         this.state = AppState.ready;
         this.data = null; // ensure delete
         data = null;
-    }
+    }*/
 
     pressed(key: number) {
 
-        if (key == 103){ // numpad 7
+        if (key == 103 || key == 69){ // numpad 7
             this.gl.scene.camera.viewTop();
-        } else if (key == 97) { // numpad 1
+        } else if (key == 97 || key == 82) { // numpad 1
             this.gl.scene.camera.viewFront();
-        } else if (key == 99) { // numpad 3
+        } else if (key == 99 || key == 84) { // numpad 3
             this.gl.scene.camera.viewSide();
-        } else if (key == 105) { // numpad 9
+        } else if (key == 105 || key == 87) { // numpad 9
             this.gl.scene.camera.restoreCenter();
         } 
     }
@@ -157,7 +195,15 @@ class Application {
 
     render() {
         if (this.state == AppState.loaded)
-            this.load();
+        {
+            try {
+                this.load();
+            } catch(error) {
+                this.gl.error = true;
+                UI.glError();
+                throw error;
+            }
+        }
         
         if (this.state != AppState.ready)
             return;
@@ -167,7 +213,7 @@ class Application {
             let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
             
             this.gl.scene.select(selected);
-            //this.layers.showDetail(selected);
+            this.layers.select(selected);
             this.pickPoint.pick = false;
         } 
         

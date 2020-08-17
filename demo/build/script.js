@@ -4142,7 +4142,6 @@ var UI;
     UI.resetLoader = resetLoader;
     function loading(title, progress) {
         let loader = document.getElementById("loader");
-        console.log("loading");
         let prog, stretch;
         if (loader.childElementCount == 1) {
             prog = loader.childNodes[0];
@@ -4162,6 +4161,165 @@ var UI;
         stretch.style.width = (progress * 100).toFixed(2) + "%";
     }
     UI.loading = loading;
+    function closeLayerDetial() {
+        let lists = document.getElementsByClassName('layer-list');
+        for (let e of lists) {
+            e.classList.remove('open');
+        }
+        let details = document.getElementsByClassName('layer-detail');
+        for (let e of details) {
+            e.classList.remove('open');
+        }
+    }
+    UI.closeLayerDetial = closeLayerDetial;
+    function jsonToHTML(data, layer, selectable) {
+        let entries = [];
+        for (let e in data) {
+            if (typeof (data[e]) === 'string') {
+                let value;
+                if (selectable)
+                    value = div({
+                        class: ['layer-detail-value', 'string', 'active'],
+                        html: data[e],
+                        onclick: () => {
+                            layer.select(data[e]);
+                        }
+                    });
+                else
+                    value = div({
+                        class: ['layer-detail-value', 'string'],
+                        html: data[e]
+                    });
+                entries.push(div({
+                    class: 'layer-detail-entry',
+                    child: [
+                        div({
+                            class: 'layer-detail-title',
+                            html: e
+                        }),
+                        value
+                    ]
+                }));
+            }
+            else if (typeof (data[e]) === 'number') {
+                entries.push(div({
+                    class: 'layer-detail-entry',
+                    child: [
+                        div({
+                            class: 'layer-detail-title',
+                            html: e
+                        }),
+                        div({
+                            class: ['layer-detail-value', 'number'],
+                            html: data[e]
+                        })
+                    ]
+                }));
+            }
+            else {
+                let clickable = (e === 'parents' || e == 'children');
+                entries.push(div({
+                    class: 'layer-detail-entry',
+                    child: [
+                        div({
+                            class: 'layer-detail-title',
+                            html: e
+                        }),
+                        jsonToHTML(data[e], layer, clickable)
+                    ]
+                }));
+            }
+        }
+        let block = div({
+            class: 'layer-detail-block',
+            child: entries
+        });
+        return block;
+    }
+    UI.jsonToHTML = jsonToHTML;
+    function clearAll() {
+        document.getElementById("sidebar").innerHTML = "";
+        document.getElementById("settings").innerHTML = "";
+        document.getElementById("loader").innerHTML = "";
+    }
+    function glError() {
+        clearAll();
+        error("WebGL error", "Your browser does not support WebGL2 or needed WebGL extensions,"
+            + " or your GPU does not have the required amount of memory. Try any desktop computer with Google Chrome.");
+    }
+    UI.glError = glError;
+    function error(name, message) {
+        let err = div({
+            class: 'error',
+            child: [
+                div({
+                    class: 'error-apologise',
+                    html: 'We appologise, but there has been an error:'
+                }),
+                div({
+                    class: 'error-title',
+                    html: name
+                }),
+                div({
+                    class: 'error-message',
+                    html: message
+                })
+            ]
+        });
+        let wrap = document.getElementById("error");
+        wrap.appendChild(err);
+    }
+    UI.error = error;
+    function setupSettings(app) {
+        let shadow_label = (scene) => {
+            return scene.shadowsEnabled ? 'on' : 'off';
+        };
+        let shadow_toggle = div({
+            class: 'settings-option',
+            html: 'shadows ' + shadow_label(app.gl.scene)
+        });
+        shadow_toggle.onclick = () => {
+            app.gl.scene.toggleShadows();
+            shadow_toggle.innerHTML = 'shadows ' + shadow_label(app.gl.scene);
+        };
+        let rack = div({
+            class: 'settings',
+            child: [
+                div({
+                    html: 'top (E/7)',
+                    class: 'settings-option',
+                    onclick: () => {
+                        app.gl.scene.camera.viewTop();
+                    }
+                }),
+                div({
+                    html: 'front (R/1)',
+                    class: 'settings-option',
+                    onclick: () => {
+                        app.gl.scene.camera.viewFront();
+                    }
+                }),
+                div({
+                    html: 'side (T/3)',
+                    class: 'settings-option',
+                    onclick: () => {
+                        app.gl.scene.camera.viewSide();
+                    }
+                }),
+                div({
+                    html: 'center (W/9)',
+                    class: 'settings-option',
+                    onclick: () => {
+                        app.gl.scene.camera.restoreCenter();
+                    }
+                }),
+                shadow_toggle
+            ]
+        });
+        let s = document.getElementById("settings");
+        s.appendChild(rack);
+    }
+    UI.setupSettings = setupSettings;
 })(UI || (UI = {}));
 var DataManager;
 (function (DataManager) {
@@ -4256,10 +4414,11 @@ class GLObject {
 class Texture extends GLObject {
     constructor(gl, data, w, h) {
         super(gl);
-        let tdata = Parser.toFloat32(data);
+        if (typeof (data) === 'string')
+            data = Parser.toFloat32(data);
         this.id = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, this.id);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, w, h, 0, gl.RED, gl.FLOAT, tdata);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, w, h, 0, gl.RED, gl.FLOAT, data);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -4295,6 +4454,7 @@ class Scene extends GLObject {
         this.textures = textures;
         this.time = 0;
         this.timeMax = 0;
+        this.shadowsEnabled = false;
     }
     select(id) {
         this.selected = id;
@@ -4316,6 +4476,9 @@ class Scene extends GLObject {
     }
     setTimeMax(time) {
         this.timeMax = Math.max(this.timeMax, time);
+    }
+    toggleShadows() {
+        this.shadowsEnabled = !this.shadowsEnabled;
     }
 }
 var ShaderType;
@@ -4453,6 +4616,36 @@ class Program extends GLObject {
         this.state[key] = true;
         if (this.state.init && this.state.attrs && this.state.unifs)
             this.loaded = true;
+    }
+}
+class ShadowProgram extends Program {
+    constructor(gl) {
+        super(gl);
+    }
+    commonUniforms() {
+        super.commonUniforms();
+        this.setupUniforms({
+            mLVP: {
+                name: 'mLVP',
+                type: this.GLType.mat4
+            },
+            shadowmap: {
+                name: 'shadowmap',
+                type: this.GLType.int
+            },
+            texSize: {
+                name: 'texSize',
+                type: this.GLType.float
+            },
+            tolerance: {
+                name: 'tolerance',
+                type: this.GLType.float
+            },
+            useShadows: {
+                name: 'useShadows',
+                type: this.GLType.float
+            }
+        });
     }
 }
 class PickProgram extends Program {
@@ -4648,7 +4841,53 @@ class StreetProgram extends Program {
         this.gl.useProgram(null);
     }
 }
-class BuildingProgram extends Program {
+class TerrainProgram extends ShadowProgram {
+    constructor(gl) {
+        super(gl);
+        DataManager.files({
+            files: [
+                Program.DIR + "terrain-vs.glsl",
+                Program.DIR + "terrain-fs.glsl",
+            ],
+            success: (files) => {
+                this.init(files[0], files[1]);
+                this.setup();
+            },
+            fail: () => {
+                throw "Terrain shader not loaded";
+            }
+        });
+    }
+    setup() {
+        this.setupAttributes({
+            vertex: 'vertex',
+            normal: 'normal',
+        });
+        this.commonUniforms();
+        this.setupUniforms({});
+    }
+    bindAttrVertex() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.vertex,
+            size: 3,
+            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+    bindAttrNormal() {
+        this.gl.useProgram(this.program);
+        this.bindAttribute({
+            attribute: this.attributes.normal,
+            size: 3,
+            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
+            offset: 0,
+        });
+        this.gl.useProgram(null);
+    }
+}
+class BuildingProgram extends ShadowProgram {
     constructor(gl) {
         super(gl);
         DataManager.files({
@@ -4676,22 +4915,6 @@ class BuildingProgram extends Program {
             selected: {
                 name: 'selected',
                 type: this.GLType.vec4,
-            },
-            mLVP: {
-                name: 'mLVP',
-                type: this.GLType.mat4
-            },
-            shadowmap: {
-                name: 'shadowmap',
-                type: this.GLType.int
-            },
-            texSize: {
-                name: 'texSize',
-                type: this.GLType.float
-            },
-            tolerance: {
-                name: 'tolerance',
-                type: this.GLType.float
             }
         });
     }
@@ -4721,69 +4944,6 @@ class BuildingProgram extends Program {
             attribute: this.attributes.object,
             size: 4,
             stride: 1 * Uint32Array.BYTES_PER_ELEMENT,
-            offset: 0,
-        });
-        this.gl.useProgram(null);
-    }
-}
-class TerrainProgram extends Program {
-    constructor(gl) {
-        super(gl);
-        DataManager.files({
-            files: [
-                Program.DIR + "terrain-vs.glsl",
-                Program.DIR + "terrain-fs.glsl",
-            ],
-            success: (files) => {
-                this.init(files[0], files[1]);
-                this.setup();
-            },
-            fail: () => {
-                throw "Terrain shader not loaded";
-            }
-        });
-    }
-    setup() {
-        this.setupAttributes({
-            vertex: 'vertex',
-            normal: 'normal',
-        });
-        this.commonUniforms();
-        this.setupUniforms({
-            mLVP: {
-                name: 'mLVP',
-                type: this.GLType.mat4
-            },
-            shadowmap: {
-                name: 'shadowmap',
-                type: this.GLType.int
-            },
-            texSize: {
-                name: 'texSize',
-                type: this.GLType.float
-            },
-            tolerance: {
-                name: 'tolerance',
-                type: this.GLType.float
-            }
-        });
-    }
-    bindAttrVertex() {
-        this.gl.useProgram(this.program);
-        this.bindAttribute({
-            attribute: this.attributes.vertex,
-            size: 3,
-            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
-            offset: 0,
-        });
-        this.gl.useProgram(null);
-    }
-    bindAttrNormal() {
-        this.gl.useProgram(this.program);
-        this.bindAttribute({
-            attribute: this.attributes.normal,
-            size: 3,
-            stride: 3 * Float32Array.BYTES_PER_ELEMENT,
             offset: 0,
         });
         this.gl.useProgram(null);
@@ -4962,7 +5122,21 @@ class GLModel extends GLObject {
     renderShadow(scene) {
     }
 }
-class BuildingModel extends GLModel {
+class ShadowModel extends GLModel {
+    constructor(gl) {
+        super(gl);
+    }
+    uniformDict(scene) {
+        let uniforms = super.uniformDict(scene);
+        uniforms['mLVP'] = scene.light.vp;
+        uniforms['shadowmap'] = scene.light.depth;
+        uniforms['texSize'] = scene.light.texSize;
+        uniforms['tolerance'] = scene.light.tolerance;
+        uniforms['useShadows'] = scene.shadowsEnabled ? 1 : 0;
+        return uniforms;
+    }
+}
+class BuildingModel extends ShadowModel {
     constructor(gl, programs, model) {
         super(gl);
         this.program = programs.building;
@@ -5009,10 +5183,6 @@ class BuildingModel extends GLModel {
         this.gl.bindTexture(this.gl.TEXTURE_2D, scene.light.depth);
         let uniforms = this.uniformDict(scene);
         uniforms["selected"] = scene.selectedv4;
-        uniforms['mLVP'] = scene.light.vp;
-        uniforms['shadowmap'] = scene.light.depth;
-        uniforms['texSize'] = scene.light.texSize;
-        uniforms['tolerance'] = scene.light.tolerance;
         this.program.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
         this.gl.bindVertexArray(null);
@@ -5153,7 +5323,7 @@ class StreetModel extends GLModel {
         this.gl.bindTexture(this.gl.TEXTURE_2D, null);
     }
 }
-class TerrainModel extends GLModel {
+class TerrainModel extends ShadowModel {
     constructor(gl, programs, model) {
         super(gl);
         this.program = programs.terrain;
@@ -5191,10 +5361,6 @@ class TerrainModel extends GLModel {
         this.bindBuffersAndTextures();
         this.gl.bindTexture(this.gl.TEXTURE_2D, scene.light.depth);
         let uniforms = this.uniformDict(scene);
-        uniforms['mLVP'] = scene.light.vp;
-        uniforms['shadowmap'] = scene.light.depth;
-        uniforms['texSize'] = scene.light.texSize;
-        uniforms['tolerance'] = scene.light.tolerance;
         this.program.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
         this.gl.bindVertexArray(null);
@@ -5208,7 +5374,6 @@ class TerrainModel extends GLModel {
         this.bindBuffersAndTextures();
         let uniforms = this.uniformDict(scene);
         uniforms["vp"] = scene.light.vp;
-        console.log(scene.light.vp);
         this.simpleProgram.bindUniforms(uniforms);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.triangles);
         this.gl.bindVertexArray(null);
@@ -5224,7 +5389,6 @@ class PathModel extends GLModel {
     init() {
         if (!this.program.loaded)
             return;
-        console.log(this.data);
         let vao = this.gl.createVertexArray();
         this.gl.bindVertexArray(vao);
         this.addBufferVAO(vao);
@@ -5492,6 +5656,9 @@ class Light extends GLObject {
         this.camera = cam;
         this.texSize = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), 8192);
         this.tolerance = 0.0007;
+        this.dummyTx = new Texture(gl, new Float32Array([0]), 1, 1);
+        this.depth = this.dummyTx.id;
+        this.useDummy = true;
     }
     get vp() {
         glMatrix.mat4.ortho(this.projectMatrix, -5, 5, -5, 5, 0.01, this.camera.farplane / 2);
@@ -5519,11 +5686,12 @@ class Light extends GLObject {
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.TEXTURE_2D, depth_buffer, 0);
         let status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
         if (status !== this.gl.FRAMEBUFFER_COMPLETE)
-            console.log("The created frame buffer is invalid: " + status.toString());
+            throw "The created frame buffer is invalid: " + status.toString();
         this.gl.bindTexture(this.gl.TEXTURE_2D, null);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
         this.fb = frame_buffer;
         this.depth = depth_buffer;
+        this.useDummy = false;
     }
     createShadowmap(graphics) {
         this.createFrameBufferObject(this.texSize, this.texSize);
@@ -5570,6 +5738,7 @@ class Graphics {
         this.textures = {};
         this.scene = new Scene(this.gl, this.textures);
         this.shadowsReady = false;
+        this.error = false;
     }
     addCitySegment(model) {
         let glmodel = new BuildingModel(this.gl, this.programs, model);
@@ -5613,9 +5782,16 @@ class Graphics {
     render() {
         if (!this.loaded)
             return;
-        if (!this.shadowsReady) {
-            this.scene.light.createShadowmap(this);
-            this.shadowsReady = true;
+        if (!this.shadowsReady && this.scene.shadowsEnabled) {
+            try {
+                this.scene.light.createShadowmap(this);
+                this.shadowsReady = true;
+            }
+            catch (error) {
+                UI.glError();
+                this.error = true;
+                throw error;
+            }
         }
         this.gl.depthMask(true);
         this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
@@ -5699,7 +5875,6 @@ class Graphics {
             if (window.navigator.msSaveOrOpenBlob)
                 window.navigator.msSaveOrOpenBlob(file, filename);
             else {
-                console.log(file);
                 let a = document.createElement("a"), url = URL.createObjectURL(file);
                 a.href = url;
                 a.download = filename;
@@ -5723,6 +5898,84 @@ class Layer {
     constructor(gl) {
         this.gl = gl;
     }
+    select(id) {
+    }
+}
+class SelectableLayer extends Layer {
+    constructor(gl, data, meta, title) {
+        super(gl);
+        this.idToObj = data.idToObj;
+        this.objToId = data.objToId;
+        this.meta = meta;
+        this.title = title;
+        this.createUI();
+    }
+    displayDetail(obj) {
+        UI.closeLayerDetial();
+        let struct = UI.jsonToHTML(this.meta.data[obj], this, false);
+        this.detail.innerHTML = "";
+        this.detail.appendChild(struct);
+        this.detail.classList.add('open');
+        console.log(this.meta.data[obj]);
+    }
+    createUI() {
+        let panel = document.getElementById("sidebar");
+        let children = [];
+        let detail = UI.div({
+            class: 'layer-detail'
+        });
+        this.detail = detail;
+        for (let entry in this.meta.data) {
+            if (entry in this.objToId) {
+                children.push(UI.div({
+                    class: ['layer-entry', 'active'],
+                    id: entry,
+                    html: entry,
+                    onclick: () => {
+                        this.displayDetail(entry);
+                    }
+                }));
+            }
+        }
+        let list = UI.div({
+            class: 'layer-list',
+            child: children
+        });
+        let title = UI.div({
+            class: 'layer-title',
+            html: this.title,
+            onclick: () => {
+                let close = list.classList.contains('open');
+                UI.closeLayerDetial();
+                if (close)
+                    return;
+                list.classList.add('open');
+            }
+        });
+        let layer = UI.div({
+            class: 'layer',
+            child: [
+                title,
+                list,
+                detail
+            ]
+        });
+        panel.appendChild(layer);
+    }
+    select(id) {
+        if (typeof (id) === 'string') {
+            if (id in this.objToId) {
+                this.displayDetail(id);
+                this.gl.scene.select(this.objToId[id]);
+            }
+        }
+        else if (typeof (id) === 'number') {
+            if (id in this.idToObj) {
+                this.displayDetail(this.idToObj[id]);
+                this.gl.scene.select(id);
+            }
+        }
+    }
 }
 class Terrain extends Layer {
     constructor(gl, data) {
@@ -5736,16 +5989,15 @@ class Terrain extends Layer {
         this.glmodel = models.terrainModel;
     }
 }
-class Streets extends Layer {
-    constructor(gl, data) {
-        super(gl);
+class Streets extends SelectableLayer {
+    constructor(gl, data, title) {
+        super(gl, data, { type: 'geo', data: data.metadata }, title);
         data.lineVertices = Parser.toFloat32(data.lineVertices);
         data.lineObjects = Parser.toUint32(data.lineObjects);
         let models = this.gl.addStreetSegment(data);
         this.glmodel = models.streetModel;
     }
     addStreetGraph(data) {
-        console.log(data.data);
         this.graph = data;
         let len = 1000;
         let count = 1000;
@@ -5764,9 +6016,9 @@ class Streets extends Layer {
         });
     }
 }
-class Buildings extends Layer {
-    constructor(gl, data, meta) {
-        super(gl);
+class Buildings extends SelectableLayer {
+    constructor(gl, data, meta, title) {
+        super(gl, data, meta, title);
         data.vertices = Parser.toFloat32(data.vertices);
         data.normals = Parser.toFloat32(data.normals);
         data.objects = Parser.toUint32(data.objects);
@@ -5784,6 +6036,12 @@ class LayerManager {
     }
     addLayer(layer) {
         this.layers.push(layer);
+    }
+    select(id) {
+        UI.closeLayerDetial();
+        this.layers.forEach(layer => {
+            layer.select(id);
+        });
     }
 }
 var Path;
@@ -5813,7 +6071,6 @@ var Path;
     }
     function cropGraph(graph, low, high) {
         let nodef32;
-        console.log(low, high);
         for (let node in graph) {
             nodef32 = Parser.toFloat32(node);
             for (let i = 0; i < nodef32.length; ++i) {
@@ -5891,7 +6148,7 @@ class IO {
     onMouseUp(x, y) {
         this.mouse.down = false;
         let now = Date.now();
-        if (now - this.mouse.time < 300 && this.mouse.button == 0) {
+        if (now - this.mouse.time < 200 && this.mouse.button == 0) {
             this.app.pick(x, y);
         }
     }
@@ -5904,10 +6161,10 @@ class IO {
         let delta_y = y - this.mouse.y;
         this.mouse.x = x;
         this.mouse.y = y;
-        if (this.mouse.button == 0) {
+        if (this.mouse.button == 1) {
             this.app.gl.scene.camera.rotate(delta_x, delta_y);
         }
-        else if (this.mouse.button == 1) {
+        else if (this.mouse.button == 0) {
             this.app.gl.scene.camera.move(delta_x, delta_y);
         }
     }
@@ -5931,7 +6188,13 @@ class Application {
         let main = document.getElementById("main");
         main.appendChild(windows.render());
         let canvas = document.getElementsByTagName("canvas")[0];
-        this.gl = new Graphics(canvas);
+        try {
+            this.gl = new Graphics(canvas);
+        }
+        catch (error) {
+            UI.glError();
+            throw error;
+        }
         this.interface = new IO(this);
         this.layers = new LayerManager(this.gl, windows);
         this.pickPoint = {
@@ -5952,34 +6215,60 @@ class Application {
     load() {
         let data = JSON.parse(this.data);
         this.state = AppState.parsing;
-        console.log(data);
-        let terrain = new Terrain(this.gl, data.terrain);
-        this.layers.addLayer(terrain);
-        console.log(this.gl.scene);
-        let bridges = new Buildings(this.gl, data.bridges, data.bridges_meta);
-        this.layers.addLayer(bridges);
-        let buildings = new Buildings(this.gl, data.buildings, data.buildings_meta);
-        this.layers.addLayer(buildings);
-        this.gl.addFloat32Texture("height", data.height);
-        let streets = new Streets(this.gl, data.streets);
-        this.layers.addLayer(streets);
-        Path.cropGraph(data.graph.data, this.gl.scene.stats.min, this.gl.scene.stats.max);
-        streets.addStreetGraph(data.graph);
-        this.state = AppState.ready;
-        this.data = null;
-        data = null;
+        let that = this;
+        let streets;
+        UI.resetLoader();
+        UI.loading("Loading terrain", 0.1);
+        new Promise(function (resolve, reject) {
+            let terrain = new Terrain(that.gl, data.terrain);
+            that.layers.addLayer(terrain);
+            UI.loading("Loading buildings", 0.3);
+            setTimeout(() => resolve(1), 1000);
+        }).then(function () {
+            return new Promise((resolve, reject) => {
+                let bridges = new Buildings(that.gl, data.bridges, data.bridges_meta, "bridges");
+                that.layers.addLayer(bridges);
+                let buildings = new Buildings(that.gl, data.buildings, data.buildings_meta, "buildings");
+                that.layers.addLayer(buildings);
+                UI.loading("Loading height map", 0.5);
+                setTimeout(() => resolve(1), 1000);
+            }).then(function () {
+                return new Promise((resolve, reject) => {
+                    that.gl.addFloat32Texture("height", data.height);
+                    UI.loading("Loading streets", 0.7);
+                    setTimeout(() => resolve(1), 1000);
+                }).then(function () {
+                    return new Promise((resolve, reject) => {
+                        streets = new Streets(that.gl, data.streets, "streets");
+                        that.layers.addLayer(streets);
+                        setTimeout(() => resolve(1), 1000);
+                    }).then(function () {
+                        return new Promise((resolve, reject) => {
+                            UI.loading("Loading street graph", 0.9);
+                            Path.cropGraph(data.graph.data, that.gl.scene.stats.min, that.gl.scene.stats.max);
+                            streets.addStreetGraph(data.graph);
+                            UI.setupSettings(that);
+                            UI.resetLoader();
+                            that.state = AppState.ready;
+                            that.data = null;
+                            setTimeout(() => resolve(1), 1000);
+                        });
+                    });
+                });
+            });
+        });
     }
     pressed(key) {
-        if (key == 103) {
+        if (key == 103 || key == 69) {
             this.gl.scene.camera.viewTop();
         }
-        else if (key == 97) {
+        else if (key == 97 || key == 82) {
             this.gl.scene.camera.viewFront();
         }
-        else if (key == 99) {
+        else if (key == 99 || key == 84) {
             this.gl.scene.camera.viewSide();
         }
-        else if (key == 105) {
+        else if (key == 105 || key == 87) {
             this.gl.scene.camera.restoreCenter();
         }
     }
@@ -5989,14 +6278,23 @@ class Application {
         this.pickPoint.pick = true;
     }
     render() {
-        if (this.state == AppState.loaded)
-            this.load();
+        if (this.state == AppState.loaded) {
+            try {
+                this.load();
+            }
+            catch (error) {
+                this.gl.error = true;
+                UI.glError();
+                throw error;
+            }
+        }
         if (this.state != AppState.ready)
             return;
         if (this.pickPoint.pick) {
             let canvasHeight = this.gl.scene.camera.screenY;
             let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
             this.gl.scene.select(selected);
+            this.layers.select(selected);
             this.pickPoint.pick = false;
         }
         this.gl.render();
@@ -6046,7 +6344,8 @@ window.onload = function (e) {
     let loop = function (time) {
         app.render();
         last = time;
-        requestAnimationFrame(loop);
+        if (!app.gl.error)
+            requestAnimationFrame(loop);
     };
     app.resize(window.innerWidth, window.innerHeight);
     requestAnimationFrame(loop);

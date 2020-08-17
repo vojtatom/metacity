@@ -12,7 +12,7 @@ out vec4 color;
 uniform sampler2D shadowmap;
 uniform float texSize;
 uniform float tolerance;
-
+uniform float useShadows;
 
 float interpolate(vec2 texcoord, float depth) {
   ivec2 low = ivec2(floor(texcoord));
@@ -54,7 +54,8 @@ void main()
     if (ihight == 0)
         outColor *= vec3(0.9);
 
-    outColor *= shadow();
+    if (bool(useShadows))
+      outColor *= shadow();
 
     color = vec4(vec3(1.0, 0.9, 0.8) * outColor + vec3(0.1), 1.0);
 }

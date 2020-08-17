@@ -22,6 +22,7 @@ class Scene extends GLObject {
     selectedv4: Float32Array;
 
     textures: {[name: string]: Texture};
+    shadowsEnabled: boolean;
 
     constructor(gl: WebGL2RenderingContext, textures: {[name: string]: Texture}) {
         super(gl);
@@ -42,6 +43,7 @@ class Scene extends GLObject {
         this.textures = textures;
         this.time = 0;
         this.timeMax = 0;
+        this.shadowsEnabled = false;
     }
 
     select(id: number) {
@@ -68,6 +70,10 @@ class Scene extends GLObject {
 
     setTimeMax(time: number) {
         this.timeMax = Math.max(this.timeMax, time);
+    }
+
+    toggleShadows() {
+        this.shadowsEnabled = !this.shadowsEnabled;
     }
 
     /*rescale3D(data: Float32Array) {

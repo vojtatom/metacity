@@ -5,33 +5,6 @@ window.onload = function(e: Event) {
     //canvas variable is actually parent DIV!!!
     let canvas = document.getElementById("canvas");
 
-    /*canvas.ondragover = (e: Event) => {
-        e.preventDefault();
-        console.log("dragging");
-    }
-
-    canvas.ondragenter = (e: Event) => {
-        e.preventDefault();
-        console.log("dragging on");
-    }
-
-    canvas.ondragleave = (e: Event) => {
-        e.preventDefault();
-        console.log("dragging off");
-    }
-
-    canvas.ondrop = (e) => {
-        e.preventDefault();
-        let fileList = e.dataTransfer.files;
-        console.log(fileList);
-        
-        for(let f of fileList)
-            app.load_file(f);
-
-        let prompt = document.getElementById("prompt");
-        prompt.parentElement.removeChild(prompt);
-    }*/
-
     document.onkeydown = function (event: KeyboardEvent) {
         app.interface.onKeyDown(event.keyCode);
         event.stopPropagation();
@@ -73,7 +46,9 @@ window.onload = function(e: Event) {
 		app.render();
         //console.log(time, time - last);
         last = time;
-		requestAnimationFrame(loop);
+
+        if (!app.gl.error)
+		    requestAnimationFrame(loop);
 	}
 
     app.resize(window.innerWidth, window.innerHeight);

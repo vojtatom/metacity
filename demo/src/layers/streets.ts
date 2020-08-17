@@ -13,12 +13,12 @@ interface StreetGraph {
     degrees: {[deg: number]: number}
 }
 
-class Streets extends Layer {
+class Streets extends SelectableLayer {
     glmodel: StreetModel;
     graph: StreetGraph;
 
-    constructor(gl: Graphics, data: any) {
-        super(gl);
+    constructor(gl: Graphics, data: any, title: string) {
+        super(gl, data, {type: 'geo', data: data.metadata}, title);
 
         data.lineVertices = Parser.toFloat32(data.lineVertices as string);
         data.lineObjects = Parser.toUint32(data.lineObjects as string);
@@ -28,7 +28,6 @@ class Streets extends Layer {
     }
 
     addStreetGraph(data: StreetGraph) {
-        console.log(data.data);
         this.graph = data;
 
         let len = 1000;

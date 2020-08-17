@@ -42,14 +42,17 @@ vec3 vec3fMod(vec3 a, vec3 b) {
 void main() {
     vec3 objColor = object.x * vec3(0.5) + vec3(0.6);
 
-    int marked = 1;
 
+
+    int marked = 1;
     for(int i = 0; i < 4; ++i)
         marked *= int(floor(selected[i] * 255.0 + 0.5) == floor(object[i] * 255.0 + 0.5));
 
     if (bool(marked))
         objColor = vec3(2.0, 1.5, 1.0);
     
+
+
     fragcolor = phong(vec3(1, 0.5, 1), vertex, normal) * objColor;
 	vec3 shifted = (mM * vec4(vertex, 1.0)).xyz;
     lpos = mLVP * vec4(shifted, 1.0);

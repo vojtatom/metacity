@@ -45,7 +45,7 @@ class IO {
         this.mouse.down = false;
         let now = Date.now();
         
-        if (now - this.mouse.time < 300 && this.mouse.button == 0)
+        if (now - this.mouse.time < 200 && this.mouse.button == 0)
         {
             this.app.pick(x, y);
         }
@@ -62,11 +62,11 @@ class IO {
         this.mouse.x = x
         this.mouse.y = y;
 
-        if (this.mouse.button == 0) {
-            //left button
-            this.app.gl.scene.camera.rotate(delta_x, delta_y);
-        } else if (this.mouse.button == 1) {
+        if (this.mouse.button == 1) {
             //wheel
+            this.app.gl.scene.camera.rotate(delta_x, delta_y);
+        } else if (this.mouse.button == 0) {
+            //left button
             this.app.gl.scene.camera.move(delta_x, delta_y);
         }
     };

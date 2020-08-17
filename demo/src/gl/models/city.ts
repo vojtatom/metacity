@@ -1,4 +1,4 @@
-class BuildingModel extends GLModel {
+class BuildingModel extends ShadowModel {
     data: BuildingsModelInterface;
     program: BuildingProgram;
     pickingProgram: PickProgram;
@@ -73,10 +73,6 @@ class BuildingModel extends GLModel {
 
         let uniforms : UniformBinder = this.uniformDict(scene);
         uniforms["selected"] = scene.selectedv4;
-        uniforms['mLVP'] = scene.light.vp;
-        uniforms['shadowmap'] = scene.light.depth;
-        uniforms['texSize'] = scene.light.texSize;
-        uniforms['tolerance'] = scene.light.tolerance;
 
         this.program.bindUniforms(uniforms);
 

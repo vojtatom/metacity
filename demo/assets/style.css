@@ -88,42 +88,188 @@ canvas {
     background: #555;
 }
 
-.building-detail {
+#sidebar {
     position: absolute;
-    top: 0;
-    left: 0;
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100vh - 2em);
+    max-height: calc(100vh - 4em);
+    min-width: 15vw;
     margin: 1em;
-    overflow-y: auto;
+    color: #FFF;
 }
 
-.building-detail .row {
-    display: flex;
-    flex-direction: row;
+.layer-title {
+    background: #222;
+    padding: 0.5em 1.5em;
+    border-bottom: 1px solid #444;
+    cursor:pointer;
 }
 
-.building-detail .row:nth-child(even) {
-    background: #333;
-}
-
-.building-detail .row:nth-child(odd) {
+.layer-title:hover {
     background: #444;
 }
 
-.building-detail .row > * {
-    width: 100%;
-    padding: 0.11em 0.5em;
-    box-sizing: border-box;
+.layer-list {
+    display: none;
 }
 
-.building-detail .row > *:nth-child(odd) {
-    color: #BBB;
+.layer-list::-webkit-scrollbar {
+    width: 0.5em;
+    background: #222;
+}
+ 
+.layer-list::-webkit-scrollbar-track {
+    -webkit-box-shadow: none;
+}
+ 
+.layer-list::-webkit-scrollbar-thumb {
+  background-color: #888;
 }
 
-.building-detail .row > *:nth-child(even) {
+
+.layer-list.open {
+    display: block;
+    max-height: 50vh;
+    background: #CCC;
+    overflow: auto;
+}
+
+.layer-list .layer-entry {
+   padding: 0.1em 1em;
+   background: #333;
+}
+
+.layer-list .layer-entry:hover {
+    background: #444;
+}
+
+
+/*.layer-list .layer-entry:nth-child(even) {
+    background: #333;
+}
+
+.layer-list .layer-entry:nth-child(odd) {
+    background: #444;
+}*/
+
+.layer-detail {
+    display: none;
+    padding: 1em 0;
+}
+
+.layer-detail::-webkit-scrollbar {
+  width: 0.5em;
+}
+ 
+.layer-detail::-webkit-scrollbar-track {
+  background: #222;
+}
+ 
+.layer-detail::-webkit-scrollbar-thumb {
+  background-color: #666;
+}
+
+.layer-detail.open {
+    display: block;
+    background: #333;
+    max-height: 50vh;
+    overflow: auto;
+}
+
+.layer-detail-block {
+    margin: 0.5em 0;
+    padding: 0 1em;
+    /*background: rgba(10, 10, 10, 0.1);*/
+    display: flex;
+    flex-direction: column;
+}
+
+.layer-detail-title {
+    text-align: left;
+    color: #CCC;
+    padding-right: 1em;
+}
+
+.layer-detail-value {
     text-align: right;
-    color: #FFF;
-} 
+}
 
+.layer-detail-entry {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 0.2em 0;
+}
+
+.layer-entry + .layer-entry,
+.layer-detail-entry + .layer-detail-entry {
+    border-top: 1px solid #555
+}
+
+.layer-detail-entry > .layer-detail-block {
+    flex-basis: 100%;
+    padding-right: 0;
+    border-left: 1px solid #FFF
+}
+
+.layer-detail-value.active {
+    background: #444;
+    padding:  0 0.5em;
+}
+
+.layer-detail-value.active::after {
+    content: '\2197';
+    padding-left: 1em;
+}
+
+.layer-detail-value.active:hover {
+    background: #666;
+}
+
+.active {
+    cursor: pointer;
+}
+
+#error {
+    position: absolute;
+    margin: 1em;
+    color: #FFF;
+}
+
+.error-apologise {
+    color: #AAA;
+}
+
+.error-title {
+    font-weight: bold;
+    font-size: 2em;
+    border-bottom: 1px solid #555;
+}
+
+.error-message {
+    padding-top: 1em;
+    max-width: 25em
+}
+
+.settings {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    margin: 1em;
+    color: #FFF;
+    display: flex;
+    background: #333;
+    z-index: 2;
+}
+
+.settings-option {
+    cursor: pointer;
+    padding: 0.5em 1em;
+}
+
+.settings-option + .settings-option {
+    border-left: 1px solid #666;
+}
+
+.settings-option:hover {
+    background: #444;
+}

@@ -1,4 +1,4 @@
-class TerrainProgram extends Program {
+class TerrainProgram extends ShadowProgram {
     constructor(gl: WebGL2RenderingContext){
         super(gl);
     
@@ -24,24 +24,7 @@ class TerrainProgram extends Program {
         });
 
         this.commonUniforms();
-        this.setupUniforms({
-            mLVP: {
-                name: 'mLVP',
-                type: this.GLType.mat4
-            },
-            shadowmap: {
-                name: 'shadowmap',
-                type: this.GLType.int
-            },
-            texSize: {
-                name: 'texSize',
-                type: this.GLType.float
-            },
-            tolerance: {
-                name: 'tolerance',
-                type: this.GLType.float
-            }
-        });
+        this.setupUniforms({});
     }
 
     bindAttrVertex() {

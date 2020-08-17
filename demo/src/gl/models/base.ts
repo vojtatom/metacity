@@ -55,7 +55,7 @@ class GLModel extends GLObject {
             world: scene.camera.world,
             vp: scene.camera.vp,
             farplane: scene.camera.farplane,
-        });
+        }) as UniformBinder;
     }
 
     render(scene: Scene){

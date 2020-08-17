@@ -1,18 +1,13 @@
-interface Meta {
-    type: 'city';
-    data: { [name: string]: any };
-}
-
 interface BuildingsInterface extends BuildingsModelInterface {
     type: 'obj';
 }
 
 
-class Buildings extends Layer {
+class Buildings extends SelectableLayer {
     glmodel: BuildingModel;
 
-    constructor(gl: Graphics, data: any, meta: Meta) {
-        super(gl);
+    constructor(gl: Graphics, data: any, meta: Meta, title: string) {
+        super(gl, data, meta, title);
 
         //this.panel.addLabel(new UI.Label("terrain"));
         data.vertices = Parser.toFloat32(data.vertices as string);
@@ -24,8 +19,4 @@ class Buildings extends Layer {
         let models = this.gl.addCitySegment(data as BuildingsInterface);
         this.glmodel = models.cityModel;
     }
-
-
-
-
 }
