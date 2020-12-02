@@ -237,16 +237,15 @@ class Graphics {
         return ID;
     }
 
-    saveCanvas(filename: string){
-
+    saveCanvas(filename: string){        
         this.canvas.toBlob((blob) => {
             // Function to download data to a file
             let file = blob;
             if (window.navigator.msSaveOrOpenBlob) // IE10+
-                window.navigator.msSaveOrOpenBlob(file, filename);
+            window.navigator.msSaveOrOpenBlob(file, filename);
             else { // Others
                 let a = document.createElement("a"),
-                        url = URL.createObjectURL(file);
+                url = URL.createObjectURL(file);
                 a.href = url;
                 a.download = filename;
                 document.body.appendChild(a);
@@ -254,7 +253,7 @@ class Graphics {
                 setTimeout(() => {
                     document.body.removeChild(a);
                     window.URL.revokeObjectURL(url);  
-                }, 0); 
+                }, 10000); 
             }
         });
     }
@@ -262,7 +261,7 @@ class Graphics {
     resize(x: number, y: number) {
         this.canvas.width = x;
         this.canvas.height = y;
-        this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         this.scene.camera.resize(x, y);
     }
 

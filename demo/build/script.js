@@ -5889,14 +5889,14 @@ class Graphics {
                 setTimeout(() => {
                     document.body.removeChild(a);
                     window.URL.revokeObjectURL(url);
-                }, 0);
+                }, 10000);
             }
         });
     }
     resize(x, y) {
         this.canvas.width = x;
         this.canvas.height = y;
-        this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         this.scene.camera.resize(x, y);
     }
 }
@@ -6303,9 +6303,16 @@ class Application {
             this.layers.select(selected);
             this.pickPoint.pick = false;
         }
+        let x, y;
+        if (this.interface.keys[67]) {
+            x = this.gl.canvas.width;
+            y = this.gl.canvas.height;
+            this.resize(4096, 4096);
+        }
         this.gl.render();
         if (this.interface.keys[67]) {
             this.gl.saveCanvas("screen.png");
+            this.resize(x, y);
             this.interface.keys[67] = false;
         }
     }

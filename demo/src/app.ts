@@ -208,6 +208,8 @@ class Application {
         if (this.state != AppState.ready)
             return;
 
+
+
         if (this.pickPoint.pick) {
             let canvasHeight = this.gl.scene.camera.screenY;
             let selected = this.gl.renderPick(this.pickPoint.x, this.pickPoint.y, canvasHeight);
@@ -217,11 +219,21 @@ class Application {
             this.pickPoint.pick = false;
         } 
         
+        let x, y;
+        if (this.interface.keys[67]) {
+            x = this.gl.canvas.width;
+            y = this.gl.canvas.height;
+            this.resize(4096, 4096);
+        }
+        
+
+
         this.gl.render();
         //this.gl.renderShadow();
 
         if (this.interface.keys[67]) { // letter c
             this.gl.saveCanvas("screen.png");
+            this.resize(x, y);
             this.interface.keys[67] = false;
         }
     }
