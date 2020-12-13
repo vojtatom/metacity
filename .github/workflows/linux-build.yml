@@ -17,26 +17,37 @@ jobs:
 
     steps:
       # Checks out a copy of your repository on the ubuntu-latest machine
-      - name: Checkout repo
+      - name: Checkout Repo
         uses: actions/checkout@v1
 
-      - name: Setup node
+      - name: Setup Node.js
         uses: actions/setup-node@v2-beta
         with:
           node-version: '12'
 
-      - name: Install dependencies
+      - name: Install Dependencies and Build
         run: |
           npm install
           npm run package
-      
-      - name: Archive Release
-        uses: thedoctor0/zip-release@master
-        with:
-          directory: out/
-          filename: 'linux-x64.zip'
 
-      - name: Status update
+      - name: Download Python
+        uses: suisei-cn/actions-download-file@v1
+        id: downloadfile  # Remember to give an ID if you need the output
+        with:
+          url: "http://urbann.vojtatom.cz/deps/linux-python-386.tar.gz"
+          target: python/
+
+      - name: Status Update
+        run: |
+          ls python/
+
+      - name: Unpack Python
+        run: tar -xvzf python/linux-python-386.tar.gz -C out/urbann-linux-x64/
+          
+      - name: Prepare Distributable
+        run: tar -cvzf out/urbann-linux-x64.tar.gz out/urbann-linux-x64/
+
+      - name: Status Update
         run: |
           ls out/
 
@@ -58,9 +69,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: out/linux-x64.zip
-          asset_name: linux-x64.zip
-          asset_content_type: application/zip
+          asset_path: out/urbann-linux-x64.tar.gz
+          asset_name: urbann-linux-x64.zip
+          asset_content_type: application/gzip
 
         
 
