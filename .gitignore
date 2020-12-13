@@ -88,4 +88,9 @@ typings/
 # Electron-Forge
 out/
 
+#####MINE
+#package lock
 package-lock.json
+
+#python source
+python/
