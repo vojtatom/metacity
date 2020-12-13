@@ -88,4 +88,4 @@ typings/
 # Electron-Forge
 out/
 
-package-losk.json
+package-lock.json
