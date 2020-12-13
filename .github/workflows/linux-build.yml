@@ -34,7 +34,7 @@ jobs:
         uses: thedoctor0/zip-release@master
         with:
           directory: out/
-          filename: 'release.zip'
+          filename: 'linux-x64.zip'
 
       - name: Status update
         run: |
