@@ -46,12 +46,12 @@ jobs:
           ls out/
 
       - name: Unpack Python
-        run: tar -xvzf python/windows-python-386.tar.gz -C out/urbann-windows-x64/
+        run: tar -xvzf python/windows-python-386.tar.gz -C out/urbann-win32-x64/
           
       - name: Prepare Distributable
         run: |
           cd out  
-          tar -cvzf urbann-windows-x64.tar.gz urbann-windows-x64
+          tar -cvzf urbann-win32-x64.tar.gz urbann-win32-x64
           cd ..
 
       - name: Create Release
@@ -72,7 +72,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: out/urbann-windows-x64.tar.gz
-          asset_name: urbann-windows-x64.tar.gz
+          asset_path: out/urbann-win32-x64.tar.gz
+          asset_name: urbann-win32-x64.tar.gz
           asset_content_type: application/gzip
 
