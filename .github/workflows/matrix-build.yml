@@ -1,25 +1,50 @@
-name: Linux-Build
+name: Build
 
 # Run this workflow every time a new commit pushed to your repository
 on: 
-  workflow_run:
-      workflows: ["Release-Source"]
-      branches: [main]
-      types: 
-        - completed
-        - requested
+  push:
+    tags:
+      - 'v*'
 
 jobs:
-  # Set the job key. The key is displayed as the job name
-  # when a job name is not provided
-  linux-build:
-    # Name the Job
-    name: Build and release the source for linux
-    # Set the type of machine to run on
+  create_release:
+    name: Create release
     runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    
+    steps:
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: true
+
+
+  build:
+    name: Build and release the source
+    needs: create_release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            pythond: linux-python-386.tar.gz
+            outd: urbann-linux-x64
+            dist: urbann-linux-x64.tar.gz
+          - os: windows-latest
+            pythond: windows-python-386.tar.gz
+            outd: urbann-win32-x64
+            dist: urbann-win32-x64.tar.gz
+            
 
     steps:
-      # Checks out a copy of your repository on the ubuntu-latest machine
       - name: Checkout Repo
         uses: actions/checkout@v1
 
@@ -37,25 +62,22 @@ jobs:
         uses: suisei-cn/actions-download-file@v1
         id: downloadfile  # Remember to give an ID if you need the output
         with:
-          url: "http://urbann.vojtatom.cz/deps/linux-python-386.tar.gz"
+          url: "http://urbann.vojtatom.cz/deps/${{ matrix.pythond }}"
           target: python/
 
       - name: Status Update
         run: |
           ls python/
+          ls out/
 
       - name: Unpack Python
-        run: tar -xvzf python/linux-python-386.tar.gz -C out/urbann-linux-x64/
+        run: tar -xvzf python/${{ matrix.pythond }} -C out/${{ matrix.outd }}/
           
       - name: Prepare Distributable
         run: |
           cd out  
-          tar -cvzf urbann-linux-x64.tar.gz urbann-linux-x64
+          tar -cvzf ${{ matrix.dist }} ${{ matrix.outd }}
           cd ..
-
-      - name: Status Update
-        run: |
-          ls out/
 
       - name: Upload Release Asset
         id: upload-release-asset 
@@ -64,7 +86,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: out/urbann-linux-x64.tar.gz
-          asset_name: urbann-linux-x64.tar.gz
+          asset_path: out/${{ matrix.dist }}
+          asset_name: ${{ matrix.dist }}
           asset_content_type: application/gzip
 
