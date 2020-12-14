@@ -1,0 +1,31 @@
+name: Release-Source
+
+# Run this workflow every time a new commit pushed to your repository
+on: 
+  push:
+    tags:
+      - '*'
+
+jobs:
+  # Set the job key. The key is displayed as the job name
+  # when a job name is not provided
+  release-source:
+    # Name the Job
+    name: Build and release the source code
+    # Set the type of machine to run on
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v1
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: true

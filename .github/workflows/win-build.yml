@@ -1,10 +1,12 @@
 name: Win-Build
 
-# Run this workflow every time a new commit pushed to your repository
 on: 
-  push:
-    tags:
-      - '*'
+  workflow_run:
+      workflows: ["Release-Source"]
+      branches: [main]
+      types: 
+        - completed
+        - requested
 
 jobs:
   # Set the job key. The key is displayed as the job name
@@ -53,17 +55,6 @@ jobs:
           cd out  
           tar -cvzf urbann-win32-x64.tar.gz urbann-win32-x64
           cd ..
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: true
 
       - name: Upload Release Asset
         id: upload-release-asset 
