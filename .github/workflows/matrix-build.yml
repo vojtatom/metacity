@@ -38,11 +38,12 @@ jobs:
             pythond: linux-python-386.tar.gz
             outd: urbann-linux-x64
             dist: urbann-linux-x64.tar.gz
+            pythonpath: install/bin/python3.8
           - os: windows-latest
             pythond: windows-python-386.tar.gz
             outd: urbann-win32-x64
             dist: urbann-win32-x64.tar.gz
-            
+            pythonpath: install/python.exe
 
     steps:
       - name: Checkout Repo
@@ -71,8 +72,11 @@ jobs:
           ls out/
 
       - name: Unpack Python
-        run: tar -xvzf python/${{ matrix.pythond }} -C out/${{ matrix.outd }}/
+        run: tar -xvzf python/${{ matrix.pythond }} -C out/${{ matrix.outd }}/resources/app/src/
           
+      - name: Install Python Requirements
+        run: out/${{ matrix.outd }}/resources/app/src/python/${{ matrix.pythonpath }} -m pip install -r requirements.txt 
+      
       - name: Prepare Distributable
         run: |
           cd out  

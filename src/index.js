@@ -79,8 +79,25 @@ app.on('activate', () => {
 });
 
 //Python
+const os = require('os');
+
+const platformPythonPath = {
+  win32: '/python/install/python.exe',
+  darwin: 'python3',
+  linux: '/python/install/bin/python3.8'
+};
+
+const pythonPath = platformPythonPath[os.platform()];
+if (pythonPath == undefined)
+  throw 'OS not supported'
+
+console.log(__dirname);
+
+let python = __dirname + pythonPath;
+let script = __dirname + '/py/server.py'
+
 const spawn = require("child_process").spawn;
-const pythonProcess = spawn('python3',["./src/python/server.py"/*, arg1, arg2, ...*/]);
+const pythonProcess = spawn(python, [script/*, arg1, arg2, ...*/]);
 
 pythonProcess.stdout.on('data', (data) => {
     //console.log('writing');

@@ -98,6 +98,8 @@ package-lock.json
 
 .vscode/*
 
+python/
+
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
