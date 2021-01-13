@@ -1,6 +1,75 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  margin: auto;
-  max-width: 38rem;
-  padding: 2rem;
+  padding: 0;
+  margin: 0;
+}
+
+#editor {
+  width: 100vw;
+  height: 100vh;
+  background: #FFF;
+}
+
+.node {
+  position: absolute;
+  display: flex;
+}
+
+.node.selected {
+  background: #F00;
+}
+
+.connectors {
+  /* */
+}
+
+.connector {
+  background: #FF0;
+  display: inline-block;
+  height: 100%;
+}
+
+.connector:hover {
+  background: #F00;
+}
+
+.title {
+  align-self: center;
+  padding: 0 3px;  
+}
+
+svg {
+  position: absolute;
+}
+
+svg path.connection {
+  stroke-width: 2px;
+  stroke: #000;
+  fill: none;
+}
+
+/*svg path.connection {
+  stroke-width: 2px;
+  stroke: #000;
+  fill: none;
+}*/
+
+svg path.fatline {
+  stroke-width: 20px;
+  stroke: #444;
+  opacity: 0.1;
+  fill: none;
+  cursor: pointer;
+}
+
+svg path.fatline:hover {
+  stroke: #000;
+  opacity: 0.5;
+}
+
+#functions {
+  background: #EEE;
+  position: absolute;
+  height: 100vh;
+  width: 200px;
 }

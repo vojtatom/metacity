@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+      "noImplicitAny": true,
+      "removeComments": true,
+      "preserveConstEnums": true,
+      "outFile": "../build/script.js",
+      "sourceMap": true,
+      "target": "ES6",
+      "allowJs": true
+    },
+
+    "files": [
+      "externals/websocket.ts",
+      "datamanager.ts",
+      "connector.ts",
+      "node.ts",
+      "connection.ts",
+      "function.ts",
+      "functionpanel.ts",
+      "editor.ts",
+      "index.ts"
+    ]
+}

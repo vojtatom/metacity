@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -11,6 +11,10 @@ const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
+    webPreferences: {
+      nodeIntegration: true,
+      enableRemoteModule: true
+    }
   });
 
   // and load the index.html of the app.
@@ -18,6 +22,38 @@ const createWindow = () => {
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
+
+  var menu = Menu.buildFromTemplate([{
+        label: 'Menu',
+        submenu: [
+            {
+              label:'Save Project As...',
+              click() {
+                mainWindow.webContents.send('editor', 'save');
+              }
+            },
+            {
+              label:'Open Project',
+              click() {
+                mainWindow.webContents.send('editor', 'open');
+              }
+            },
+            {
+              label:'Run Project',
+              click() {
+                mainWindow.webContents.send('editor', 'run');
+              }
+            },
+            {
+              label:'Exit', 
+              click() { 
+                  app.quit() 
+              } 
+          }
+        ]
+    }]);
+
+  Menu.setApplicationMenu(menu); 
 };
 
 // This method will be called when Electron has finished
@@ -42,5 +78,16 @@ app.on('activate', () => {
   }
 });
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.
+//Python
+const spawn = require("child_process").spawn;
+const pythonProcess = spawn('python3',["./src/python/server.py"/*, arg1, arg2, ...*/]);
+
+pythonProcess.stdout.on('data', (data) => {
+    //console.log('writing');
+    console.log(data.toString());
+});
+
+process.on('exit', () => {
+    console.log('killing python processes');
+    pythonProcess.kill();
+});
