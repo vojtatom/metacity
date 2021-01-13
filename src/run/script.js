@@ -99,7 +99,7 @@ class DataManager {
     }
     setupInstance(recieveCallback) {
         this.rc = recieveCallback;
-        let socket = new ReconnectingWebSocket('ws://0.0.0.0:9003');
+        let socket = new ReconnectingWebSocket('ws://localhost:9003');
         socket.onmessage = (event) => {
             let data = JSON.parse(event.data);
             for (let i = 0, len = this.callbacks.length; i < len; ++i) {

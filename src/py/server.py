@@ -38,7 +38,7 @@ async def serve(websocket, path):
 
 if __name__ == "__main__":
     if not DEBUG:
-        HOST = '0.0.0.0'
+        HOST = 'localhost'
         PORT_RECIEVE = 9003
         start_server = websockets.serve(serve, HOST, PORT_RECIEVE)
         asyncio.get_event_loop().run_until_complete(start_server)
