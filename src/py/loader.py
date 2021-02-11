@@ -40,7 +40,8 @@ def load_modules():
             functions[module] = {
                 'title': module,
                 'in': paramlist.inputParams(),
-                'out': paramlist.outputParams()
+                'out': paramlist.outputParams(),
+                'description': paramlist.description()
             }
 
     parameters.disable_params()

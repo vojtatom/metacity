@@ -9,51 +9,51 @@ if (require('electron-squirrel-startup')) { // eslint-disable-line global-requir
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 800,
+    width: 1200,
     height: 600,
     webPreferences: {
       nodeIntegration: true,
       enableRemoteModule: true
-    }
+    },
+    icon: __dirname + '/icons/metacity.png'
   });
 
-  // and load the index.html of the app.
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
-
-  // Open the DevTools.
   mainWindow.webContents.openDevTools();
-
-  var menu = Menu.buildFromTemplate([{
-        label: 'Menu',
-        submenu: [
-            {
-              label:'Save Project As...',
-              click() {
-                mainWindow.webContents.send('editor', 'save');
-              }
-            },
-            {
-              label:'Open Project',
-              click() {
-                mainWindow.webContents.send('editor', 'open');
-              }
-            },
-            {
-              label:'Run Project',
-              click() {
-                mainWindow.webContents.send('editor', 'run');
-              }
-            },
-            {
-              label:'Exit', 
-              click() { 
-                  app.quit() 
-              } 
-          }
-        ]
-    }]);
-
-  Menu.setApplicationMenu(menu); 
+  mainWindow.setMenuBarVisibility(false)
+  
+  /*var menu = Menu.buildFromTemplate([{
+    label: 'Menu',
+    submenu: [
+      {
+        label:'Save Project As...',
+        click() {
+          mainWindow.webContents.send('editor', 'save');
+        }
+      },
+      {
+        label:'Open Project',
+        click() {
+          mainWindow.webContents.send('editor', 'open');
+        }
+      },
+      {
+        label:'Run Project',
+        click() {
+          mainWindow.webContents.send('editor', 'run');
+        }
+      },
+      {
+        label:'Exit', 
+        click() { 
+          app.quit() 
+        } 
+      }
+    ]
+  }]);
+  
+  Menu.setApplicationMenu(menu); */
+  Menu.setApplicationMenu(null);
 };
 
 // This method will be called when Electron has finished

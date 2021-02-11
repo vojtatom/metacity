@@ -2,23 +2,23 @@ const { ipcRenderer, remote } = require('electron');
 const dialog = remote.dialog;
 const fs = require('fs');
 
-let editor = new Editor(); 
-let dm = DataManager.getInstance();
 
+//default callback for recieved data
+let dm = DataManager.getInstance();
 dm.setupInstance((data: object) => {
     console.log('got from server', data);
 });
 
-
-type SvgInHtml = HTMLElement & SVGElement;
-
 window.onload = function() {
     let editorDom = document.getElementById("editor");
     let editorSVG: SvgInHtml = document.getElementById("svgeditor") as SvgInHtml;
-    editor.init(editorDom, editorSVG);
+	
+	let editor = NodeEditor.instance.init(editorDom);
+
+	//editor.init(editorDom, editorSVG);
 }
 
-let saveProject = () => {
+/*let saveProject = () => {
     let content = editor.serialized;
 
     let options = {
@@ -105,4 +105,4 @@ ipcRenderer.on('editor', (event: any, command: any) => {
 	}
 	
     //todo more commands
-})
+})*/

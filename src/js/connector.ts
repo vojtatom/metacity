@@ -1,15 +1,4 @@
-
-interface ConnectorInterface {
-    param: string;
-    type: string;
-}
-
-enum ConnectorType {
-    input,
-    output
-}
-
-class Connector {
+class Connector2 {
     parameter: string;
     type: string;
     inout: ConnectorType;
@@ -19,15 +8,17 @@ class Connector {
     editor: Editor;
 
     connections: {[name: string]: Connection};
+    value: string;
 
     static connectorSize = 20;
     
-    constructor(parameter: string, type: string, inout: ConnectorType, editor: Editor, node: EditorNode) {
+    constructor(parameter: string, type: string, inout: ConnectorType, value: string, editor: Editor, node: EditorNode) {
         this.parameter = parameter;
         this.type = type;
         this.inout = inout;
         this.editor = editor;
         this.node = node;
+        this.value = value ? value: null;
         this.connections = {};
     }
 
@@ -36,6 +27,16 @@ class Connector {
         //base
         this.element = document.createElement("div");
         this.element.classList.add("connector");
+        
+        switch (this.inout) {
+            case ConnectorType.input:
+                this.element.classList.add("in");
+                break;
+            case ConnectorType.output:
+                this.element.classList.add("out");
+                break;
+        }
+
         this.element.style.width = Connector.connectorSize + "px";
         this.element.title = this.parameter;
         //callbacks
@@ -45,7 +46,6 @@ class Connector {
     }
 
     get pos() {
-        //let offset = this.element.offsetTop;
         let offTop = this.element.offsetTop;
         let offLeft = this.element.offsetLeft;
 
@@ -106,6 +106,7 @@ class Connector {
             type: this.type,
             inout: this.inout,
             node: this.node.id,
+            value: this.value,
             connections: connections
         }
     }

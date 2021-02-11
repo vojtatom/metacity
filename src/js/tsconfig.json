@@ -12,12 +12,8 @@
     "files": [
       "externals/websocket.ts",
       "datamanager.ts",
-      "connector.ts",
-      "node.ts",
-      "connection.ts",
-      "function.ts",
-      "functionpanel.ts",
-      "editor.ts",
+      "templates.ts",
+      "nodeeditor.ts",
       "index.ts"
     ]
 }

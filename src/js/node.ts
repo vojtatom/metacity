@@ -1,5 +1,5 @@
 
-class EditorNode {
+class EditorNode2 {
     pos: {
         x: number,
         y: number
@@ -15,6 +15,8 @@ class EditorNode {
     selected: boolean;
 
     editor: Editor;
+
+    toggled: boolean;
 
     static idCounter = 0;
 
@@ -32,9 +34,10 @@ class EditorNode {
         this.selected = false;
         this.title = title;
         this.editor = editor;
+        this.toggled = false;
 
-        this.inParams = Array.from(inParams, (con) => new Connector(con.param, con.type, ConnectorType.input, editor, this));
-        this.outParams = Array.from(outParams, (con) => new Connector(con.param, con.type, ConnectorType.output, editor, this));
+        this.inParams = Array.from(inParams, (con) => new Connector(con.param, con.type, ConnectorType.input, con.value, editor, this));
+        this.outParams = Array.from(outParams, (con) => new Connector(con.param, con.type, ConnectorType.output, con.value, editor, this));
 
         EditorNode.idCounter++;
         this.html();
@@ -93,6 +96,7 @@ class EditorNode {
                 this.deselect();
             else 
                 this.select();
+                
         } else if (ev.button == 2) {
             this.remove();
         }
@@ -174,8 +178,9 @@ class EditorNode {
     static load(data: any, editor: Editor) {
         let node = new EditorNode(data.title, data.pos.x, data.pos.y, data.inParameters, data.outParameters, editor, data.id);
         
+
         let id = data.id;
-        let num = Number(id.slice(4));
+        let num = Number(id.slice(4)); //skip text in ID 
         EditorNode.idCounter = Math.max(EditorNode.idCounter, num + 1);
             
         return node;

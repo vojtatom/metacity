@@ -24,6 +24,12 @@ class ParameterList:
             'inout': inout
         })
 
+
+    def addDescription(self, description):
+        self.list.append({
+            'description': description
+        })
+
     def __add__(self, other):
         concat = ParameterList()
         concat.list.extend(self.list)
@@ -31,10 +37,13 @@ class ParameterList:
         return concat
 
     def outputParams(self):
-        return [p for p in self.list if p['inout'] == 'output']
+        return [p for p in self.list if ('inout' in p and p['inout'] == 'output')]
 
     def inputParams(self):
-        return [p for p in self.list if p['inout'] == 'input']
+        return [p for p in self.list if ('inout' in p and p['inout'] == 'input')]
+
+    def description(self):
+        return [p['description'] for p in self.list if 'description' in p]
 
 
 def param(paramtitle, paramtype): 
@@ -79,6 +88,34 @@ def output(paramtitle, paramtype):
             if get_params:
                 params = ParameterList()
                 params.addParameter(paramtitle, paramtype, 'output')
+
+                try:
+                    params += (func(*args, **kwargs))
+                except:
+                    pass
+
+                return params
+            else:
+                return func(*args, **kwargs) 
+        
+        return wrapper 
+    return inner 
+
+
+def description(desc): 
+    """Registres a returned value
+
+    Args:
+        paramtitle (str): title of the returned parameter, must be unique for the function
+        paramtype (str): type of the returned parameter
+    """
+    def inner(func): 
+        @wraps(func)
+        def wrapper(*args, **kwargs):     
+            global get_params
+            if get_params:
+                params = ParameterList()
+                params.addDescription(desc)
 
                 try:
                     params += (func(*args, **kwargs))

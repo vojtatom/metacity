@@ -136,325 +136,194 @@ class DataManager {
         }
     }
 }
-var ConnectorType;
-(function (ConnectorType) {
-    ConnectorType[ConnectorType["input"] = 0] = "input";
-    ConnectorType[ConnectorType["output"] = 1] = "output";
-})(ConnectorType || (ConnectorType = {}));
-class Connector {
-    constructor(parameter, type, inout, editor, node) {
-        this.parameter = parameter;
-        this.type = type;
-        this.inout = inout;
-        this.editor = editor;
-        this.node = node;
-        this.connections = {};
-    }
-    html() {
-        this.element = document.createElement("div");
-        this.element.classList.add("connector");
-        this.element.style.width = Connector.connectorSize + "px";
-        this.element.title = this.parameter;
-        this.element.onmousedown = (ev) => this.mousedown(ev);
-        return this.element;
-    }
-    get pos() {
-        let offTop = this.element.offsetTop;
-        let offLeft = this.element.offsetLeft;
-        let pos = this.node.pos;
-        return {
-            x: pos.x + offLeft + Connector.connectorSize / 2,
-            y: pos.y + offTop + Connector.connectorSize / 2
+class EditorHTMLTemplate {
+    constructor(parent) {
+        this.mouse = {
+            x: 0,
+            y: 0
         };
+        this.moveActive = () => { };
+        this.clearSelectedNodes = () => { };
+        const editor = `
+        <div id="nodes">
+            <div id="nodeArea">
+                <div id="functionPanel"></div>
+                <svg width="100%" height="100%" id="svgEditor"></svg>
+                <div id="nodePanel"></div>
+            </div>
+        </div>
+        <div id="actionPanel"></div>
+        `;
+        this.parentHTML = parent;
+        this.parentHTML.innerHTML = editor;
+        this.functionPanelHTML = document.getElementById("functionPanel");
+        this.nodeAreaHTML = document.getElementById("nodeArea");
+        this.nodeAreaSVG = document.getElementById("svgEditor");
+        this.nodePanelHTML = document.getElementById("nodePanel");
+        this.actionPanel = document.getElementById("actionPanel");
+        this.nodeAreaHTML.onmousedown = (ev) => this.mousedown(ev);
+        this.nodeAreaHTML.onmousemove = (ev) => this.mousemove(ev);
+        this.nodeAreaHTML.onmouseup = (ev) => this.mouseup(ev);
     }
-    mousedown(ev) {
-        if (this.editor.stagedConnection) {
-            let conn = this.editor.stagedConnection;
-            if (conn.connect(this)) {
-                conn.draw();
-                this.editor.stagedConnection = null;
-            }
-            else {
-            }
+    addFunctionToPanel(data, onmousedown) {
+        const func = `
+        <div class="function">
+            <div class="icon"></div>
+            <div class="labels">
+                <div class="title">${data.title}</div>
+                <div class="description">${data.description}</div>
+            </div>
+        </div>   
+        `;
+        this.functionPanelHTML.insertAdjacentHTML("beforeend", func);
+        let funcHTML = this.functionPanelHTML.lastElementChild;
+        console.log(funcHTML);
+        funcHTML.onmousedown = onmousedown;
+        funcHTML.onmouseup = (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
-            return;
-        }
-        let pos = this.pos;
-        let connection = new Connection(this, pos.x, pos.y, this.editor.svg);
-        this.editor.stagedConnection = connection;
-        ev.preventDefault();
-        ev.stopPropagation();
-    }
-    removeAllConnections() {
-        for (let conn in this.connections)
-            this.connections[conn].remove();
-    }
-    drawConnenctions() {
-        for (let conn in this.connections)
-            this.connections[conn].draw();
-    }
-    get serialized() {
-        let connections = [];
-        for (let conn in this.connections) {
-            connections.push(this.connections[conn].serialized);
-        }
-        return {
-            param: this.parameter,
-            type: this.type,
-            inout: this.inout,
-            node: this.node.id,
-            connections: connections
         };
-    }
-}
-Connector.connectorSize = 20;
-class EditorNode {
-    constructor(title, x, y, inParams, outParams, editor, id) {
-        this.pos = {
-            x: x,
-            y: y
-        };
-        if (id)
-            this.id = id;
-        else
-            this.id = "Node" + EditorNode.idCounter;
-        this.selected = false;
-        this.title = title;
-        this.editor = editor;
-        this.inParams = Array.from(inParams, (con) => new Connector(con.param, con.type, ConnectorType.input, editor, this));
-        this.outParams = Array.from(outParams, (con) => new Connector(con.param, con.type, ConnectorType.output, editor, this));
-        EditorNode.idCounter++;
-        this.html();
-        this.editor.registerNode(this);
-    }
-    html() {
-        this.element = document.createElement("div");
-        this.element.id = this.id;
-        this.element.classList.add("node");
-        let title = document.createElement("div");
-        title.innerHTML = this.title;
-        title.classList.add("title");
-        title.title = this.id;
-        let inputParam = this.paramsConatiner(this.inParams);
-        let outputParam = this.paramsConatiner(this.outParams);
-        let params = document.createElement("div");
-        params.classList.add("params");
-        this.element.appendChild(title);
-        params.appendChild(inputParam);
-        params.appendChild(outputParam);
-        this.element.appendChild(params);
-        this.applyTransform();
-        this.element.onmousedown = (ev) => this.mousedown(ev);
-    }
-    paramsConatiner(params) {
-        let container = document.createElement("div");
-        container.classList.add("connectors");
-        container.style.height = Connector.connectorSize + "px";
-        for (let param of params) {
-            container.appendChild(param.html());
-        }
-        return container;
     }
     mousedown(ev) {
-        if (ev.button == 0) {
-            if (this.selected)
-                this.deselect();
-            else
-                this.select();
-        }
-        else if (ev.button == 2) {
-            this.remove();
-        }
+        if (!this.stagedConnection)
+            return;
+        this.nodeAreaSVG.removeChild(this.stagedConnection.connHTML.line);
+        this.nodeAreaSVG.removeChild(this.stagedConnection.connHTML.selectLine);
+        this.stagedConnection = null;
         ev.stopPropagation();
         ev.preventDefault();
     }
-    select() {
-        this.selected = true;
-        this.editor.selectedNodes[this.id] = this;
-        this.element.classList.add("selected");
+    mousemove(ev) {
+        let dx = ev.clientX - this.mouse.x;
+        let dy = ev.clientY - this.mouse.y;
+        this.mouse.x = ev.clientX;
+        this.mouse.y = ev.clientY;
+        this.moveActive(dx, dy);
     }
-    deselect() {
-        this.selected = false;
-        delete this.editor.selectedNodes[this.id];
-        this.element.classList.remove("selected");
+    mouseup(ev) {
+        this.clearSelectedNodes();
     }
-    move(dx, dy) {
-        this.pos.x += dx;
-        this.pos.y += dy;
+}
+class NodeHTMLTemplate {
+    constructor(node, x, y) {
+        this.pos = {
+            x: 0,
+            y: 0
+        };
+        const nodeHTML = `
+            <div class="node" id="${node.id}">
+                <div class="title">${node.title}</div>
+                <div class="params">
+                    <div class="connectors">
+                        ${node.inParams.map(param => `<div class="connector in" title="${param.parameter}"></div>`).join('')}
+                    </div>
+                    <div class="connectors">
+                        ${node.outParams.map(param => `<div class="connector out" title="${param.parameter}"></div>`).join('')}
+                    </div>
+                </div>
+            </div>   
+            `;
+        let area = NodeEditor.instance.ui.nodeAreaHTML;
+        area.insertAdjacentHTML("beforeend", nodeHTML);
+        this.nodeHTML = area.lastElementChild;
+        this.pos.x = x;
+        this.pos.y = y;
+        let inParamHTMLs = this.nodeHTML.lastElementChild.firstElementChild.children;
+        let outParamHTMLs = this.nodeHTML.lastElementChild.lastElementChild.children;
+        let connectionLink = (paramHTML, param) => {
+            for (let i = 0; i < paramHTML.length; ++i) {
+                paramHTML[i].onmousedown = (ev) => {
+                    node.addConnection(paramHTML[i], param[i], ev.x, ev.y);
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                };
+            }
+        };
+        connectionLink(inParamHTMLs, node.inParams);
+        connectionLink(outParamHTMLs, node.outParams);
+        this.nodeHTML.onmousedown = () => {
+            NodeEditor.instance.selectNode(this.nodeHTML.id);
+        };
+        this.move = (dx, dy) => {
+            console.log('moving node', dx, dy);
+            this.pos.x += dx;
+            this.pos.y += dy;
+            this.applyTransform();
+            for (let param of node.inParams)
+                param.drawConnections();
+            for (let param of node.outParams)
+                param.drawConnections();
+        };
         this.applyTransform();
-        for (let param of this.inParams)
-            param.drawConnenctions();
-        for (let param of this.outParams)
-            param.drawConnenctions();
-    }
-    remove() {
-        for (let param of this.inParams)
-            param.removeAllConnections();
-        for (let param of this.outParams)
-            param.removeAllConnections();
-        this.editor.deregisterNode(this);
     }
     applyTransform() {
-        this.element.style.transform = 'translate(' + this.pos.x + 'px, ' + this.pos.y + 'px)';
-    }
-    get serialized() {
-        let inPars = [];
-        for (let param of this.inParams)
-            inPars.push(param.serialized);
-        let outPars = [];
-        for (let param of this.outParams)
-            outPars.push(param.serialized);
-        return {
-            title: this.title,
-            id: this.id,
-            pos: {
-                x: this.pos.x,
-                y: this.pos.y
-            },
-            inParameters: inPars,
-            outParameters: outPars
-        };
-    }
-    getConnector(inout, param) {
-        let connectors = inout == ConnectorType.input ? this.inParams : this.outParams;
-        for (let conn of connectors)
-            if (conn.parameter == param)
-                return conn;
-    }
-    static load(data, editor) {
-        let node = new EditorNode(data.title, data.pos.x, data.pos.y, data.inParameters, data.outParameters, editor, data.id);
-        let id = data.id;
-        let num = Number(id.slice(4));
-        EditorNode.idCounter = Math.max(EditorNode.idCounter, num + 1);
-        return node;
+        this.nodeHTML.style.transform = 'translate(' + this.pos.x + 'px, ' + this.pos.y + 'px)';
     }
 }
-EditorNode.idCounter = 0;
-class Connection {
-    constructor(source, x, y, svg) {
-        this.svg = svg;
-        if (source.inout == ConnectorType.input) {
-            this.out = null;
-            this.in = source;
-        }
-        else {
-            this.out = source;
-            this.in = null;
-        }
+class ConnectionHTMLTemplate {
+    constructor(conn, x, y) {
         this.pos = {
-            x: x,
-            y: y
+            x: 0,
+            y: 0
         };
-        this.html();
-    }
-    static key(outConn, inConn) {
-        return outConn.node.id + outConn.parameter + "---" + inConn.node.id + inConn.parameter;
-    }
-    get key() {
-        return Connection.key(this.out, this.in);
-    }
-    connect(conn) {
-        let sourceConn;
-        let key;
-        if (this.in) {
-            sourceConn = this.in;
-            key = Connection.key(conn, this.in);
-            if (conn.inout == ConnectorType.input)
-                return false;
-        }
-        else {
-            sourceConn = this.out;
-            key = Connection.key(this.out, conn);
-            if (conn.inout == ConnectorType.output)
-                return false;
-        }
-        if (sourceConn.type != conn.type)
-            return false;
-        if (key in sourceConn.editor.connections)
-            return false;
-        if (this.in)
-            this.out = conn;
-        else
-            this.in = conn;
-        for (let conn in this.in.connections) {
-            this.in.connections[conn].remove();
-        }
-        this.in.connections[key] = this;
-        this.out.connections[key] = this;
-        this.in.node.editor.connections[key] = this;
-        return true;
-    }
-    remove() {
-        this.svg.removeChild(this.element);
-        this.svg.removeChild(this.selecElement);
-        if (this.in && this.out) {
-            let key = this.key;
-            delete this.in.connections[key];
-            delete this.out.connections[key];
-            delete this.in.node.editor.connections[key];
-        }
-    }
-    html() {
-        this.element = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        this.element.classList.add("connection");
-        this.selecElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        this.selecElement.onmousedown = (ev) => this.mousedown(ev);
-        this.selecElement.classList.add("fatline");
-        this.svg.appendChild(this.element);
-        this.svg.appendChild(this.selecElement);
-    }
-    mousedown(ev) {
-        if (this.in && this.out) {
-            if (ev.button == 0) {
-                let posIn = this.in.pos;
-                let posOut = this.out.pos;
-                let distIn = (posIn.x - ev.clientX) * (posIn.x - ev.clientX) + (posIn.y - ev.clientY) * (posIn.y - ev.clientY);
-                let distOut = (posOut.x - ev.clientX) * (posOut.x - ev.clientX) + (posOut.y - ev.clientY) * (posOut.y - ev.clientY);
-                this.remove();
-                let source;
-                if (distIn < distOut) {
-                    this.in = null;
-                    source = this.out;
+        this.line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        this.line.classList.add("connection");
+        this.selectLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        this.selectLine.onmousedown = (ev) => {
+            if (conn.in && conn.out) {
+                if (ev.button == 0) {
+                    let posIn = conn.in.pos;
+                    let posOut = conn.out.pos;
+                    let distIn = (posIn.x - ev.clientX) * (posIn.x - ev.clientX) + (posIn.y - ev.clientY) * (posIn.y - ev.clientY);
+                    let distOut = (posOut.x - ev.clientX) * (posOut.x - ev.clientX) + (posOut.y - ev.clientY) * (posOut.y - ev.clientY);
+                    conn.remove();
+                    let source;
+                    if (distIn < distOut) {
+                        conn.in = null;
+                        source = conn.out;
+                    }
+                    else {
+                        conn.out = null;
+                        source = conn.in;
+                    }
+                    this.pos = {
+                        x: ev.clientX,
+                        y: ev.clientY
+                    };
+                    NodeEditor.instance.ui.stagedConnection = conn;
+                    this.move(0, 0);
                 }
-                else {
-                    this.out = null;
-                    source = this.in;
+                else if (ev.button == 2) {
+                    conn.remove();
                 }
-                this.pos = {
-                    x: ev.clientX,
-                    y: ev.clientY
-                };
-                source.node.editor.stagedConnection = this;
-                this.html();
-                this.move(0, 0);
+                ev.preventDefault();
+                ev.stopPropagation();
             }
-            else if (ev.button == 2) {
-                this.remove();
+        };
+        this.selectLine.classList.add("fatline");
+        NodeEditor.instance.ui.nodeAreaSVG.appendChild(this.line);
+        NodeEditor.instance.ui.nodeAreaSVG.appendChild(this.selectLine);
+        this.pos.x = x;
+        this.pos.y = y;
+        this.move = (dx, dy) => {
+            this.pos.x += dx;
+            this.pos.y += dy;
+            let inpos, outpos;
+            if (conn.in && conn.out) {
+                inpos = conn.in.pos;
+                outpos = conn.out.pos;
             }
-            ev.preventDefault();
-            ev.stopPropagation();
-        }
-    }
-    move(dx, dy) {
-        this.pos.x += dx;
-        this.pos.y += dy;
-        if (this.in && this.out) {
-            this.draw();
-        }
-        else if (this.in) {
-            let inpos = this.in.pos;
-            this.redraw(this.pos.x, this.pos.y, inpos.x, inpos.y);
-        }
-        else if (this.out) {
-            let outpos = this.out.pos;
-            this.redraw(outpos.x, outpos.y, this.pos.x, this.pos.y);
-        }
-    }
-    draw() {
-        let inpos = this.in.pos;
-        let outpos = this.out.pos;
-        this.redraw(outpos.x, outpos.y, inpos.x, inpos.y);
+            else if (conn.in) {
+                inpos = conn.in.pos;
+                outpos = this.pos;
+                this.redraw(this.pos.x, this.pos.y, inpos.x, inpos.y);
+            }
+            else if (conn.out) {
+                inpos = this.pos;
+                outpos = conn.out.pos;
+            }
+            this.redraw(outpos.x, outpos.y, inpos.x, inpos.y);
+        };
     }
     redraw(inx, iny, outx, outy) {
         let handle = Math.min(Math.max((outy - iny) / 2 - 10, 0), 100);
@@ -465,160 +334,195 @@ class Connection {
         let d = 'M' + startx + ' ' + starty;
         d += ' C ' + (startx) + ' ' + (starty + handle) + ', ' + (endx) + ' ' + (endy - handle);
         d += ', ' + endx + ' ' + endy;
-        this.element.setAttribute('d', d);
-        this.selecElement.setAttribute('d', d);
+        this.line.setAttribute('d', d);
+        this.selectLine.setAttribute('d', d);
     }
-    get serialized() {
+}
+var ConnectorType;
+(function (ConnectorType) {
+    ConnectorType[ConnectorType["input"] = 0] = "input";
+    ConnectorType[ConnectorType["output"] = 1] = "output";
+})(ConnectorType || (ConnectorType = {}));
+class Connection {
+    constructor(source, x, y) {
+        if (source.inout == ConnectorType.input) {
+            this.out = null;
+            this.in = source;
+        }
+        else {
+            this.out = source;
+            this.in = null;
+        }
+        this.connHTML = new ConnectionHTMLTemplate(this, x, y);
+    }
+    static key(connA, connB) {
+        if (connA.inout == ConnectorType.input)
+            return connB.node.id + connB.parameter + "---" + connA.node.id + connA.parameter;
+        else
+            return connA.node.id + connA.parameter + "---" + connB.node.id + connB.parameter;
+    }
+    get key() {
+        return Connection.key(this.out, this.in);
+    }
+    connect(conn) {
+        let sourceConn = this.in ? this.in : this.out;
+        let key = Connection.key(sourceConn, conn);
+        if (conn.inout + sourceConn.inout != ConnectorType.input + ConnectorType.output)
+            return false;
+        if (sourceConn.type != conn.type)
+            return false;
+        if (NodeEditor.instance.connectionExists(key))
+            return false;
+        if (this.in)
+            this.out = conn;
+        else
+            this.in = conn;
+        for (let conn in this.in.connections)
+            this.in.connections[conn].remove();
+        this.in.connections[key] = this;
+        this.out.connections[key] = this;
+        NodeEditor.instance.addConnection(this);
+        return true;
+    }
+    remove() {
+        if (this.in && this.out) {
+            let key = this.key;
+            delete this.in.connections[key];
+            delete this.out.connections[key];
+            NodeEditor.instance.removeConnection(key);
+        }
+    }
+    move(dx, dy) {
+        this.connHTML.move(dx, dy);
+    }
+}
+class Connector {
+    constructor(structure, inout, node) {
+        this.connections = {};
+        this.parameter = structure.param;
+        this.type = structure.type;
+        this.inout = inout;
+        this.node = node;
+        this.value = structure.value ? structure.value : null;
+    }
+    get pos() {
+        let offTop = this.html.offsetTop;
+        let offLeft = this.html.offsetLeft;
+        let pos = this.node.nodeHTML.pos;
         return {
-            out: {
-                node: this.out.node.id,
-                connector: this.out.parameter
-            },
-            in: {
-                node: this.in.node.id,
-                connector: this.in.parameter
+            x: pos.x + offLeft + 20 / 2,
+            y: pos.y + offTop + 20 / 2
+        };
+    }
+    drawConnections() {
+        for (let conn in this.connections) {
+            this.connections[conn].move(0, 0);
+        }
+    }
+}
+class EditorNode {
+    constructor(structure, x, y, id) {
+        if (id)
+            this.id = id;
+        else {
+            this.id = "Node" + EditorNode.idCounter;
+            EditorNode.idCounter++;
+        }
+        this.selected = false;
+        this.title = structure.title;
+        this.inParams = Array.from(structure.in, (con) => new Connector(con, ConnectorType.input, this));
+        this.outParams = Array.from(structure.out, (con) => new Connector(con, ConnectorType.output, this));
+        this.nodeHTML = new NodeHTMLTemplate(this, x, y);
+    }
+    select() {
+        this.selected = true;
+        NodeEditor.instance.selectNode(this.id);
+    }
+    deselect() {
+        this.selected = false;
+    }
+    move(dx, dy) {
+        this.nodeHTML.move(dx, dy);
+    }
+    addConnection(paramHTML, param, x, y) {
+        if (NodeEditor.instance.ui.stagedConnection) {
+            let conn = NodeEditor.instance.ui.stagedConnection;
+            if (conn.connect(param)) {
+                param.html = paramHTML;
+                NodeEditor.instance.ui.stagedConnection = null;
+                conn.move(0, 0);
+            }
+            return;
+        }
+        param.html = paramHTML;
+        let connection = new Connection(param, x, y);
+        NodeEditor.instance.ui.stagedConnection = connection;
+    }
+}
+EditorNode.idCounter = 0;
+class NodeEditor {
+    constructor() {
+        this.nodes = {};
+        this.connections = {};
+        this.selectedNodes = {};
+    }
+    static get instance() {
+        if (!this.instanceObject) {
+            this.instanceObject = new this();
+        }
+        return this.instanceObject;
+    }
+    init(parent) {
+        this.editorHTML = new EditorHTMLTemplate(parent);
+        this.editorHTML.moveActive = (dx, dy) => {
+            for (let node in this.selectedNodes)
+                this.selectedNodes[node].move(dx, dy);
+            if (this.editorHTML.stagedConnection)
+                this.editorHTML.stagedConnection.move(dx, dy);
+        };
+        this.editorHTML.clearSelectedNodes = () => {
+            for (let nodeID in this.selectedNodes) {
+                this.selectedNodes[nodeID].deselect();
+                delete this.selectedNodes[nodeID];
             }
         };
-    }
-    static load(outConn, inConn, editor) {
-        let connection = new Connection(outConn, 0, 0, editor.svg);
-        connection.connect(inConn);
-        connection.draw();
-    }
-}
-class EditorFunction {
-    constructor(title, inConn, outConn, panel) {
-        this.title = title;
-        this.inConn = inConn;
-        this.outConn = outConn;
-        this.panel = panel;
-        this.html();
-    }
-    html() {
-        let element = document.createElement("div");
-        element.innerHTML = this.title;
-        this.panel.element.appendChild(element);
-        element.onmousedown = (ev) => {
-            let node = new EditorNode(this.title, ev.x, ev.y, this.inConn, this.outConn, this.panel.editor);
-            node.select();
-            ev.preventDefault();
-            ev.stopPropagation();
-        };
-        element.onmouseup = (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-        };
-        this.element = element;
-    }
-}
-class FunctionPanel {
-    constructor(editor) {
-        this.editor = editor;
-        this.functions = [];
-        this.html();
         let dm = DataManager.getInstance();
         dm.send({
             'command': 'load_functions'
         }, (data) => this.initFunctions(data));
     }
-    html() {
-        let sidebar = document.createElement("div");
-        sidebar.id = "functions";
-        sidebar.classList.add("sidebar");
-        this.element = sidebar;
-        this.editor.element.appendChild(sidebar);
-    }
     initFunctions(data) {
         for (let func in data) {
             let funcInfo = data[func];
-            this.functions.push(new EditorFunction(funcInfo.title, funcInfo.in, funcInfo.out, this));
+            this.editorHTML.addFunctionToPanel(funcInfo, (ev) => {
+                let node = new EditorNode(funcInfo, ev.x, ev.y);
+                this.nodes[node.id] = node;
+                node.select();
+                console.log(node);
+                ev.preventDefault();
+                ev.stopPropagation();
+            });
         }
     }
-}
-class Editor {
-    constructor() {
-        this.element = null;
-        this.mouse = {
-            x: 0,
-            y: 0
-        };
-        this.nodes = {};
-        this.selectedNodes = {};
-        this.connections = {};
-        this.stagedConnection = null;
+    selectNode(nodeID) {
+        this.selectedNodes[nodeID] = this.nodes[nodeID];
     }
-    init(element, svg) {
-        this.element = element;
-        this.svg = svg;
-        this.element.onmousedown = (ev) => this.mousedown(ev);
-        this.element.onmousemove = (ev) => this.mousemove(ev);
-        this.element.onmouseup = (ev) => this.mouseup(ev);
-        this.functions = new FunctionPanel(this);
+    connectionExists(key) {
+        return key in this.connections;
     }
-    registerNode(node) {
-        this.nodes[node.id] = node;
-        this.element.appendChild(node.element);
+    addConnection(connection) {
+        this.connections[connection.key] = connection;
     }
-    deregisterNode(node) {
-        this.element.removeChild(node.element);
-        delete this.nodes[node.id];
+    removeConnection(connectionID) {
+        delete this.connections[connectionID];
     }
-    mousedown(ev) {
-        if (this.stagedConnection) {
-            this.stagedConnection.remove();
-            this.stagedConnection = null;
-        }
-        ev.stopPropagation();
-        ev.preventDefault();
-    }
-    mousemove(ev) {
-        let dx = ev.clientX - this.mouse.x;
-        let dy = ev.clientY - this.mouse.y;
-        for (let node in this.selectedNodes)
-            this.selectedNodes[node].move(dx, dy);
-        this.mouse.x = ev.clientX;
-        this.mouse.y = ev.clientY;
-        if (this.stagedConnection)
-            this.stagedConnection.move(dx, dy);
-    }
-    mouseup(ev) {
-        for (let node in this.selectedNodes)
-            this.selectedNodes[node].deselect();
-    }
-    get serialized() {
-        let nodes = [];
-        for (let node in this.nodes)
-            nodes.push(this.nodes[node].serialized);
-        return JSON.stringify(nodes);
-    }
-    load(contents) {
-        try {
-            let data = JSON.parse(contents);
-            this.clear();
-            for (let node of data)
-                EditorNode.load(node, this);
-            for (let node of data)
-                for (let param of node.inParameters)
-                    for (let conn of param.connections) {
-                        let outConn = this.nodes[conn.out.node].getConnector(ConnectorType.output, conn.out.connector);
-                        let inConn = this.nodes[conn.in.node].getConnector(ConnectorType.input, conn.in.connector);
-                        Connection.load(outConn, inConn, this);
-                    }
-        }
-        catch (error) {
-            alert("File corrupted, cannot be loaded");
-        }
-    }
-    clear() {
-        for (let node in this.nodes)
-            this.nodes[node].remove();
-        this.stagedConnection = null;
+    get ui() {
+        return this.editorHTML;
     }
 }
 const { ipcRenderer, remote } = require('electron');
 const dialog = remote.dialog;
 const fs = require('fs');
-let editor = new Editor();
 let dm = DataManager.getInstance();
 dm.setupInstance((data) => {
     console.log('got from server', data);
@@ -626,72 +530,6 @@ dm.setupInstance((data) => {
 window.onload = function () {
     let editorDom = document.getElementById("editor");
     let editorSVG = document.getElementById("svgeditor");
-    editor.init(editorDom, editorSVG);
+    let editor = NodeEditor.instance.init(editorDom);
 };
-let saveProject = () => {
-    let content = editor.serialized;
-    let options = {
-        defaultPath: 'project.json',
-        filters: [{
-                extensions: ['json']
-            }]
-    };
-    dialog.showSaveDialog(options).then((result) => {
-        let filename = result.filePath;
-        if (filename === undefined) {
-            return;
-        }
-        fs.writeFile(filename, content, (err) => {
-            if (err) {
-                return;
-            }
-        });
-    }).catch((err) => {
-        alert(err);
-    });
-};
-let openProject = () => {
-    let options = {
-        filters: [{
-                extensions: ['json']
-            }]
-    };
-    dialog.showOpenDialog(options).then((result) => {
-        let filename = result.filePaths[0];
-        if (filename === undefined) {
-            return;
-        }
-        fs.readFile(filename, 'utf8', (err, data) => {
-            if (err) {
-                throw err;
-            }
-            const content = data;
-            editor.load(content);
-        });
-    }).catch((err) => {
-        alert(err);
-    });
-};
-let runProject = () => {
-    let content = editor.serialized;
-    dm.send({
-        command: 'run',
-        graph: content
-    });
-};
-ipcRenderer.on('editor', (event, command) => {
-    switch (command) {
-        case 'save':
-            saveProject();
-            break;
-        case 'open':
-            openProject();
-            break;
-        case 'run':
-            runProject();
-            break;
-        default:
-            break;
-    }
-});
 //# sourceMappingURL=script.js.map

@@ -40,7 +40,7 @@ def topological_sort(graph):
             for conn in param['connections']:
                 neighborid = conn['in']['node']
             
-                ### additional chack for requirement satisfication
+                ### additional check for requirement satisfication
                 satisfied = True
 
                 for param in nodes[neighborid]['inParameters']:
