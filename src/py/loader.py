@@ -1,7 +1,9 @@
 from os import walk, path
-import importlib.util
 from inspect import getmembers, isfunction
+import importlib
 import parameters
+import sys
+
 
 def load_modules():
     scripts_dir = path.join(path.dirname(__file__), 'scripts')
@@ -29,8 +31,15 @@ def load_modules():
         if module == 'parameters':
             continue
 
-        print(module, file)
-        pymodule = importlib.import_module(f'scripts.{module}')
+        pathmodule = f'scripts.{module}'
+        print(pathmodule, file)
+        
+        if pathmodule not in sys.modules:
+            pymodule = importlib.import_module(pathmodule)
+        else:
+            pymodule = importlib.import_module(pathmodule)
+            importlib.reload(pymodule)
+
         members = [ func[0] for func in getmembers(pymodule, isfunction) ]
         if 'call' in members:
             modules[module] = pymodule
@@ -41,6 +50,7 @@ def load_modules():
                 'title': module,
                 'in': paramlist.inputParams(),
                 'out': paramlist.outputParams(),
+                'value': paramlist.valueParams(),
                 'description': paramlist.description()
             }
 

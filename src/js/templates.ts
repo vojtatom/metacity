@@ -5,7 +5,6 @@ class EditorHTMLTemplate {
     functionPanelHTML: HTMLElement;
     nodeAreaHTML: HTMLElement;
     nodeAreaSVG: SvgInHtml;
-    nodePanelHTML: HTMLElement;
     actionPanel: HTMLElement;
 
     stagedConnection: Connection;
@@ -25,7 +24,6 @@ class EditorHTMLTemplate {
             <div id="nodeArea">
                 <div id="functionPanel"></div>
                 <svg width="100%" height="100%" id="svgEditor"></svg>
-                <div id="nodePanel"></div>
             </div>
         </div>
         <div id="actionPanel"></div>
@@ -36,7 +34,6 @@ class EditorHTMLTemplate {
         this.functionPanelHTML = document.getElementById("functionPanel");
         this.nodeAreaHTML = document.getElementById("nodeArea");
         this.nodeAreaSVG = document.getElementById("svgEditor") as SvgInHtml;
-        this.nodePanelHTML = document.getElementById("nodePanel");
         this.actionPanel = document.getElementById("actionPanel");
 
         this.nodeAreaHTML.onmousedown = (ev: MouseEvent) => this.mousedown(ev);
@@ -47,7 +44,6 @@ class EditorHTMLTemplate {
     addFunctionToPanel(data: EditorFunction, onmousedown: (ev: MouseEvent) => void) {
         const func = `
         <div class="function">
-            <div class="icon"></div>
             <div class="labels">
                 <div class="title">${data.title}</div>
                 <div class="description">${data.description}</div>
@@ -98,6 +94,165 @@ class EditorHTMLTemplate {
     }
 }
 
+function valueHTMLTitle(value: NodeValue) {
+    switch (value.type) {
+        case 'string':              
+            return `
+                <label for="${value.node.id + value.param}"><span class="title string">${value.param}</span></label>
+            `
+        case 'file':    
+            return `
+                <label for="${value.node.id + value.param}"><span class="title file">${value.param}</span></label>
+            `
+        case 'number':    
+            return `
+                <label for="${value.node.id + value.param}"><span class="title number">${value.param}</span></label>
+            `
+        case 'color':    
+            return `
+            <div class="value color">
+
+            </div>
+            `
+        case 'bool':    
+            return `
+                <label for="${value.node.id + value.param}"><span class="title bool">${value.param}</span></label>
+            `
+        case 'vec3':    
+            return `
+                <label for="${value.node.id + value.param}"><span class="title vec3">${value.param}</span></label>
+            `
+        default:
+            break;
+    }
+}
+
+function valueHTMLValue(value: NodeValue) {
+    switch (value.type) {
+        case 'string':              
+            return `
+            <div class="value string">
+                <input type="text" id="${value.node.id + value.param}" name="${value.node.id + value.param}" value="${value.value}">
+            </div>
+            `
+        case 'file':    
+            return `
+            <div class="value file">
+                    <input type="button" id="${value.node.id + value.param}" name="${value.node.id + value.param}", value="${value.value}">
+            </div>
+            `
+        case 'number':    
+            return `
+            <div class="value number">
+                    <input type="number" id="${value.node.id + value.param}" name="${value.node.id + value.param}" value="${value.value}">
+            </div>
+            `
+        case 'color':    
+            return `
+            <div class="value color">
+
+            </div>
+            `
+        case 'bool':    
+            return `
+            <div class="value bool">
+                <label for="${value.node.id + value.param}">
+                    <input type="checkbox" id="${value.node.id + value.param}" name="${value.node.id + value.param}" checked="${value.value}">
+                    <span class="checkmark"></span>
+                </label>
+            </div>
+            `
+        case 'vec3':    
+            return `
+            <div class="value vec3">
+                    <input type="number" id="${value.node.id + value.param + 'x'}" name="${value.node.id + value.param}" value="${(value.value as number[])[0]}">
+                    <input type="number" id="${value.node.id + value.param + 'y'}" name="${value.node.id + value.param}" value="${(value.value as number[])[1]}">
+                    <input type="number" id="${value.node.id + value.param + 'z'}" name="${value.node.id + value.param}" value="${(value.value as number[])[2]}">
+            </div>
+            `
+        default:
+            break;
+    }
+}
+
+function nothing(ev: Event) {
+    //ev.preventDefault();
+    ev.stopPropagation();
+}
+
+function setupValueCallbacks(value: NodeValue) {
+
+    switch (value.type) {
+        case 'string':              
+        case 'number':  
+            let input = document.getElementById(value.node.id + value.param) as HTMLInputElement;
+            input.onkeyup = (ev: Event) => {
+                value.value = input.value;
+                console.log(input.value);
+            }
+
+            input.onmousedown = nothing;
+            input.onmousemove = nothing;
+        break;
+        case 'bool': 
+            let checkbox = document.getElementById(value.node.id + value.param) as HTMLInputElement;
+            checkbox.onchange = (ev: Event) => {
+                value.value = checkbox.checked;
+                console.log(checkbox.checked);
+            }
+
+            checkbox.onmousedown = nothing;
+            checkbox.onmousemove = nothing;
+        case 'color':  
+            let color = document.getElementById(value.node.id + value.param) as HTMLElement;
+
+            /*element.onchange = (ev: Event) => {
+                value.value = element.value;
+                console.log(element.value);
+            }*/
+        break;
+        case 'file':    
+            let file = document.getElementById(value.node.id + value.param) as HTMLInputElement;
+            file.onclick = (ev: Event) => {
+                let options = {
+                    defaultPath: value.value
+                }
+            
+                dialog.showOpenDialog(options).then( (result: any) => {
+                    let filename = result.filePaths[0];
+                    
+                    if (filename === undefined) {
+                        //user didnt choose
+                        return;
+                    }
+                    
+                    file.value = filename;
+                    value.value = filename;
+                    }).catch((err: any) => {
+                    alert(err)
+                    });
+            }
+        break;
+        case 'vec3':   
+            let vec3x = document.getElementById(value.node.id + value.param + 'x') as HTMLInputElement;
+            let vec3y = document.getElementById(value.node.id + value.param + 'y') as HTMLInputElement;
+            let vec3z = document.getElementById(value.node.id + value.param + 'z') as HTMLInputElement;
+
+            let callback = (ev: Event) => {
+                value.value = [parseFloat(vec3x.value), parseFloat(vec3y.value), parseFloat(vec3z.value)];
+                console.log(value.value);
+            }
+
+            [vec3x, vec3y, vec3z].map(elem => {
+                elem.onkeydown = callback;
+                elem.onmousedown = nothing;
+                elem.onmousemove = nothing;
+            });
+
+        default:
+            break;
+    }
+}
 
 class NodeHTMLTemplate {
     nodeHTML: HTMLElement;
@@ -112,44 +267,65 @@ class NodeHTMLTemplate {
         const nodeHTML = `
             <div class="node" id="${node.id}">
                 <div class="title">${node.title}</div>
-                <div class="params">
+                <div class="contents">
                     <div class="connectors">
                         ${node.inParams.map(param =>
-            `<div class="connector in" title="${param.parameter}"></div>`).join('')}
+                            `<div class="connector in ${param.type}" title="${param.parameter}"></div>`).join('')}
+                    </div>
+                    
+                    <div class="values">
+                        <div class="values-titles">
+                            ${node.values.map(value => valueHTMLTitle(value)).join('')}
+                        </div>
+                        <div class="values-values">
+                            ${node.values.map(value => valueHTMLValue(value)).join('')}
+                        </div>
                     </div>
                     <div class="connectors">
                         ${node.outParams.map(param =>
-                `<div class="connector out" title="${param.parameter}"></div>`).join('')}
+                            `<div class="connector out ${param.type}" title="${param.parameter}"></div>`).join('')}
                     </div>
-                </div>
+                </div>   
             </div>   
             `
 
+            
         let area = NodeEditor.instance.ui.nodeAreaHTML;
         area.insertAdjacentHTML("beforeend", nodeHTML);
         this.nodeHTML = area.lastElementChild as HTMLElement;
-
+        node.values.map(value => setupValueCallbacks(value));
+            
         this.pos.x = x;
         this.pos.y = y;
-
+        
         let inParamHTMLs = this.nodeHTML.lastElementChild.firstElementChild.children;
         let outParamHTMLs = this.nodeHTML.lastElementChild.lastElementChild.children;
 
         let connectionLink = (paramHTML: HTMLCollection, param: Connector[]) => {
             for (let i = 0; i < paramHTML.length; ++i) {
+                
                 (paramHTML[i] as HTMLElement).onmousedown = (ev: MouseEvent) => {
                     node.addConnection(paramHTML[i] as HTMLElement, param[i], ev.x, ev.y);
                     ev.preventDefault();
                     ev.stopPropagation();
                 }
+
+                param[i].connHTML = new ConnectorHTMLTemplate(paramHTML[i] as HTMLElement, this);
             }
         }
 
         connectionLink(inParamHTMLs, node.inParams);
         connectionLink(outParamHTMLs, node.outParams);
 
-        this.nodeHTML.onmousedown = () => {
-            NodeEditor.instance.selectNode(this.nodeHTML.id);
+        this.nodeHTML.onmousedown = (ev: MouseEvent) => {
+            if (ev.button == 0) {
+                NodeEditor.instance.selectNode(this.nodeHTML.id);
+            }
+            else if (ev.button == 2) {
+                node.remove();
+                this.remove();
+            }
+
         }
 
         this.move = (dx: number, dy: number) => {
@@ -173,6 +349,33 @@ class NodeHTMLTemplate {
         this.nodeHTML.style.transform = 'translate(' + this.pos.x + 'px, ' + this.pos.y + 'px)';
     }
 
+    remove() {
+        NodeEditor.instance.ui.nodeAreaHTML.removeChild(this.nodeHTML);
+    }
+
+}
+
+
+class ConnectorHTMLTemplate {
+    nodeHTML: NodeHTMLTemplate;
+    connHTML: HTMLElement;
+
+    constructor(elem: HTMLElement, nodeHTML: NodeHTMLTemplate) {
+        this.nodeHTML = nodeHTML;
+        this.connHTML = elem;
+    }
+
+    get pos() {
+        let offTop = this.connHTML.offsetTop;
+        let offLeft = this.connHTML.offsetLeft;
+
+        let pos = this.nodeHTML.pos;
+
+        return {
+            x: pos.x + offLeft + 20 / 2,
+            y: pos.y + offTop + 20 / 2
+        };
+    }
 }
 
 class ConnectionHTMLTemplate {
@@ -186,32 +389,32 @@ class ConnectionHTMLTemplate {
 
     move: (dx: number, dy: number) => void;
 
-    constructor(conn: Connection, x: number, y: number) {
+    constructor(connection: Connection, x: number, y: number) {
         this.line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         this.line.classList.add("connection");
         
         this.selectLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         this.selectLine.onmousedown = (ev: MouseEvent) => {
-            if (conn.in && conn.out)
+            if (connection.in && connection.out)
             {
                 if (ev.button == 0)
                 {
                     //move existing
-                    let posIn = conn.in.pos;
-                    let posOut = conn.out.pos;
+                    let posIn = connection.in.connHTML.pos;
+                    let posOut = connection.out.connHTML.pos;
             
                     let distIn = (posIn.x - ev.clientX) * (posIn.x - ev.clientX) + (posIn.y - ev.clientY) * (posIn.y - ev.clientY);
                     let distOut = (posOut.x - ev.clientX) * (posOut.x - ev.clientX) + (posOut.y - ev.clientY) * (posOut.y - ev.clientY);
             
-                    conn.remove();
+                    connection.deregister();
 
                     let source;
                     if (distIn < distOut) {
-                        conn.in = null;
-                        source = conn.out;
+                        connection.in = null;
+                        source = connection.out;
                     } else {
-                        conn.out = null;
-                        source = conn.in;
+                        connection.out = null;
+                        source = connection.in;
                     }
             
                     this.pos = {
@@ -219,11 +422,11 @@ class ConnectionHTMLTemplate {
                         y: ev.clientY
                     };
             
-                    NodeEditor.instance.ui.stagedConnection = conn;                   
+                    NodeEditor.instance.ui.stagedConnection = connection;                   
                     this.move(0, 0);
 
                 } else if (ev.button == 2) {
-                    conn.remove();
+                    connection.remove();
                 }
         
                 ev.preventDefault();
@@ -245,19 +448,19 @@ class ConnectionHTMLTemplate {
             this.pos.y += dy;
             let inpos, outpos;
 
-            if (conn.in && conn.out) {
+            if (connection.in && connection.out) {
                 //move all
-                inpos = conn.in.pos;
-                outpos = conn.out.pos;
-            } else if (conn.in) {
+                inpos = connection.in.connHTML.pos;
+                outpos = connection.out.connHTML.pos;
+            } else if (connection.in) {
                 //move the bottom end
-                inpos = conn.in.pos;
+                inpos = connection.in.connHTML.pos;
                 outpos = this.pos;
                 this.redraw(this.pos.x, this.pos.y, inpos.x, inpos.y);
-            } else if (conn.out) {
+            } else if (connection.out) {
                 //move the top end
                 inpos = this.pos;
-                outpos = conn.out.pos;
+                outpos = connection.out.connHTML.pos;
             }
 
             this.redraw(outpos.x, outpos.y, inpos.x, inpos.y);
@@ -278,5 +481,10 @@ class ConnectionHTMLTemplate {
 
         this.line.setAttribute('d', d);
         this.selectLine.setAttribute('d', d);
+    }
+
+    remove() {
+        NodeEditor.instance.ui.nodeAreaSVG.removeChild(this.line);
+        NodeEditor.instance.ui.nodeAreaSVG.removeChild(this.selectLine);
     }
 }

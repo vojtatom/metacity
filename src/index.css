@@ -38,11 +38,13 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
+  background: #F8F8F8;
 }
 
 #functionPanel {
   width: 200px;
-  color: #FFF;
+  color: #000;
+  border-right: 1px solid #000;
   position: absolute;
   height: 100%;
   z-index: 2;
@@ -56,79 +58,8 @@ body {
 }
 
 #actionPanel {
+  border-top: 1px solid #000;
   height: 3rem;
-}
-
-
-
-
-.node {
-  position: absolute;
-  display: flex;
-  background: red;
-}
-
-.node.selected {
-  background: #F00;
-}
-
-.connectors {
-  /* */
-}
-
-.connector {
-  background: #FFF;
-  display: inline-block;
-  position: relative;
-  height: 20px;
-  width: 20px;
-  vertical-align:top;
-}
-
-.connector:hover {
-  background: #F00;
-}
-
-.connector[title]:hover::after {
-  content: attr(title);
-  color: #ccc;
-  position: absolute;
-  left: 0;
-}
-
-.connector.in[title]:hover::after {
-  top: -120%;
-}
-
-.connector.out[title]:hover::after {
-  top: 120%;
-}
-
-.node .title {
-  align-self: center;
-  padding: 0 3px;  
-}
-
-svg {
-  position: absolute;
-}
-
-svg path.connection {
-  stroke-width: 2px;
-  stroke: #000;
-  fill: none;
-}
-
-svg path.fatline {
-  stroke-width: 20px;
-  stroke: #000;
-  opacity: 0.1;
-  fill: none;
-  cursor: pointer;
-}
-
-svg path.fatline:hover {
-  opacity: 0.5;
 }
 
 /* function panel */
@@ -142,17 +73,15 @@ svg path.fatline:hover {
 
 .function {
   cursor: pointer;
-  background: #444;
   display: flex;
+  margin: 5px;
 }
 
 .function:hover {
-  background: #555;
+  background: #DDD;
 }
 
 .function .icon {
-  background: #FFF;
-  min-width: 5px;
 }
 
 .function .labels {
@@ -165,5 +94,205 @@ svg path.fatline:hover {
 
 .function .description {
   font-size: 0.8em;
-  color: #DDD;
+  color: #222;
 }
+
+/* node */
+.node {
+  position: absolute;
+  display: flex;
+  flex-direction: row;
+  background: #FFF;
+  border: 1px solid #CCC;
+}
+
+.node > .title {
+  background: #F8F8F8;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.node.selected {
+}
+
+.connectors {
+  text-align: right;
+  background: #F8F8F8;
+}
+
+.connector {
+  background: #DDD;
+  display: inline-block;
+  position: relative;
+  height: 20px;
+  width: 20px;
+  vertical-align:top;
+}
+
+.connector:hover {
+  background: #F00;
+}
+
+.connector[title]:hover::after {
+  content: attr(title);
+  color: #999;
+  position: absolute;
+  left: 0;
+  padding: 5px 10px;
+  box-sizing: border-box;
+}
+
+.connector.in[title]:hover::after {
+  top: -150%;
+}
+
+.connector.out[title]:hover::after {
+  top: 110%;
+}
+
+.connector.string {
+  background: #abe5ff
+}
+
+
+.connector.number {
+  background: #ffcca2
+}
+
+
+.connector.color {
+  background: #dfff8a
+}
+
+
+.connector.bool {
+  background: #eba2ff
+}
+
+
+.connector.file {
+  background: #8ba6ff
+}
+
+.connector.vec3 {
+  background: #ff7764
+}
+
+svg {
+  position: absolute;
+}
+
+svg path.connection {
+  stroke-width: 2px;
+  stroke: #888;
+  fill: none;
+}
+
+svg path.fatline {
+  stroke-width: 20px;
+  stroke: #888;
+  opacity: 0.1;
+  fill: none;
+  cursor: pointer;
+}
+
+svg path.fatline:hover {
+  opacity: 0.5;
+}
+
+/* value */
+
+.values {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.values-titles > *,
+.values-values > * {
+  height: 1.5rem;
+  display: block;
+}
+
+.values-titles > * {
+  display: flex;
+  align-items: center;
+}
+
+.values-titles .title {
+  display: block;
+  font-size: 0.7em;
+  padding-left: 0.5rem;
+}
+
+.value.string input,
+.value.number input,
+.value.file input,
+.value.vec3 input  {
+ display: block;
+ padding: 5px;
+ border: none;
+ box-sizing: border-box;
+ background: none;
+ text-align: left;
+}
+
+.value.string input,
+.value.number input,
+.value.file input {
+  width: 150px;
+}
+
+.value.vec3 {
+  display: flex;
+  flex-direction: row nowrap;
+  
+}
+
+.value.vec3 input {
+  width: 50px;
+} 
+
+input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  margin-left: auto;
+  display: block;
+  position: relative;
+  height: 100%;
+  width: 25px;
+  background: #DDD;
+}
+
+input[type="checkbox"]:checked ~ .checkmark {
+  background-color: #2196F3;
+}
+
+
+input[type="checkbox"]:checked ~ .checkmark:after {
+  display: block;
+}
+
+.checkmark:after {
+  display: none;
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 5px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 3px 3px 0;
+  -webkit-transform: rotate(45deg);
+  -ms-transform: rotate(45deg);
+  transform: rotate(45deg);
+}
+
+

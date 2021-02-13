@@ -78,12 +78,15 @@ app.on('activate', () => {
   }
 });
 
+
+app.commandLine.appendSwitch('enable-features', 'FormControlsRefresh');
+
 //Python
 const os = require('os');
 
 const platformPythonPath = {
   win32: '/python/install/python.exe',
-  darwin: 'python3',
+  //darwin: 'python3',
   linux: '/python/install/bin/python3.8'
 };
 

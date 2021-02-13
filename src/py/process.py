@@ -24,7 +24,15 @@ commands = {
 
 
 def process(data): 
-    command = data['command']
-    if command in commands:
-        return commands[command](data)
+    with open("crash.log", "w") as logf:
+        command = data['command']
         
+        try:
+            if command in commands:
+                return commands[command](data)
+        except Exception as e:     # most generic exception you can catch
+            logf.write("Failed command {0}: {1}\n".format(str(command), str(e)))
+            # optional: delete local version of failed download
+        finally:
+            # optional clean up code
+            pass

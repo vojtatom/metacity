@@ -10,11 +10,18 @@ interface ConnectorInterface {
     value: string;
 }
 
+interface ValueInterface {
+    param: string;
+    type: string;
+    value: string;
+}
+
 interface EditorFunction {
     title: string,
     description: string,
     in: ConnectorInterface[],
-    out: ConnectorInterface[]
+    out: ConnectorInterface[],
+    value: ValueInterface[]
 }
 
 class Connection {
@@ -52,6 +59,10 @@ class Connection {
         let sourceConn = this.in ? this.in : this.out;
         let key = Connection.key(sourceConn, conn);
 
+        //check self-loop
+        if (conn.node.id == sourceConn.node.id)
+            return false;
+
         //check for inout
         if (conn.inout + sourceConn.inout != ConnectorType.input + ConnectorType.output)
             return false;
@@ -82,7 +93,7 @@ class Connection {
     }
 
 
-    remove() {
+    deregister() {
         //remove HTML of this
 
         if (this.in && this.out)
@@ -94,8 +105,32 @@ class Connection {
         }
     }
 
+    remove() {
+        this.connHTML.remove();
+        this.deregister();
+    }
+
     move(dx: number, dy: number) {
         this.connHTML.move(dx, dy);
+    }
+
+    get serialized() {
+        return {
+            out: {
+                node: this.out.node.id,
+                connector: this.out.parameter
+            },
+            in: {
+                node: this.in.node.id,
+                connector: this.in.parameter
+            }
+        }
+    }
+
+    static load(outConn: Connector, inConn: Connector) {
+        let connection = new Connection(outConn, 0, 0);
+        connection.connect(inConn);
+        connection.move(0, 0);
     }
 }
 
@@ -108,8 +143,9 @@ class Connector {
     
     connections: {[name: string]: Connection} = {};
     node: EditorNode;
-    html: HTMLElement;
     
+    connHTML: ConnectorHTMLTemplate;
+
     constructor(structure: ConnectorInterface, inout: ConnectorType, node: EditorNode) {
         this.parameter = structure.param;
         this.type = structure.type;
@@ -118,22 +154,53 @@ class Connector {
         this.value = structure.value ? structure.value: null;
     }
 
-    get pos() {
-        let offTop = this.html.offsetTop;
-        let offLeft = this.html.offsetLeft;
-
-        let pos = this.node.nodeHTML.pos;
-
-        return {
-            x: pos.x + offLeft + 20 / 2,
-            y: pos.y + offTop + 20 / 2
-        };
-    }
-
     drawConnections() {
         for (let conn in this.connections) {
             this.connections[conn].move(0, 0);
         }
+    }
+
+    removeAllConnections() {
+        for(let conn in this.connections)
+            this.connections[conn].remove();
+    }
+
+    get serialized() {
+        let connections = [];
+        for(let conn in this.connections) {
+            connections.push(this.connections[conn].serialized);
+        }
+
+        return {
+            param: this.parameter,
+            type: this.type,
+            inout: this.inout,
+            node: this.node.id,
+            value: this.value,
+            connections: connections
+        }
+    }
+}
+
+class NodeValue {
+    param: string;
+    type: string;
+    value: string | number | number[] | boolean;
+    node: EditorNode;
+
+    constructor(value: ValueInterface, node: EditorNode) {
+        this.param = value.param;
+        this.type = value.type;
+        this.value = value.value;
+        this.node = node;
+    }
+
+    get serialized() {
+        return {
+            param: this.param,
+            type: this.type,
+            value: this.value
+        };
     }
 }
 
@@ -142,12 +209,11 @@ class EditorNode {
     id: string;
     title: string;
     
-    selected: boolean;
-    nodeHTML: NodeHTMLTemplate;
-
     inParams: Connector[];
     outParams: Connector[];
+    values: NodeValue[];
     
+    nodeHTML: NodeHTMLTemplate;
     static idCounter = 0;
 
     constructor(structure: EditorFunction, x: number, y: number, id?: string) {
@@ -158,26 +224,27 @@ class EditorNode {
             EditorNode.idCounter++;
         } 
         
-        this.selected = false;
         this.title = structure.title;
 
         this.inParams = Array.from(structure.in, (con) => new Connector(con, ConnectorType.input, this));
         this.outParams = Array.from(structure.out, (con) => new Connector(con, ConnectorType.output, this));  
-    
+        this.values = Array.from(structure.value, (val) => new NodeValue(val, this));
+
         this.nodeHTML = new NodeHTMLTemplate(this, x, y);
-    }
-
-    select() {
-        this.selected = true;
-        NodeEditor.instance.selectNode(this.id);
-    }
-
-    deselect() {
-        this.selected = false;
     }
 
     move(dx: number, dy: number) {
         this.nodeHTML.move(dx, dy);
+    }
+
+    remove() {
+        for(let param of this.inParams)
+            param.removeAllConnections();
+    
+        for(let param of this.outParams)
+            param.removeAllConnections();
+
+        NodeEditor.instance.removeNode(this.id);
     }
 
     addConnection(paramHTML: HTMLElement, param: Connector, x: number, y: number) {
@@ -185,16 +252,55 @@ class EditorNode {
             let conn = NodeEditor.instance.ui.stagedConnection;
             if (conn.connect(param))
             {
-                param.html = paramHTML;
                 NodeEditor.instance.ui.stagedConnection = null;
                 conn.move(0, 0);
             }
             return;
         }
 
-        param.html = paramHTML;
         let connection = new Connection(param, x, y);
         NodeEditor.instance.ui.stagedConnection = connection;
+    }
+
+    get serialized() {
+        let inPars = [];
+
+        for(let param of this.inParams)
+            inPars.push(param.serialized);
+    
+        let outPars = [];
+
+        for(let param of this.outParams)
+            outPars.push(param.serialized);
+
+        return {
+            title: this.title,
+            id: this.id,
+            pos: {
+                x: this.nodeHTML.pos.x,
+                y: this.nodeHTML.pos.y
+            },
+            in: inPars,
+            out: outPars
+        }
+    }
+
+    static load(data: any) {
+        let node = new EditorNode(data, data.pos.x, data.pos.y, data.id);
+        
+        let id = data.id;
+        let num = Number(id.slice(4)); //skip text "Node" in ID 
+        EditorNode.idCounter = Math.max(EditorNode.idCounter, num + 1);
+            
+        return node;
+    }
+
+    getConnector(inout: ConnectorType, param: string) {
+        let connectors = inout == ConnectorType.input ? this.inParams : this.outParams;
+
+        for(let conn of connectors)
+            if (conn.parameter == param)
+                return conn;
     }
 }
 
@@ -234,8 +340,7 @@ class NodeEditor {
 
         this.editorHTML.clearSelectedNodes = () => {
             for (let nodeID in this.selectedNodes){
-                this.selectedNodes[nodeID].deselect();
-                delete this.selectedNodes[nodeID];
+                this.deselectNode(nodeID);
             }
         };
 
@@ -254,7 +359,7 @@ class NodeEditor {
                 (ev: MouseEvent) => {
                     let node = new EditorNode(funcInfo, ev.x, ev.y);
                     this.nodes[node.id] = node;
-                    node.select();
+                    this.selectNode(node.id);
 
                     console.log(node);
                     ev.preventDefault();
@@ -265,6 +370,10 @@ class NodeEditor {
 
     selectNode(nodeID: string) {
         this.selectedNodes[nodeID] = this.nodes[nodeID];
+    }
+
+    deselectNode(nodeID: string) {
+        delete this.selectedNodes[nodeID];
     }
 
     connectionExists(key: string) {
@@ -279,7 +388,48 @@ class NodeEditor {
         delete this.connections[connectionID];
     }
 
+    removeNode(nodeID: string) {
+        delete this.nodes[nodeID];
+    }
+
     get ui() {
         return this.editorHTML;
+    }
+
+    get serialized() {
+        let nodes = [];
+
+        for(let node in this.nodes) 
+            nodes.push(this.nodes[node].serialized);
+
+        return JSON.stringify(nodes);
+    }
+
+    load(contents: string) {
+        try {
+            let data = JSON.parse(contents);
+            this.clear();
+    
+            for(let node of data)
+                EditorNode.load(node)
+
+            for(let node of data)
+                for(let param of node.inParameters)
+                    for(let conn of param.connections)
+                    {
+                        let outConn = this.nodes[conn.out.node].getConnector(ConnectorType.output, conn.out.connector);
+                        let inConn = this.nodes[conn.in.node].getConnector(ConnectorType.input, conn.in.connector);
+                        Connection.load(outConn, inConn);
+                    }
+        } catch (error) {
+            alert("File corrupted, cannot be loaded");
+        }
+    }
+
+    clear() {
+        //removes all nodes
+        for(let node in this.nodes) 
+            this.nodes[node].remove();
+        this.editorHTML.stagedConnection = null;
     }
 }

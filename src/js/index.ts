@@ -11,11 +11,7 @@ dm.setupInstance((data: object) => {
 
 window.onload = function() {
     let editorDom = document.getElementById("editor");
-    let editorSVG: SvgInHtml = document.getElementById("svgeditor") as SvgInHtml;
-	
-	let editor = NodeEditor.instance.init(editorDom);
-
-	//editor.init(editorDom, editorSVG);
+	let editor = NodeEditor.instance.init(editorDom);;
 }
 
 /*let saveProject = () => {

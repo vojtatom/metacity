@@ -24,6 +24,12 @@ class ParameterList:
             'inout': inout
         })
 
+    def addValue(self, paramtitle, paramtype, value):
+        self.list.append({
+            'param': paramtitle,
+            'type': paramtype,
+            'value': value
+        })
 
     def addDescription(self, description):
         self.list.append({
@@ -41,6 +47,9 @@ class ParameterList:
 
     def inputParams(self):
         return [p for p in self.list if ('inout' in p and p['inout'] == 'input')]
+
+    def valueParams(self):
+        return [p for p in self.list if 'value' in p]
 
     def description(self):
         return [p['description'] for p in self.list if 'description' in p]
@@ -60,6 +69,34 @@ def param(paramtitle, paramtype):
             if get_params:
                 params = ParameterList()
                 params.addParameter(paramtitle, paramtype, 'input')
+
+                try:
+                    params = params + func(*args, **kwargs)
+                except:
+                    pass
+
+                return params
+            else:
+                return func(*args, **kwargs) 
+        
+        return wrapper 
+    return inner 
+
+
+def value(paramtitle, paramtype, default): 
+    """Registres an user-accesible input field of the function
+
+    Args:
+        paramtitle (str): title of the parameter, must be unique for the function
+        paramtype (str): type of the parameter
+    """
+    def inner(func): 
+        @wraps(func)
+        def wrapper(*args, **kwargs):     
+            global get_params
+            if get_params:
+                params = ParameterList()
+                params.addValue(paramtitle, paramtype, default)
 
                 try:
                     params = params + func(*args, **kwargs)

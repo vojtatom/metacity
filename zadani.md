@@ -1,10 +1,5 @@
-# Urbann
-electron-based visual programming in Python, multipurpose toolkit, builds can be downloaded for Windows and Linux
-
-## TODOs
-
-mám cityJSON
-chci pole s objekty, kde každý objekt bude buďto 3D objekt, čára, plocha, nebo bod
+Mám cityJSON.
+Chci pole s objekty, kde každý objekt bude buďto 3D objekt, čára, plocha, nebo bod.
 
 ### 3D objekt 
 * chci pole trohjuhelníků, nasypat vertexy za sebe do pole, tak aby se to dalo nasypat přímo do WebGL, pro každý trojúhelník normály (tím pádem bude potřeba bez indexování) 
@@ -32,6 +27,4 @@ chci pole s objekty, kde každý objekt bude buďto 3D objekt, čára, plocha, n
 ### body
 * easy - vektor 3 složek + metadata
 
-
-
-
+Jak to udělám s co nejmenším úsilím?
