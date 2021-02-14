@@ -5,7 +5,7 @@ from parameters import value, output, description
 #@value('count', 'number', 0)
 #@value('file', 'file', 'text.txt')
 #@value('c', 'color', [255, 150, 120])
-@value('checkmark', 'bool', True)
+@value('checkmark', 'bool', False)
 #@value('vector', 'vec3', [10, 20, 30])
 @output('s', 'string')
 @output('n', 'number')

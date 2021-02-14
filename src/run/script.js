@@ -136,32 +136,91 @@ class DataManager {
         }
     }
 }
+let colorScheme = {
+    colors: [
+        [159, 237, 215],
+        [254, 249, 199],
+        [252, 225, 129]
+    ],
+    gray: [237, 234, 229],
+    black: [10, 10, 10]
+};
+function createStyleRule(name, i, length) {
+    let colorIdx = (i / (length - 1)) * (colorScheme.colors.length - 1);
+    let colorA = Math.floor(colorIdx);
+    let colorB = Math.ceil(colorIdx);
+    let t = colorIdx - colorA;
+    return `.connector.${name} {
+        background: rgb(${colorScheme.colors[colorA].map((v, i) => v * (1 - t) + colorScheme.colors[colorB][i] * t).join(", ")});
+    }`;
+}
 class EditorHTMLTemplate {
     constructor(parent) {
         this.mouse = {
             x: 0,
             y: 0
         };
+        this.functionMenu = [];
+        this.transform = {
+            zoom: 1,
+            x: 0,
+            y: 0,
+        };
+        this.moveArea = false;
         this.moveActive = () => { };
         this.clearSelectedNodes = () => { };
         const editor = `
         <div id="nodes">
+            <div id="functionPanel">
+                <div id="functionSearchBar">
+                    <label for="functionSearch">Search</label>
+                    <input type="text" id="functionSearch" name="functionSearch" placeholder="Node name or description">
+                    <div id="clearFunctionSearch">&#8612;</div>
+                </div>
+            </div>
             <div id="nodeArea">
-                <div id="functionPanel"></div>
                 <svg width="100%" height="100%" id="svgEditor"></svg>
             </div>
         </div>
-        <div id="actionPanel"></div>
+        <div id="actionPanel">
+            <div id="openProjectButton">Open</div>
+            <div id="saveProjectButton">Save</div>
+            <div id="runProjectButton" class="delimiter">Run</div>
+            <div id="addNodeButton">Nodes</div>
+        </div>
         `;
         this.parentHTML = parent;
         this.parentHTML.innerHTML = editor;
         this.functionPanelHTML = document.getElementById("functionPanel");
+        this.editorAreaHTML = document.getElementById("nodes");
         this.nodeAreaHTML = document.getElementById("nodeArea");
         this.nodeAreaSVG = document.getElementById("svgEditor");
         this.actionPanel = document.getElementById("actionPanel");
-        this.nodeAreaHTML.onmousedown = (ev) => this.mousedown(ev);
-        this.nodeAreaHTML.onmousemove = (ev) => this.mousemove(ev);
-        this.nodeAreaHTML.onmouseup = (ev) => this.mouseup(ev);
+        this.editorAreaHTML.onmousedown = (ev) => this.mousedown(ev);
+        this.editorAreaHTML.onmousemove = (ev) => this.mousemove(ev);
+        this.editorAreaHTML.onmouseup = (ev) => this.mouseup(ev);
+        this.editorAreaHTML.onwheel = (ev) => this.wheel(ev);
+        this.setupFunctionSearch();
+        this.setupBottomMenu();
+        this.resize();
+    }
+    get mousePosition() {
+        let offsetX = (this.mouse.x - this.start.x - this.center.x - this.transform.x) / this.transform.zoom;
+        let offsetY = (this.mouse.y - this.start.y - this.center.y - this.transform.y) / this.transform.zoom;
+        let x = this.center.x + offsetX;
+        let y = this.center.y + offsetY;
+        return { x: x, y: y };
+    }
+    toggleFunctionPanel() {
+        let nodes = document.getElementById("addNodeButton");
+        if (this.functionPanelHTML.style.display == 'none') {
+            nodes.classList.add('active');
+            this.functionPanelHTML.style.display = 'block';
+        }
+        else {
+            nodes.classList.remove('active');
+            this.functionPanelHTML.style.display = 'none';
+        }
     }
     addFunctionToPanel(data, onmousedown) {
         const func = `
@@ -174,16 +233,72 @@ class EditorHTMLTemplate {
         `;
         this.functionPanelHTML.insertAdjacentHTML("beforeend", func);
         let funcHTML = this.functionPanelHTML.lastElementChild;
-        console.log(funcHTML);
-        funcHTML.onmousedown = onmousedown;
+        funcHTML.onmousedown = (ev) => {
+            if (ev.button == 0) {
+                this.toggleFunctionPanel();
+                this.setMouse(ev);
+                let pos = this.mousePosition;
+                onmousedown(pos.x, pos.y);
+                ev.preventDefault();
+                ev.stopPropagation();
+            }
+        };
         funcHTML.onmouseup = (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
         };
+        this.functionMenu.push({
+            label: data.title + ' ' + data.description + ' ' + usesTypes(data).join(' '),
+            html: funcHTML
+        });
+    }
+    setupFunctionSearch() {
+        let input = document.getElementById("functionSearch");
+        let clear = document.getElementById("clearFunctionSearch");
+        input.onkeyup = (ev) => {
+            let query = input.value;
+            if (query == '')
+                this.functionMenu.map(v => v.html.style.display = 'block');
+            else
+                this.functionMenu.map(v => v.label.includes(query) ?
+                    v.html.style.display = 'block' :
+                    v.html.style.display = 'none');
+        };
+        clear.onclick = () => {
+            input.value = '';
+            this.functionMenu.map(v => v.html.style.display = 'block');
+        };
+    }
+    setupBottomMenu() {
+        let nodes = document.getElementById("addNodeButton");
+        nodes.onclick = (ev) => this.toggleFunctionPanel();
+        this.functionPanelHTML.style.display = 'none';
+        let open = document.getElementById("openProjectButton");
+        open.onclick = (ev) => openProject();
+        let save = document.getElementById("saveProjectButton");
+        save.onclick = (ev) => saveProject();
+    }
+    setupStyles(types) {
+        let style = document.getElementById("colorScheme");
+        if (!style) {
+            style = document.createElement('style');
+            document.getElementsByTagName('head')[0].appendChild(style);
+        }
+        style.innerHTML = `
+            ${types.map((t, i) => createStyleRule(t, i, types.length)).join("\n\n")}
+        `;
+    }
+    clear() {
+        this.stagedConnection = null;
+        while (this.nodeAreaHTML.children.length > 1) {
+            this.nodeAreaHTML.removeChild(this.nodeAreaHTML.lastElementChild);
+        }
     }
     mousedown(ev) {
-        if (!this.stagedConnection)
+        if (!this.stagedConnection) {
+            this.moveArea = true;
             return;
+        }
         this.nodeAreaSVG.removeChild(this.stagedConnection.connHTML.line);
         this.nodeAreaSVG.removeChild(this.stagedConnection.connHTML.selectLine);
         this.stagedConnection = null;
@@ -195,10 +310,45 @@ class EditorHTMLTemplate {
         let dy = ev.clientY - this.mouse.y;
         this.mouse.x = ev.clientX;
         this.mouse.y = ev.clientY;
-        this.moveActive(dx, dy);
+        if (this.moveArea) {
+            this.transform.x += dx;
+            this.transform.y += dy;
+            this.applyTransform();
+        }
+        else {
+            dx = dx / this.transform.zoom;
+            dy = dy / this.transform.zoom;
+            this.moveActive(dx, dy);
+        }
+    }
+    setMouse(ev) {
+        this.mouse.x = ev.clientX;
+        this.mouse.y = ev.clientY;
     }
     mouseup(ev) {
         this.clearSelectedNodes();
+        this.moveArea = false;
+    }
+    wheel(ev) {
+        let delta = -ev.deltaY / 1000;
+        delta = this.transform.zoom + delta > 0.1 ? delta : 0;
+        let old_zoom = this.transform.zoom;
+        this.transform.zoom = this.transform.zoom + delta;
+        this.transform.x = this.transform.x * (this.transform.zoom / old_zoom);
+        this.transform.y = this.transform.y * (this.transform.zoom / old_zoom);
+        this.applyTransform();
+        ev.preventDefault();
+    }
+    resize() {
+        console.log('resize');
+        const rect = this.editorAreaHTML.getBoundingClientRect();
+        this.center = { x: this.editorAreaHTML.offsetWidth / 2, y: this.editorAreaHTML.offsetHeight / 2 };
+        this.start = { x: rect.left, y: rect.top };
+    }
+    applyTransform() {
+        this.nodeAreaHTML.style.transform = 'translate(' + this.transform.x + 'px, '
+            + this.transform.y + 'px) scale('
+            + this.transform.zoom + ')';
     }
 }
 function valueHTMLTitle(value) {
@@ -263,7 +413,7 @@ function valueHTMLValue(value) {
             return `
             <div class="value bool">
                 <label for="${value.node.id + value.param}">
-                    <input type="checkbox" id="${value.node.id + value.param}" name="${value.node.id + value.param}" checked="${value.value}">
+                    <input type="checkbox" id="${value.node.id + value.param}" name="${value.node.id + value.param}" ${value.value ? 'Checked' : ''}>
                     <span class="checkmark"></span>
                 </label>
             </div>
@@ -290,7 +440,6 @@ function setupValueCallbacks(value) {
             let input = document.getElementById(value.node.id + value.param);
             input.onkeyup = (ev) => {
                 value.value = input.value;
-                console.log(input.value);
             };
             input.onmousedown = nothing;
             input.onmousemove = nothing;
@@ -299,7 +448,6 @@ function setupValueCallbacks(value) {
             let checkbox = document.getElementById(value.node.id + value.param);
             checkbox.onchange = (ev) => {
                 value.value = checkbox.checked;
-                console.log(checkbox.checked);
             };
             checkbox.onmousedown = nothing;
             checkbox.onmousemove = nothing;
@@ -330,7 +478,6 @@ function setupValueCallbacks(value) {
             let vec3z = document.getElementById(value.node.id + value.param + 'z');
             let callback = (ev) => {
                 value.value = [parseFloat(vec3x.value), parseFloat(vec3y.value), parseFloat(vec3z.value)];
-                console.log(value.value);
             };
             [vec3x, vec3y, vec3z].map(elem => {
                 elem.onkeydown = callback;
@@ -352,7 +499,7 @@ class NodeHTMLTemplate {
                 <div class="title">${node.title}</div>
                 <div class="contents">
                     <div class="connectors">
-                        ${node.inParams.map(param => `<div class="connector in ${param.type}" title="${param.parameter}"></div>`).join('')}
+                        ${node.inParams.map(param => `<div class="connector in ${param.type}" title="${param.parameter} [${param.type}]"></div>`).join('')}
                     </div>
                     
                     <div class="values">
@@ -364,7 +511,7 @@ class NodeHTMLTemplate {
                         </div>
                     </div>
                     <div class="connectors">
-                        ${node.outParams.map(param => `<div class="connector out ${param.type}" title="${param.parameter}"></div>`).join('')}
+                        ${node.outParams.map(param => `<div class="connector out ${param.type}" title="${param.parameter} [${param.type}]"></div>`).join('')}
                     </div>
                 </div>   
             </div>   
@@ -377,14 +524,14 @@ class NodeHTMLTemplate {
         this.pos.y = y;
         let inParamHTMLs = this.nodeHTML.lastElementChild.firstElementChild.children;
         let outParamHTMLs = this.nodeHTML.lastElementChild.lastElementChild.children;
-        let connectionLink = (paramHTML, param) => {
-            for (let i = 0; i < paramHTML.length; ++i) {
-                paramHTML[i].onmousedown = (ev) => {
-                    node.addConnection(paramHTML[i], param[i], ev.x, ev.y);
+        let connectionLink = (connectorHTML, param) => {
+            for (let i = 0; i < connectorHTML.length; ++i) {
+                param[i].connHTML = new ConnectorHTMLTemplate(connectorHTML[i], this);
+                connectorHTML[i].onmousedown = (ev) => {
+                    node.addConnection(connectorHTML[i], param[i], ev.x, ev.y);
                     ev.preventDefault();
                     ev.stopPropagation();
                 };
-                param[i].connHTML = new ConnectorHTMLTemplate(paramHTML[i], this);
             }
         };
         connectionLink(inParamHTMLs, node.inParams);
@@ -397,9 +544,10 @@ class NodeHTMLTemplate {
                 node.remove();
                 this.remove();
             }
+            ev.preventDefault();
+            ev.stopPropagation();
         };
         this.move = (dx, dy) => {
-            console.log('moving node', dx, dy);
             this.pos.x += dx;
             this.pos.y += dy;
             this.applyTransform();
@@ -433,11 +581,7 @@ class ConnectorHTMLTemplate {
     }
 }
 class ConnectionHTMLTemplate {
-    constructor(connection, x, y) {
-        this.pos = {
-            x: 0,
-            y: 0
-        };
+    constructor(connection) {
         this.line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         this.line.classList.add("connection");
         this.selectLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -446,8 +590,10 @@ class ConnectionHTMLTemplate {
                 if (ev.button == 0) {
                     let posIn = connection.in.connHTML.pos;
                     let posOut = connection.out.connHTML.pos;
-                    let distIn = (posIn.x - ev.clientX) * (posIn.x - ev.clientX) + (posIn.y - ev.clientY) * (posIn.y - ev.clientY);
-                    let distOut = (posOut.x - ev.clientX) * (posOut.x - ev.clientX) + (posOut.y - ev.clientY) * (posOut.y - ev.clientY);
+                    let pos = NodeEditor.instance.ui.mousePosition;
+                    console.log(posIn, posOut, pos);
+                    let distIn = (posIn.x - pos.x) * (posIn.x - pos.x) + (posIn.y - pos.y) * (posIn.y - pos.y);
+                    let distOut = (posOut.x - pos.x) * (posOut.x - pos.x) + (posOut.y - pos.y) * (posOut.y - pos.y);
                     connection.deregister();
                     let source;
                     if (distIn < distOut) {
@@ -458,12 +604,8 @@ class ConnectionHTMLTemplate {
                         connection.out = null;
                         source = connection.in;
                     }
-                    this.pos = {
-                        x: ev.clientX,
-                        y: ev.clientY
-                    };
                     NodeEditor.instance.ui.stagedConnection = connection;
-                    this.move(0, 0);
+                    this.move();
                 }
                 else if (ev.button == 2) {
                     connection.remove();
@@ -475,23 +617,20 @@ class ConnectionHTMLTemplate {
         this.selectLine.classList.add("fatline");
         NodeEditor.instance.ui.nodeAreaSVG.appendChild(this.line);
         NodeEditor.instance.ui.nodeAreaSVG.appendChild(this.selectLine);
-        this.pos.x = x;
-        this.pos.y = y;
-        this.move = (dx, dy) => {
-            this.pos.x += dx;
-            this.pos.y += dy;
+        this.move = () => {
             let inpos, outpos;
+            let pos = NodeEditor.instance.ui.mousePosition;
             if (connection.in && connection.out) {
                 inpos = connection.in.connHTML.pos;
                 outpos = connection.out.connHTML.pos;
             }
             else if (connection.in) {
                 inpos = connection.in.connHTML.pos;
-                outpos = this.pos;
-                this.redraw(this.pos.x, this.pos.y, inpos.x, inpos.y);
+                outpos = pos;
+                this.redraw(pos.x, pos.y, inpos.x, inpos.y);
             }
             else if (connection.out) {
-                inpos = this.pos;
+                inpos = pos;
                 outpos = connection.out.connHTML.pos;
             }
             this.redraw(outpos.x, outpos.y, inpos.x, inpos.y);
@@ -519,6 +658,11 @@ var ConnectorType;
     ConnectorType[ConnectorType["input"] = 0] = "input";
     ConnectorType[ConnectorType["output"] = 1] = "output";
 })(ConnectorType || (ConnectorType = {}));
+function usesTypes(func) {
+    let inputs = func.in.map(val => val.type);
+    let outputs = func.out.map(val => val.type);
+    return inputs.concat(outputs.filter((item) => inputs.indexOf(item) < 0));
+}
 class Connection {
     constructor(source, x, y) {
         if (source.inout == ConnectorType.input) {
@@ -529,7 +673,7 @@ class Connection {
             this.out = source;
             this.in = null;
         }
-        this.connHTML = new ConnectionHTMLTemplate(this, x, y);
+        this.connHTML = new ConnectionHTMLTemplate(this);
     }
     static key(connA, connB) {
         if (connA.inout == ConnectorType.input)
@@ -575,7 +719,7 @@ class Connection {
         this.deregister();
     }
     move(dx, dy) {
-        this.connHTML.move(dx, dy);
+        this.connHTML.move();
     }
     get serialized() {
         return {
@@ -615,9 +759,8 @@ class Connector {
     }
     get serialized() {
         let connections = [];
-        for (let conn in this.connections) {
+        for (let conn in this.connections)
             connections.push(this.connections[conn].serialized);
-        }
         return {
             param: this.parameter,
             type: this.type,
@@ -680,12 +823,6 @@ class EditorNode {
         NodeEditor.instance.ui.stagedConnection = connection;
     }
     get serialized() {
-        let inPars = [];
-        for (let param of this.inParams)
-            inPars.push(param.serialized);
-        let outPars = [];
-        for (let param of this.outParams)
-            outPars.push(param.serialized);
         return {
             title: this.title,
             id: this.id,
@@ -693,8 +830,9 @@ class EditorNode {
                 x: this.nodeHTML.pos.x,
                 y: this.nodeHTML.pos.y
             },
-            in: inPars,
-            out: outPars
+            value: this.values.map(v => v.serialized),
+            in: this.inParams.map(p => p.serialized),
+            out: this.outParams.map(p => p.serialized)
         };
     }
     static load(data) {
@@ -743,17 +881,18 @@ class NodeEditor {
         }, (data) => this.initFunctions(data));
     }
     initFunctions(data) {
+        let types = [];
         for (let func in data) {
             let funcInfo = data[func];
-            this.editorHTML.addFunctionToPanel(funcInfo, (ev) => {
-                let node = new EditorNode(funcInfo, ev.x, ev.y);
+            this.editorHTML.addFunctionToPanel(funcInfo, (x, y) => {
+                let node = new EditorNode(funcInfo, x, y);
                 this.nodes[node.id] = node;
                 this.selectNode(node.id);
                 console.log(node);
-                ev.preventDefault();
-                ev.stopPropagation();
             });
+            types = types.concat(usesTypes(funcInfo).filter((item) => types.indexOf(item) < 0));
         }
+        this.editorHTML.setupStyles(types);
     }
     selectNode(nodeID) {
         this.selectedNodes[nodeID] = this.nodes[nodeID];
@@ -786,10 +925,12 @@ class NodeEditor {
         try {
             let data = JSON.parse(contents);
             this.clear();
+            for (let node of data) {
+                let n = EditorNode.load(node);
+                this.nodes[n.id] = n;
+            }
             for (let node of data)
-                EditorNode.load(node);
-            for (let node of data)
-                for (let param of node.inParameters)
+                for (let param of node.in)
                     for (let conn of param.connections) {
                         let outConn = this.nodes[conn.out.node].getConnector(ConnectorType.output, conn.out.connector);
                         let inConn = this.nodes[conn.in.node].getConnector(ConnectorType.input, conn.in.connector);
@@ -803,9 +944,62 @@ class NodeEditor {
     clear() {
         for (let node in this.nodes)
             this.nodes[node].remove();
-        this.editorHTML.stagedConnection = null;
+        this.editorHTML.clear();
     }
 }
+function saveProject() {
+    let content = NodeEditor.instance.serialized;
+    let options = {
+        defaultPath: 'project.json',
+        filters: [{
+                extensions: ['json']
+            }]
+    };
+    dialog.showSaveDialog(options).then((result) => {
+        let filename = result.filePath;
+        if (filename === undefined) {
+            return;
+        }
+        fs.writeFile(filename, content, (err) => {
+            if (err) {
+                return;
+            }
+        });
+    }).catch((err) => {
+        alert(err);
+    });
+}
+;
+function openProject() {
+    let options = {
+        filters: [{
+                extensions: ['json']
+            }]
+    };
+    dialog.showOpenDialog(options).then((result) => {
+        let filename = result.filePaths[0];
+        if (filename === undefined) {
+            return;
+        }
+        fs.readFile(filename, 'utf8', (err, data) => {
+            if (err) {
+                throw err;
+            }
+            const content = data;
+            NodeEditor.instance.load(content);
+        });
+    }).catch((err) => {
+        alert(err);
+    });
+}
+function runProject(editor) {
+    let content = editor.serialized;
+    dm.send({
+        command: 'run',
+        graph: content
+    });
+}
+;
 const { ipcRenderer, remote } = require('electron');
 const dialog = remote.dialog;
 const fs = require('fs');
@@ -815,7 +1009,10 @@ dm.setupInstance((data) => {
 });
 window.onload = function () {
     let editorDom = document.getElementById("editor");
-    let editor = NodeEditor.instance.init(editorDom);
+    NodeEditor.instance.init(editorDom);
     ;
+};
+window.onresize = (ev) => {
+    NodeEditor.instance.ui.resize();
 };
 //# sourceMappingURL=script.js.map

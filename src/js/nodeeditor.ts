@@ -24,6 +24,12 @@ interface EditorFunction {
     value: ValueInterface[]
 }
 
+function usesTypes(func: EditorFunction) {
+    let inputs = func.in.map(val => val.type);
+    let outputs = func.out.map(val => val.type);
+    return inputs.concat(outputs.filter((item) => inputs.indexOf(item) < 0));
+}
+
 class Connection {
     
     in: Connector;
@@ -40,7 +46,7 @@ class Connection {
             this.in = null;
         }
 
-        this.connHTML = new ConnectionHTMLTemplate(this, x, y);
+        this.connHTML = new ConnectionHTMLTemplate(this);
     }
 
     static key(connA: Connector, connB: Connector){
@@ -111,7 +117,7 @@ class Connection {
     }
 
     move(dx: number, dy: number) {
-        this.connHTML.move(dx, dy);
+        this.connHTML.move();
     }
 
     get serialized() {
@@ -167,9 +173,8 @@ class Connector {
 
     get serialized() {
         let connections = [];
-        for(let conn in this.connections) {
+        for(let conn in this.connections) 
             connections.push(this.connections[conn].serialized);
-        }
 
         return {
             param: this.parameter,
@@ -263,16 +268,6 @@ class EditorNode {
     }
 
     get serialized() {
-        let inPars = [];
-
-        for(let param of this.inParams)
-            inPars.push(param.serialized);
-    
-        let outPars = [];
-
-        for(let param of this.outParams)
-            outPars.push(param.serialized);
-
         return {
             title: this.title,
             id: this.id,
@@ -280,8 +275,9 @@ class EditorNode {
                 x: this.nodeHTML.pos.x,
                 y: this.nodeHTML.pos.y
             },
-            in: inPars,
-            out: outPars
+            value: this.values.map(v => v.serialized),
+            in: this.inParams.map(p => p.serialized),
+            out: this.outParams.map(p => p.serialized)
         }
     }
 
@@ -353,19 +349,22 @@ class NodeEditor {
 
 
     private initFunctions(data: any) {
+        let types: string[] = [];
         for (let func in data) {
             let funcInfo = data[func] as EditorFunction;
             this.editorHTML.addFunctionToPanel(funcInfo,
-                (ev: MouseEvent) => {
-                    let node = new EditorNode(funcInfo, ev.x, ev.y);
+                (x: number, y: number) => {
+                    let node = new EditorNode(funcInfo, x, y);
                     this.nodes[node.id] = node;
                     this.selectNode(node.id);
 
                     console.log(node);
-                    ev.preventDefault();
-                    ev.stopPropagation();
                 });
+
+            types = types.concat(usesTypes(funcInfo).filter((item) => types.indexOf(item) < 0))
         }
+
+        this.editorHTML.setupStyles(types);
     }
 
     selectNode(nodeID: string) {
@@ -410,11 +409,13 @@ class NodeEditor {
             let data = JSON.parse(contents);
             this.clear();
     
-            for(let node of data)
-                EditorNode.load(node)
+            for(let node of data) {
+                let n = EditorNode.load(node)
+                this.nodes[n.id] = n;
+            }
 
             for(let node of data)
-                for(let param of node.inParameters)
+                for(let param of node.in)
                     for(let conn of param.connections)
                     {
                         let outConn = this.nodes[conn.out.node].getConnector(ConnectorType.output, conn.out.connector);
@@ -430,6 +431,6 @@ class NodeEditor {
         //removes all nodes
         for(let node in this.nodes) 
             this.nodes[node].remove();
-        this.editorHTML.stagedConnection = null;
+        this.editorHTML.clear();
     }
 }
