@@ -1,0 +1,332 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding: 0;
+  margin: 0;
+  display: flex;
+
+  /*text selection */
+  webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+     -khtml-user-select: none; /* Konqueror HTML */
+       -moz-user-select: none; /* Old versions of Firefox */
+        -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently
+                                  supported by Chrome, Edge, Opera and Firefox */
+}
+
+
+/* layout main */
+
+#editor {
+  width: 60vw;
+  height: 100vh;
+  background: #FFF;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  /*resize: horizontal;*/
+  border-right: 1px solid #DDD;
+}
+
+#d3view {
+  width: 40vw;
+  height: 100vh;
+  background: #FFF;
+}
+
+/* nodes */
+
+#nodes {
+  display: flex;
+  height: calc(100vh - 2rem);
+  position: relative;
+  overflow: hidden;
+  background: #F8F8F8;
+}
+
+#nodeArea {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#functionPanel {
+  margin: 2rem 2rem 0 2rem;
+  color: #000;
+  position: absolute;
+  height: calc(100% - 4rem);
+  width: calc(100% - 4rem);
+  z-index: 2;
+  background: #FFF;
+  border: 1px solid #DDD;
+}
+
+#nodePanel {
+  position: absolute;
+  right: 0;
+  width: 200px;
+  height: 100%;
+}
+
+#actionPanel {
+  border-top: 1px solid #DDD;
+  display: flex;
+  height: 2rem;
+}
+
+/* function panel */
+#functionSearchBar {
+  display: flex;
+  border-bottom: 1px solid #DDD;
+}
+
+#functionSearchBar > * {
+  display: block;
+  padding: 1rem;
+}
+
+#functionSearchBar input {
+  border: none;
+  width: 100%;
+}
+
+#clearFunctionSearch {
+  cursor: pointer;
+}
+
+#clearFunctionSearch:hover {
+  background: #EEE;
+}
+
+.section-title {
+  padding: 0.5rem 1rem;
+  font-size: 1em;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+.function {
+  cursor: pointer;
+  display: flex;
+}
+
+.function:hover {
+  background: #DDD;
+}
+
+.function .icon {
+}
+
+.function .labels {
+  padding: 0.5rem 1rem;
+}
+
+.function .title {
+  text-transform: capitalize;
+}
+
+.function .description {
+  font-size: 0.8em;
+  color: #222;
+}
+
+/* node */
+.node {
+  position: absolute;
+  display: flex;
+  flex-direction: row;
+  background: #FFF;
+  border: 1px solid #CCC;
+}
+
+.node > .title {
+  background: #F8F8F8;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.node.nonactive .title,
+.node.nonactive .connectors {
+  background: #c7c7c7;
+}
+
+.connectors {
+  text-align: right;
+  background: #F8F8F8;
+}
+
+.connector {
+  background: #DDD;
+  display: inline-block;
+  position: relative;
+  height: 20px;
+  width: 20px;
+  vertical-align:top;
+}
+
+.connector:hover {
+  background: #F00;
+}
+
+.connector[title]:hover::after {
+  content: attr(title);
+  color: #999;
+  position: absolute;
+  left: 0;
+  padding: 5px 10px;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.connector.in[title]:hover::after {
+  top: -150%;
+}
+
+.connector.out[title]:hover::after {
+  top: 110%;
+}
+
+svg {
+  z-index: 0;
+  position: absolute;
+  overflow: visible;
+}
+
+svg path.connection {
+  stroke-width: 2px;
+  stroke: #888;
+  fill: none;
+}
+
+svg path.fatline {
+  stroke-width: 20px;
+  stroke: #888;
+  opacity: 0.1;
+  fill: none;
+  cursor: pointer;
+}
+
+svg path.fatline:hover {
+  opacity: 0.5;
+}
+
+/* value */
+
+.values {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.values-titles > *,
+.values-values > * {
+  height: 1.5rem;
+  display: block;
+}
+
+.values-titles > * {
+  display: flex;
+  align-items: center;
+}
+
+.values-titles .title {
+  display: block;
+  font-size: 0.7em;
+  padding-left: 0.5rem;
+}
+
+.value.string input,
+.value.number input,
+.value.file input,
+.value.vec3 input  {
+ display: block;
+ padding: 5px;
+ border: none;
+ box-sizing: border-box;
+ background: none;
+ text-align: left;
+}
+
+.value.string input,
+.value.number input,
+.value.file input {
+  width: 150px;
+}
+
+.value.vec3 {
+  display: flex;
+  flex-direction: row nowrap;
+  
+}
+
+.value.vec3 input {
+  width: 50px;
+} 
+
+input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  margin-left: auto;
+  display: block;
+  position: relative;
+  height: 100%;
+  width: 25px;
+  background: #DDD;
+}
+
+input[type="checkbox"]:checked ~ .checkmark {
+  background-color: #2196F3;
+}
+
+
+input[type="checkbox"]:checked ~ .checkmark:after {
+  display: block;
+}
+
+.checkmark:after {
+  display: none;
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 5px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 3px 3px 0;
+  -webkit-transform: rotate(45deg);
+  -ms-transform: rotate(45deg);
+  transform: rotate(45deg);
+}
+
+
+/* action panel */
+
+#actionPanel > * {
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.8em;
+}
+
+#actionPanel > *:hover {
+  background: #EEE;
+}
+
+#actionPanel .delimiter {
+  border-right: 1px solid #DDD;
+}
+
+#actionPanel .active {
+  background: #DDD;
+}

@@ -1,0 +1,96 @@
+name: Build
+
+# Run this workflow every time a new commit pushed to your repository
+on: 
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create_release:
+    name: Create release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    
+    steps:
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: true
+
+
+  build:
+    name: Build and release the source
+    needs: create_release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            pythond: linux-python-386.tar.gz
+            outd: urbann-linux-x64
+            dist: urbann-linux-x64.tar.gz
+            pythonpath: install/bin/python3.8
+          - os: windows-latest
+            pythond: windows-python-386.tar.gz
+            outd: urbann-win32-x64
+            dist: urbann-win32-x64.tar.gz
+            pythonpath: install/python.exe
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2-beta
+        with:
+          node-version: '12'
+
+      - name: Install Dependencies and Build
+        run: |
+          npm install
+          npm run package
+
+      - name: Download Python
+        uses: suisei-cn/actions-download-file@v1
+        id: downloadfile  # Remember to give an ID if you need the output
+        with:
+          url: "http://urbann.vojtatom.cz/deps/${{ matrix.pythond }}"
+          target: python/
+
+      - name: Status Update
+        run: |
+          ls python/
+          ls out/
+
+      - name: Unpack Python
+        run: tar -xvzf python/${{ matrix.pythond }} -C out/${{ matrix.outd }}/resources/app/src/
+          
+      - name: Install Python Requirements
+        run: out/${{ matrix.outd }}/resources/app/src/python/${{ matrix.pythonpath }} -m pip install -r requirements.txt 
+      
+      - name: Prepare Distributable
+        run: |
+          cd out  
+          tar -cvzf ${{ matrix.dist }} ${{ matrix.outd }}
+          cd ..
+
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: out/${{ matrix.dist }}
+          asset_name: ${{ matrix.dist }}
+          asset_content_type: application/gzip
+

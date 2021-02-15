@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+      "noImplicitAny": true,
+      "removeComments": true,
+      "preserveConstEnums": true,
+      "outFile": "../run/script.js",
+      "sourceMap": true,
+      "target": "ES6",
+      "allowJs": true
+    },
+
+    "files": [
+      "externals/websocket.ts",
+      "datamanager.ts",
+      "templates.ts",
+      "nodeeditor.ts",
+      "actions.ts",
+      "index.ts"
+    ]
+}
