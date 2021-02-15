@@ -1,0 +1,302 @@
+html, body {
+    width: 100%;
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;
+}
+
+#main {
+    background: #222;
+    width: 100%;
+    height: 100%;
+}
+
+/* window rack */
+.rack {
+    display: flex;
+    flex-direction: row;
+}
+
+.rack > * {
+    padding: 0.5em 1.5em;
+    background: #333;
+    color: #FFF;
+    font-weight: 600;
+    font-size: 0.8em;
+    margin: 0.2em 0.2em 0 0.2em;
+    border-radius: 0.3em 0.3em 0 0;
+}
+
+.rack > .active {
+    background: #555;
+}
+
+
+.window, #canvas {
+    width: 100%;
+    height: 100%;
+}
+
+/*canvas {
+    width: 100%;
+    height: 100%;
+}*/
+
+#prompt {
+    position: absolute;
+    text-align: center;
+    width: 100%;
+
+    padding-top: 30vh;
+    font-size: 3em;
+    color: #FFF;
+}
+
+.panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: #FFF;
+}
+
+.label {
+    margin: 1em;
+    background: #333;
+    border-radius: 0.3em;
+    padding: 1em;
+    text-transform: capitalize;
+}
+
+#loader {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    padding: 1em;
+    box-sizing: border-box;
+}
+
+#loader .progress {
+    color: #FFF;
+    width: 100%;
+}
+
+#loader .strechy {
+    background: #555;
+}
+
+#sidebar {
+    position: absolute;
+    max-height: calc(100vh - 4em);
+    min-width: 15vw;
+    margin: 1em;
+    color: #FFF;
+}
+
+.layer-title {
+    background: #222;
+    padding: 0.5em 1.5em;
+    border-bottom: 1px solid #444;
+    cursor:pointer;
+}
+
+.layer-title:hover {
+    background: #444;
+}
+
+.layer-list {
+    display: none;
+}
+
+.layer-list::-webkit-scrollbar {
+    width: 0.5em;
+    background: #222;
+}
+ 
+.layer-list::-webkit-scrollbar-track {
+    -webkit-box-shadow: none;
+}
+ 
+.layer-list::-webkit-scrollbar-thumb {
+  background-color: #888;
+}
+
+
+.layer-list.open {
+    display: block;
+    max-height: 50vh;
+    background: #CCC;
+    overflow: auto;
+}
+
+.layer-list .layer-entry {
+   padding: 0.1em 1em;
+   background: #333;
+}
+
+.layer-list .layer-entry:hover {
+    background: #444;
+}
+
+
+/*.layer-list .layer-entry:nth-child(even) {
+    background: #333;
+}
+
+.layer-list .layer-entry:nth-child(odd) {
+    background: #444;
+}*/
+
+.layer-detail {
+    display: none;
+    padding: 1em 0;
+}
+
+.layer-detail::-webkit-scrollbar {
+  width: 0.5em;
+}
+ 
+.layer-detail::-webkit-scrollbar-track {
+  background: #222;
+}
+ 
+.layer-detail::-webkit-scrollbar-thumb {
+  background-color: #666;
+}
+
+.layer-detail.open {
+    display: block;
+    background: #333;
+    max-height: 50vh;
+    overflow: auto;
+}
+
+.layer-detail-block {
+    margin: 0.5em 0;
+    padding: 0 1em;
+    /*background: rgba(10, 10, 10, 0.1);*/
+    display: flex;
+    flex-direction: column;
+}
+
+.layer-detail-title {
+    text-align: left;
+    color: #CCC;
+    padding-right: 1em;
+}
+
+.layer-detail-value {
+    text-align: right;
+}
+
+.layer-detail-entry {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 0.2em 0;
+}
+
+.layer-entry + .layer-entry,
+.layer-detail-entry + .layer-detail-entry {
+    border-top: 1px solid #555
+}
+
+.layer-detail-entry > .layer-detail-block {
+    flex-basis: 100%;
+    padding-right: 0;
+    border-left: 1px solid #FFF
+}
+
+.layer-detail-value.active {
+    background: #444;
+    padding:  0 0.5em;
+}
+
+.layer-detail-value.active::after {
+    content: '\2197';
+    padding-left: 1em;
+}
+
+.layer-detail-value.active:hover {
+    background: #666;
+}
+
+.active {
+    cursor: pointer;
+}
+
+#error {
+    position: absolute;
+    margin: 1em;
+    color: #FFF;
+}
+
+.error-apologise {
+    color: #AAA;
+}
+
+.error-title {
+    font-weight: bold;
+    font-size: 2em;
+    border-bottom: 1px solid #555;
+}
+
+.error-message {
+    padding-top: 1em;
+    max-width: 25em
+}
+
+.settings {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    margin: 1em;
+    color: #FFF;
+    display: flex;
+    background: #333;
+    z-index: 2;
+}
+
+.settings-option {
+    cursor: pointer;
+    padding: 0.5em 1em;
+}
+
+.settings-option + .settings-option {
+    border-left: 1px solid #666;
+}
+
+.settings-option:hover {
+    background: #444;
+}
+
+#support {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin: 1em;
+    background: #333;
+}
+
+#support a,
+#support a:active,
+#support a:link,
+#support a:visited {
+    display: block;
+    color: #FFF;
+    text-decoration: none;
+    padding: 0.5em 1em;
+}
+
+#support a:hover {
+    background: #444;
+}
+
+#support a::after {
+    content: '\2197';
+    padding-left: 0.5em;
+}

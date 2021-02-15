@@ -1,0 +1,3 @@
+[submodule "citypy"]
+	path = citypy
+	url = git@github.com:vojtatom/citypy.git

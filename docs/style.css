@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Open+Sans:wght@400;700;800&display=swap');
+
+html, body{
+    font-family: 'Open Sans', sans-serif;
+    margin: 2rem 0 2rem;
+    width: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+}
+
+h2, h3, h4 {
+    margin-top: 3em;
+}
+
+p, ul, ol, dl {
+    line-height: 1.8em;
+    font-size: 1em;
+}
+
+body, html {
+    padding: 0;
+    margin: 0;
+}
+
+#header {
+    width: 100%;
+    max-width: 60rem;
+    margin: 0 auto;
+    display: block;
+}
+
+header {
+    background: #292431;
+    padding-bottom: 2em;
+    margin-bottom: 2rem;
+}
+
+.white {
+    color: #FFF;
+}
+
+.main {
+    max-width: 40rem;
+    margin: 0 auto;
+}
+
+@media(max-width: 40rem) {
+    .main {
+        margin: 1rem;
+    }
+    
+}
+
+img:not(#header) {
+    margin: 1.5rem 0;
+}
+
+.plan {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    justify-content: space-between;
+
+}
+
+.plan > * {
+    width: 49%;
+}
+
+@media(max-width: 40rem) {
+    .plan > * {
+        width: 100%;
+    }
+}
+
+footer {
+    margin-top: 4rem;
+}
+
+footer,
+footer a {
+    color: #888;
+}
+
+.imgs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    
+    align-items: center;
+    width: 100%;
+}
+
+.imgs > a {
+    display: block;
+    width: 6rem;
+    margin: 0.75rem;
+} 
+
+.imgs > a img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
