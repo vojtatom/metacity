@@ -277,6 +277,8 @@ class EditorHTMLTemplate {
         open.onclick = (ev) => openProject();
         let save = document.getElementById("saveProjectButton");
         save.onclick = (ev) => saveProject();
+        let run = document.getElementById("runProjectButton");
+        run.onclick = (ev) => runProject();
     }
     setupStyles(types) {
         let style = document.getElementById("colorScheme");
@@ -340,7 +342,6 @@ class EditorHTMLTemplate {
         ev.preventDefault();
     }
     resize() {
-        console.log('resize');
         const rect = this.editorAreaHTML.getBoundingClientRect();
         this.center = { x: this.editorAreaHTML.offsetWidth / 2, y: this.editorAreaHTML.offsetHeight / 2 };
         this.start = { x: rect.left, y: rect.top };
@@ -488,6 +489,16 @@ function setupValueCallbacks(value) {
             break;
     }
 }
+function setupConnector(node, nodeHTML, connectorHTML, param) {
+    for (let i = 0; i < connectorHTML.length; ++i) {
+        param[i].connHTML = new ConnectorHTMLTemplate(connectorHTML[i], nodeHTML);
+        connectorHTML[i].onmousedown = (ev) => {
+            node.addConnection(param[i]);
+            ev.preventDefault();
+            ev.stopPropagation();
+        };
+    }
+}
 class NodeHTMLTemplate {
     constructor(node, x, y) {
         this.pos = {
@@ -524,38 +535,10 @@ class NodeHTMLTemplate {
         this.pos.y = y;
         let inParamHTMLs = this.nodeHTML.lastElementChild.firstElementChild.children;
         let outParamHTMLs = this.nodeHTML.lastElementChild.lastElementChild.children;
-        let connectionLink = (connectorHTML, param) => {
-            for (let i = 0; i < connectorHTML.length; ++i) {
-                param[i].connHTML = new ConnectorHTMLTemplate(connectorHTML[i], this);
-                connectorHTML[i].onmousedown = (ev) => {
-                    node.addConnection(connectorHTML[i], param[i], ev.x, ev.y);
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                };
-            }
-        };
-        connectionLink(inParamHTMLs, node.inParams);
-        connectionLink(outParamHTMLs, node.outParams);
-        this.nodeHTML.onmousedown = (ev) => {
-            if (ev.button == 0) {
-                NodeEditor.instance.selectNode(this.nodeHTML.id);
-            }
-            else if (ev.button == 2) {
-                node.remove();
-                this.remove();
-            }
-            ev.preventDefault();
-            ev.stopPropagation();
-        };
-        this.move = (dx, dy) => {
-            this.pos.x += dx;
-            this.pos.y += dy;
-            this.applyTransform();
-            for (let param of node.inParams)
-                param.drawConnections();
-            for (let param of node.outParams)
-                param.drawConnections();
-        };
+        setupConnector(node, this, inParamHTMLs, node.inParams);
+        setupConnector(node, this, outParamHTMLs, node.outParams);
+        this.nodeHTML.onmousedown = (ev) => this.onmousedown(ev, node);
+        this.move = (dx, dy) => this.onmove(dx, dy, node);
         this.applyTransform();
     }
     applyTransform() {
@@ -563,6 +546,32 @@ class NodeHTMLTemplate {
     }
     remove() {
         NodeEditor.instance.ui.nodeAreaHTML.removeChild(this.nodeHTML);
+    }
+    onmousedown(ev, node) {
+        if (ev.button == 0) {
+            NodeEditor.instance.selectNode(this.nodeHTML.id);
+        }
+        else if (ev.button == 2) {
+            node.remove();
+            this.remove();
+        }
+        ev.preventDefault();
+        ev.stopPropagation();
+    }
+    onmove(dx, dy, node) {
+        this.pos.x += dx;
+        this.pos.y += dy;
+        this.applyTransform();
+        for (let param of node.inParams)
+            param.drawConnections();
+        for (let param of node.outParams)
+            param.drawConnections();
+    }
+    setNotActive() {
+        this.nodeHTML.classList.add("nonactive");
+    }
+    setActive() {
+        this.nodeHTML.classList.remove("nonactive");
     }
 }
 class ConnectorHTMLTemplate {
@@ -585,56 +594,11 @@ class ConnectionHTMLTemplate {
         this.line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         this.line.classList.add("connection");
         this.selectLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        this.selectLine.onmousedown = (ev) => {
-            if (connection.in && connection.out) {
-                if (ev.button == 0) {
-                    let posIn = connection.in.connHTML.pos;
-                    let posOut = connection.out.connHTML.pos;
-                    let pos = NodeEditor.instance.ui.mousePosition;
-                    console.log(posIn, posOut, pos);
-                    let distIn = (posIn.x - pos.x) * (posIn.x - pos.x) + (posIn.y - pos.y) * (posIn.y - pos.y);
-                    let distOut = (posOut.x - pos.x) * (posOut.x - pos.x) + (posOut.y - pos.y) * (posOut.y - pos.y);
-                    connection.deregister();
-                    let source;
-                    if (distIn < distOut) {
-                        connection.in = null;
-                        source = connection.out;
-                    }
-                    else {
-                        connection.out = null;
-                        source = connection.in;
-                    }
-                    NodeEditor.instance.ui.stagedConnection = connection;
-                    this.move();
-                }
-                else if (ev.button == 2) {
-                    connection.remove();
-                }
-                ev.preventDefault();
-                ev.stopPropagation();
-            }
-        };
         this.selectLine.classList.add("fatline");
+        this.selectLine.onmousedown = (ev) => this.onmousedown(ev, connection);
+        this.move = () => this.onmove(connection);
         NodeEditor.instance.ui.nodeAreaSVG.appendChild(this.line);
         NodeEditor.instance.ui.nodeAreaSVG.appendChild(this.selectLine);
-        this.move = () => {
-            let inpos, outpos;
-            let pos = NodeEditor.instance.ui.mousePosition;
-            if (connection.in && connection.out) {
-                inpos = connection.in.connHTML.pos;
-                outpos = connection.out.connHTML.pos;
-            }
-            else if (connection.in) {
-                inpos = connection.in.connHTML.pos;
-                outpos = pos;
-                this.redraw(pos.x, pos.y, inpos.x, inpos.y);
-            }
-            else if (connection.out) {
-                inpos = pos;
-                outpos = connection.out.connHTML.pos;
-            }
-            this.redraw(outpos.x, outpos.y, inpos.x, inpos.y);
-        };
     }
     redraw(inx, iny, outx, outy) {
         let handle = Math.min(Math.max((outy - iny) / 2 - 10, 0), 100);
@@ -652,6 +616,53 @@ class ConnectionHTMLTemplate {
         NodeEditor.instance.ui.nodeAreaSVG.removeChild(this.line);
         NodeEditor.instance.ui.nodeAreaSVG.removeChild(this.selectLine);
     }
+    onmousedown(ev, connection) {
+        if (connection.in && connection.out) {
+            if (ev.button == 0) {
+                let posIn = connection.in.connHTML.pos;
+                let posOut = connection.out.connHTML.pos;
+                let pos = NodeEditor.instance.ui.mousePosition;
+                let distIn = (posIn.x - pos.x) * (posIn.x - pos.x) + (posIn.y - pos.y) * (posIn.y - pos.y);
+                let distOut = (posOut.x - pos.x) * (posOut.x - pos.x) + (posOut.y - pos.y) * (posOut.y - pos.y);
+                connection.deregister();
+                let source;
+                if (distIn < distOut) {
+                    connection.in = null;
+                    source = connection.out;
+                }
+                else {
+                    connection.out = null;
+                    source = connection.in;
+                }
+                NodeEditor.instance.ui.stagedConnection = connection;
+                this.move();
+            }
+            else if (ev.button == 2) {
+                connection.remove();
+            }
+            ev.preventDefault();
+            ev.stopPropagation();
+        }
+    }
+    ;
+    onmove(connection) {
+        let inpos, outpos;
+        let pos = NodeEditor.instance.ui.mousePosition;
+        if (connection.in && connection.out) {
+            inpos = connection.in.connHTML.pos;
+            outpos = connection.out.connHTML.pos;
+        }
+        else if (connection.in) {
+            inpos = connection.in.connHTML.pos;
+            outpos = pos;
+            this.redraw(pos.x, pos.y, inpos.x, inpos.y);
+        }
+        else if (connection.out) {
+            inpos = pos;
+            outpos = connection.out.connHTML.pos;
+        }
+        this.redraw(outpos.x, outpos.y, inpos.x, inpos.y);
+    }
 }
 var ConnectorType;
 (function (ConnectorType) {
@@ -664,7 +675,7 @@ function usesTypes(func) {
     return inputs.concat(outputs.filter((item) => inputs.indexOf(item) < 0));
 }
 class Connection {
-    constructor(source, x, y) {
+    constructor(source) {
         if (source.inout == ConnectorType.input) {
             this.out = null;
             this.in = source;
@@ -704,6 +715,8 @@ class Connection {
         this.in.connections[key] = this;
         this.out.connections[key] = this;
         NodeEditor.instance.addConnection(this);
+        this.in.node.checkRequiredInputs();
+        this.out.node.checkRequiredInputs();
         return true;
     }
     deregister() {
@@ -712,6 +725,8 @@ class Connection {
             delete this.in.connections[key];
             delete this.out.connections[key];
             NodeEditor.instance.removeConnection(key);
+            this.in.node.checkRequiredInputs();
+            this.out.node.checkRequiredInputs();
         }
     }
     remove() {
@@ -734,7 +749,7 @@ class Connection {
         };
     }
     static load(outConn, inConn) {
-        let connection = new Connection(outConn, 0, 0);
+        let connection = new Connection(outConn);
         connection.connect(inConn);
         connection.move(0, 0);
     }
@@ -746,7 +761,6 @@ class Connector {
         this.type = structure.type;
         this.inout = inout;
         this.node = node;
-        this.value = structure.value ? structure.value : null;
     }
     drawConnections() {
         for (let conn in this.connections) {
@@ -766,9 +780,11 @@ class Connector {
             type: this.type,
             inout: this.inout,
             node: this.node.id,
-            value: this.value,
             connections: connections
         };
+    }
+    get connectionCount() {
+        return Object.keys(this.connections).length;
     }
 }
 class NodeValue {
@@ -799,6 +815,7 @@ class EditorNode {
         this.outParams = Array.from(structure.out, (con) => new Connector(con, ConnectorType.output, this));
         this.values = Array.from(structure.value, (val) => new NodeValue(val, this));
         this.nodeHTML = new NodeHTMLTemplate(this, x, y);
+        this.checkRequiredInputs();
     }
     move(dx, dy) {
         this.nodeHTML.move(dx, dy);
@@ -810,7 +827,7 @@ class EditorNode {
             param.removeAllConnections();
         NodeEditor.instance.removeNode(this.id);
     }
-    addConnection(paramHTML, param, x, y) {
+    addConnection(param) {
         if (NodeEditor.instance.ui.stagedConnection) {
             let conn = NodeEditor.instance.ui.stagedConnection;
             if (conn.connect(param)) {
@@ -819,7 +836,7 @@ class EditorNode {
             }
             return;
         }
-        let connection = new Connection(param, x, y);
+        let connection = new Connection(param);
         NodeEditor.instance.ui.stagedConnection = connection;
     }
     get serialized() {
@@ -834,6 +851,14 @@ class EditorNode {
             in: this.inParams.map(p => p.serialized),
             out: this.outParams.map(p => p.serialized)
         };
+    }
+    checkRequiredInputs() {
+        for (let connector of this.inParams)
+            if (connector.connectionCount == 0) {
+                this.nodeHTML.setNotActive();
+                return;
+            }
+        this.nodeHTML.setActive();
     }
     static load(data) {
         let node = new EditorNode(data, data.pos.x, data.pos.y, data.id);
@@ -888,7 +913,6 @@ class NodeEditor {
                 let node = new EditorNode(funcInfo, x, y);
                 this.nodes[node.id] = node;
                 this.selectNode(node.id);
-                console.log(node);
             });
             types = types.concat(usesTypes(funcInfo).filter((item) => types.indexOf(item) < 0));
         }
@@ -992,8 +1016,8 @@ function openProject() {
         alert(err);
     });
 }
-function runProject(editor) {
-    let content = editor.serialized;
+function runProject() {
+    let content = NodeEditor.instance.serialized;
     dm.send({
         command: 'run',
         graph: content

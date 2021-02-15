@@ -7,7 +7,6 @@ interface ConnectorInterface {
     param: string;
     type: string;
     inout: ConnectorType;
-    value: string;
 }
 
 interface ValueInterface {
@@ -36,7 +35,7 @@ class Connection {
     out: Connector;
     connHTML: ConnectionHTMLTemplate;
 
-    constructor(source: Connector, x: number, y: number) {
+    constructor(source: Connector) {
 
         if (source.inout == ConnectorType.input) {
             this.out = null;
@@ -94,20 +93,21 @@ class Connection {
         this.out.connections[key] = this;
         NodeEditor.instance.addConnection(this);
 
-        //add html of this
+        this.in.node.checkRequiredInputs();
+        this.out.node.checkRequiredInputs();
         return true;
     }
 
 
     deregister() {
-        //remove HTML of this
-
         if (this.in && this.out)
         {
             let key = this.key;
             delete this.in.connections[key];
             delete this.out.connections[key];
             NodeEditor.instance.removeConnection(key);
+            this.in.node.checkRequiredInputs();
+            this.out.node.checkRequiredInputs();
         }
     }
 
@@ -134,7 +134,7 @@ class Connection {
     }
 
     static load(outConn: Connector, inConn: Connector) {
-        let connection = new Connection(outConn, 0, 0);
+        let connection = new Connection(outConn);
         connection.connect(inConn);
         connection.move(0, 0);
     }
@@ -145,7 +145,6 @@ class Connector {
     parameter: string;
     type: string;
     inout: ConnectorType;
-    value: string;
     
     connections: {[name: string]: Connection} = {};
     node: EditorNode;
@@ -157,7 +156,6 @@ class Connector {
         this.type = structure.type;
         this.inout = inout;
         this.node = node;
-        this.value = structure.value ? structure.value: null;
     }
 
     drawConnections() {
@@ -181,9 +179,12 @@ class Connector {
             type: this.type,
             inout: this.inout,
             node: this.node.id,
-            value: this.value,
             connections: connections
         }
+    }
+
+    get connectionCount(){
+        return Object.keys(this.connections).length;
     }
 }
 
@@ -236,6 +237,7 @@ class EditorNode {
         this.values = Array.from(structure.value, (val) => new NodeValue(val, this));
 
         this.nodeHTML = new NodeHTMLTemplate(this, x, y);
+        this.checkRequiredInputs();
     }
 
     move(dx: number, dy: number) {
@@ -252,7 +254,7 @@ class EditorNode {
         NodeEditor.instance.removeNode(this.id);
     }
 
-    addConnection(paramHTML: HTMLElement, param: Connector, x: number, y: number) {
+    addConnection(param: Connector) {
         if (NodeEditor.instance.ui.stagedConnection) {
             let conn = NodeEditor.instance.ui.stagedConnection;
             if (conn.connect(param))
@@ -263,7 +265,7 @@ class EditorNode {
             return;
         }
 
-        let connection = new Connection(param, x, y);
+        let connection = new Connection(param);
         NodeEditor.instance.ui.stagedConnection = connection;
     }
 
@@ -279,6 +281,16 @@ class EditorNode {
             in: this.inParams.map(p => p.serialized),
             out: this.outParams.map(p => p.serialized)
         }
+    }
+
+    checkRequiredInputs() {
+        for(let connector of this.inParams)
+            if (connector.connectionCount == 0)
+            {
+                this.nodeHTML.setNotActive();
+                return;
+            }
+        this.nodeHTML.setActive();
     }
 
     static load(data: any) {
@@ -357,8 +369,6 @@ class NodeEditor {
                     let node = new EditorNode(funcInfo, x, y);
                     this.nodes[node.id] = node;
                     this.selectNode(node.id);
-
-                    console.log(node);
                 });
 
             types = types.concat(usesTypes(funcInfo).filter((item) => types.indexOf(item) < 0))

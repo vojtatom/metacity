@@ -59,13 +59,13 @@ function openProject() {
 	  });
 }
 
-function runProject(editor: NodeEditor) {
-    let content = editor.serialized;
+function runProject() {
+    let content = NodeEditor.instance.serialized;
 
 	dm.send({
 		command: 'run',
 		graph: content
-	})
+	});
 };
 
 

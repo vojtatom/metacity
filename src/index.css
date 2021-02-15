@@ -149,8 +149,9 @@ body {
   align-items: center;
 }
 
-.node.selected {
-
+.node.nonactive .title,
+.node.nonactive .connectors {
+  background: #c7c7c7;
 }
 
 .connectors {

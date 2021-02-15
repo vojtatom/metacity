@@ -157,7 +157,7 @@ class EditorHTMLTemplate {
         });
     }
 
-    setupFunctionSearch() {
+    private setupFunctionSearch() {
         let input = document.getElementById("functionSearch") as HTMLInputElement;
         let clear = document.getElementById("clearFunctionSearch");
         
@@ -178,7 +178,7 @@ class EditorHTMLTemplate {
         }
     }
 
-    setupBottomMenu() {
+    private setupBottomMenu() {
         let nodes = document.getElementById("addNodeButton");
         nodes.onclick = (ev: MouseEvent) => this.toggleFunctionPanel();
         this.functionPanelHTML.style.display = 'none';
@@ -188,6 +188,9 @@ class EditorHTMLTemplate {
 
         let save = document.getElementById("saveProjectButton");
         save.onclick = (ev: MouseEvent) => saveProject();
+
+        let run = document.getElementById("runProjectButton");
+        run.onclick = (ev: MouseEvent) => runProject();
     }
 
     setupStyles(types: string[]) {
@@ -279,7 +282,7 @@ class EditorHTMLTemplate {
         this.start = { x: rect.left, y: rect.top };
     }
 
-    applyTransform() {
+    private applyTransform() {
         this.nodeAreaHTML.style.transform = 'translate(' + this.transform.x + 'px, ' 
                                         + this.transform.y + 'px) scale(' 
                                         + this.transform.zoom + ')';
@@ -444,6 +447,19 @@ function setupValueCallbacks(value: NodeValue) {
     }
 }
 
+function setupConnector(node: EditorNode, nodeHTML: NodeHTMLTemplate, connectorHTML: HTMLCollection, param: Connector[]) {
+    for (let i = 0; i < connectorHTML.length; ++i) {  
+        param[i].connHTML = new ConnectorHTMLTemplate(connectorHTML[i] as HTMLElement, nodeHTML);
+        
+        //click event on connector
+        (connectorHTML[i] as HTMLElement).onmousedown = (ev: MouseEvent) => {
+            node.addConnection(param[i]);
+            ev.preventDefault();
+            ev.stopPropagation();
+        }
+    }
+}
+
 class NodeHTMLTemplate {
     nodeHTML: HTMLElement;
     pos = {
@@ -483,6 +499,7 @@ class NodeHTMLTemplate {
         let area = NodeEditor.instance.ui.nodeAreaHTML;
         area.insertAdjacentHTML("beforeend", nodeHTML);
         this.nodeHTML = area.lastElementChild as HTMLElement;
+        
         node.values.map(value => setupValueCallbacks(value));
             
         this.pos.x = x;
@@ -491,52 +508,16 @@ class NodeHTMLTemplate {
         let inParamHTMLs = this.nodeHTML.lastElementChild.firstElementChild.children;
         let outParamHTMLs = this.nodeHTML.lastElementChild.lastElementChild.children;
 
-        let connectionLink = (connectorHTML: HTMLCollection, param: Connector[]) => {
-            for (let i = 0; i < connectorHTML.length; ++i) {  
-                param[i].connHTML = new ConnectorHTMLTemplate(connectorHTML[i] as HTMLElement, this);
-                
-                //click event on connector
-                (connectorHTML[i] as HTMLElement).onmousedown = (ev: MouseEvent) => {
-                    node.addConnection(connectorHTML[i] as HTMLElement, param[i], ev.x, ev.y);
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                }
-            }
-        }
+        setupConnector(node, this, inParamHTMLs, node.inParams);
+        setupConnector(node, this, outParamHTMLs, node.outParams);
 
-        connectionLink(inParamHTMLs, node.inParams);
-        connectionLink(outParamHTMLs, node.outParams);
-
-        this.nodeHTML.onmousedown = (ev: MouseEvent) => {
-            if (ev.button == 0) {
-                NodeEditor.instance.selectNode(this.nodeHTML.id);
-            }
-            else if (ev.button == 2) {
-                node.remove();
-                this.remove();
-            }
-
-            ev.preventDefault();
-            ev.stopPropagation();
-        }
-
-        this.move = (dx: number, dy: number) => {
-            this.pos.x += dx;
-            this.pos.y += dy;
-            this.applyTransform();
-    
-            for(let param of node.inParams)
-                param.drawConnections();
-            
-            for(let param of node.outParams)
-                param.drawConnections();
-        }
-
+        this.nodeHTML.onmousedown = (ev: MouseEvent) => this.onmousedown(ev, node);
+        this.move = (dx: number, dy: number) => this.onmove(dx, dy, node);
         this.applyTransform();
     }
 
 
-    applyTransform() {
+    private applyTransform() {
         this.nodeHTML.style.transform = 'translate(' + this.pos.x + 'px, ' + this.pos.y + 'px)';
     }
 
@@ -544,6 +525,38 @@ class NodeHTMLTemplate {
         NodeEditor.instance.ui.nodeAreaHTML.removeChild(this.nodeHTML);
     }
 
+    private onmousedown(ev: MouseEvent, node: EditorNode) {
+        if (ev.button == 0) {
+            NodeEditor.instance.selectNode(this.nodeHTML.id);
+        }
+        else if (ev.button == 2) {
+            node.remove();
+            this.remove();
+        }
+
+        ev.preventDefault();
+        ev.stopPropagation();
+    }
+
+    private onmove(dx: number, dy: number, node: EditorNode) {
+        this.pos.x += dx;
+        this.pos.y += dy;
+        this.applyTransform();
+
+        for(let param of node.inParams)
+            param.drawConnections();
+        
+        for(let param of node.outParams)
+            param.drawConnections();
+    }
+
+    setNotActive() {
+        this.nodeHTML.classList.add("nonactive");
+    }
+
+     setActive() {
+        this.nodeHTML.classList.remove("nonactive");
+     }
 }
 
 
@@ -579,72 +592,17 @@ class ConnectionHTMLTemplate {
         this.line.classList.add("connection");
         
         this.selectLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        this.selectLine.onmousedown = (ev: MouseEvent) => {
-            if (connection.in && connection.out)
-            {
-                if (ev.button == 0)
-                {
-                    //move existing
-                    let posIn = connection.in.connHTML.pos;
-                    let posOut = connection.out.connHTML.pos;
-                    let pos = NodeEditor.instance.ui.mousePosition;
-
-                    let distIn = (posIn.x - pos.x) * (posIn.x - pos.x) + (posIn.y - pos.y) * (posIn.y - pos.y);
-                    let distOut = (posOut.x - pos.x) * (posOut.x - pos.x) + (posOut.y - pos.y) * (posOut.y - pos.y);
-            
-                    connection.deregister();
-
-                    let source;
-                    if (distIn < distOut) {
-                        connection.in = null;
-                        source = connection.out;
-                    } else {
-                        connection.out = null;
-                        source = connection.in;
-                    }
-            
-                    NodeEditor.instance.ui.stagedConnection = connection;                   
-                    this.move();
-
-                } else if (ev.button == 2) {
-                    connection.remove();
-                }
-        
-                ev.preventDefault();
-                ev.stopPropagation();
-            } 
-        };
-
-
         this.selectLine.classList.add("fatline");
         
+        this.selectLine.onmousedown = (ev: MouseEvent) => this.onmousedown(ev, connection);
+        this.move = () => this.onmove(connection);
+
+        
         NodeEditor.instance.ui.nodeAreaSVG.appendChild(this.line);
-        NodeEditor.instance.ui.nodeAreaSVG.appendChild(this.selectLine);
-    
-        this.move = () => {
-            let inpos, outpos;
-            let pos = NodeEditor.instance.ui.mousePosition;
-
-            if (connection.in && connection.out) {
-                //move all
-                inpos = connection.in.connHTML.pos;
-                outpos = connection.out.connHTML.pos;
-            } else if (connection.in) {
-                //move the bottom end
-                inpos = connection.in.connHTML.pos;
-                outpos = pos;
-                this.redraw(pos.x, pos.y, inpos.x, inpos.y);
-            } else if (connection.out) {
-                //move the top end
-                inpos = pos;
-                outpos = connection.out.connHTML.pos;
-            }
-
-            this.redraw(outpos.x, outpos.y, inpos.x, inpos.y);
-        }
+        NodeEditor.instance.ui.nodeAreaSVG.appendChild(this.selectLine);    
     }
 
-    redraw(inx: number, iny: number, outx: number, outy: number) {
+    private redraw(inx: number, iny: number, outx: number, outy: number) {
         let handle = Math.min(Math.max((outy - iny) / 2 - 10, 0), 100); 
         let startx = inx;
         let starty = iny;
@@ -663,5 +621,63 @@ class ConnectionHTMLTemplate {
     remove() {
         NodeEditor.instance.ui.nodeAreaSVG.removeChild(this.line);
         NodeEditor.instance.ui.nodeAreaSVG.removeChild(this.selectLine);
+    }
+
+    private onmousedown(ev: MouseEvent, connection: Connection) {
+        if (connection.in && connection.out)
+        {
+            if (ev.button == 0)
+            {
+                //move existing
+                let posIn = connection.in.connHTML.pos;
+                let posOut = connection.out.connHTML.pos;
+                let pos = NodeEditor.instance.ui.mousePosition;
+
+                let distIn = (posIn.x - pos.x) * (posIn.x - pos.x) + (posIn.y - pos.y) * (posIn.y - pos.y);
+                let distOut = (posOut.x - pos.x) * (posOut.x - pos.x) + (posOut.y - pos.y) * (posOut.y - pos.y);
+        
+                connection.deregister();
+
+                let source;
+                if (distIn < distOut) {
+                    connection.in = null;
+                    source = connection.out;
+                } else {
+                    connection.out = null;
+                    source = connection.in;
+                }
+        
+                NodeEditor.instance.ui.stagedConnection = connection;                   
+                this.move();
+
+            } else if (ev.button == 2) {
+                connection.remove();
+            }
+    
+            ev.preventDefault();
+            ev.stopPropagation();
+        } 
+    };
+
+    private onmove(connection: Connection) {
+        let inpos, outpos;
+        let pos = NodeEditor.instance.ui.mousePosition;
+
+        if (connection.in && connection.out) {
+            //move all
+            inpos = connection.in.connHTML.pos;
+            outpos = connection.out.connHTML.pos;
+        } else if (connection.in) {
+            //move the bottom end
+            inpos = connection.in.connHTML.pos;
+            outpos = pos;
+            this.redraw(pos.x, pos.y, inpos.x, inpos.y);
+        } else if (connection.out) {
+            //move the top end
+            inpos = pos;
+            outpos = connection.out.connHTML.pos;
+        }
+
+        this.redraw(outpos.x, outpos.y, inpos.x, inpos.y);
     }
 }

@@ -51,7 +51,8 @@ def load_modules():
                 'in': paramlist.inputParams(),
                 'out': paramlist.outputParams(),
                 'value': paramlist.valueParams(),
-                'description': paramlist.description()
+                'description': paramlist.description(),
+                'ordered': paramlist.orderedParams()
             }
 
     parameters.disable_params()

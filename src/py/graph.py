@@ -1,4 +1,53 @@
 from output import printOK
+from pprint import pprint
+
+
+def input_connectors(node):
+    return node['in']
+
+
+def output_connectors(node):
+    return node['out']
+
+
+def connections(connector):
+    return connector['connections']
+
+
+def connection_input_node_id(connection):
+    return connection['in']['node']
+
+
+def connection_output_node_id(connection):
+    return connection['out']['node']
+
+
+def function_input_params_order(functions, node):
+    params = functions[node['title']]['ordered']
+    return [p['param'] for p in params if ('value' in p or ('inout' in p and p['inout'] == 'input'))]
+
+
+##recursive routine
+def check_cycles(nodes, node_id, visited):
+    if node_id not in visited:
+        visited.append(node_id)
+        for connector in output_connectors(nodes[node_id]):
+            for connection in connections(connector):
+                neighbor_id = connection_input_node_id(connection)
+                check_cycles(nodes, neighbor_id, visited.copy())
+    else:
+        raise Exception(f'Cycle detected at node {node_id}!')
+
+
+def node_dict(graph):
+    nodes = {}
+    for node in graph:
+        nodes[node['id']] = node
+    return nodes
+
+
+def get_start_node_ids(graph):
+    return [node['id'] for node in graph if len(node['in']) == 0]
 
 
 def topological_sort(graph): 
@@ -9,90 +58,98 @@ def topological_sort(graph):
                       is represented by dict with in and out lists containing 
                       ids of input and output edges
     """
-    # List of indices of starting nodes
-    start_nodes = []
-    # dict of nodes
-    nodes = {}
 
-    for node in graph:
-        nodes[node['id']] = node
-        if len(node['inParameters']) == 0:
-            start_nodes.append(node['id'])
+    nodes = node_dict(graph)
+    start_node_ids = get_start_node_ids(graph)
 
-    ##recursive routine
-    def visit_node(nodes, nid, visited):
-        if nid not in visited:
-            visited.append(nid)
-            for param in nodes[nid]['outParameters']:
-                for conn in param['connections']:
-                    neighborid = conn['in']['node']
-                    visit_node(nodes, neighborid, visited.copy())
-        else:
-            raise Exception(f'Cycle detected at node {nid}!')
+    for i in start_node_ids:
+        check_cycles(nodes, i, [])
 
-    for i in start_nodes:
-        visit_node(nodes, i, [])
+    order = start_node_ids
 
-    order = start_nodes
 
-    for nid in order:
-        for param in nodes[nid]['outParameters']:
-            for conn in param['connections']:
-                neighborid = conn['in']['node']
-            
-                ### additional check for requirement satisfication
+    ### additional check for requirement satisfication
+    # if the node misses input (all inputs are required), than the node is not processed
+    for node_id in order:
+        for oconnector in output_connectors(nodes[node_id]):
+            for oconnection in connections(oconnector):
+                neighbor_id = connection_input_node_id(oconnection)
                 satisfied = True
 
-                for param in nodes[neighborid]['inParameters']:
-                    for conn in param['connections']:
-                        requirednode = conn['out']['node']
-
-                        if requirednode not in order:
+                for iconnector in input_connectors(nodes[neighbor_id]):  
+                    for iconnection in connections(iconnector):
+                        required_node = connection_output_node_id(iconnection)
+                        if required_node not in order:
                             satisfied = False
 
-                if neighborid not in order and satisfied:
-                    order.append(neighborid)    
+                    if len(connections(iconnector)) == 0:
+                        satisfied = False
+
+                if neighbor_id not in order and satisfied:
+                    order.append(neighbor_id)
+        
     return order
 
 
 def out_connection_key(conn):
     return conn['out']['node'] + conn['out']['connector']
 
-def out_param_key(param):
-    return param['node'] + param['param']
 
-def compute(graph, modules): 
+def out_connector_key(connector):
+    return connector['node'] + connector['param']
+
+
+def pick_params(param_order, node, intermediate):
+    params = []
+    
+    values = { v['param']: v for v in node['value'] } 
+    inputs = { i['param']: i for i in node['in'] }
+
+    for p in param_order:
+        if p in values:
+            params.append(values[p]['value'])
+        elif p in inputs:
+            connection = connections(inputs[p])
+            
+            #dirty check
+            if len(connection) != 1:
+                raise Exception(f'More than one input connection at {node["id"]}!')
+            
+            key = out_connection_key(connection[0])
+
+            if key not in intermediate:
+                raise Exception(f'Missing intermediate result {key}!')
+
+            params.append(intermediate[key])
+        else:
+            raise Exception(f'Parameter "{p}" declared in code but not found in the input graph.')
+
+    return params
+
+
+
+def compute(graph, modules, functions_struct): 
     order = topological_sort(graph)
-
-    nodes = {}
+    nodes = node_dict(graph)
     values = {}
-
-    for node in graph:
-        nodes[node['id']] = node
 
     for node_id in order:
         node = nodes[node_id]
-        in_data = {}
-        module = modules[node['title']]
-
-        input_values = []
-
-        #construct input params
-        for param in node['inParameters']:
-            for conn in param['connections']:
-                conn_key = out_connection_key(conn)
-                if conn_key not in values:
-                    raise Exception(f'Missing input values - {conn_key}!')
-
-                input_values.append(values[conn_key])
-
         
+        param_order = function_input_params_order(functions_struct, node)
+        input_values = pick_params(param_order, node, values)  
+        module = modules[node['title']] #this is the callable thing
+
         returned = module.call(*input_values)
-        if not isinstance(returned, list):
-            returned = [returned]
 
-        for val, param in zip(returned, node['outParameters']):
-            param_key = out_param_key(param)
+        if not isinstance(returned, tuple):
+            returned = (returned,)
+        
+        for val, connector in zip(returned, node['out']):
+            param_key = out_connector_key(connector)
             values[param_key] = val
+        
+        print(values)
 
+    print(values)
     return values

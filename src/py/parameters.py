@@ -54,6 +54,9 @@ class ParameterList:
     def description(self):
         return [p['description'] for p in self.list if 'description' in p]
 
+    def orderedParams(self):
+        return self.list
+
 
 def param(paramtitle, paramtype): 
     """Registres an input parameter of the function
