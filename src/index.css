@@ -133,6 +133,23 @@ body {
   color: #222;
 }
 
+#functionActions {
+  display: flex;
+  flex-direction: row;
+}
+
+#functionActions .functionAction {
+  padding: 1rem;
+  cursor: pointer;
+  background: #EEE;
+  font-size: 0.8em;
+  width: 100%
+}
+
+#functionActions .functionAction:hover {
+  background: #DDD;
+}
+
 /* node */
 .node {
   position: absolute;

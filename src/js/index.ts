@@ -4,8 +4,7 @@ const fs = require('fs');
 
 
 //default callback for recieved data
-let dm = DataManager.getInstance();
-dm.setupInstance((data: object) => {
+DataManager.instance.setupInstance((data: object) => {
     console.log('got from server', data);
 });
 

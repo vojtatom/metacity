@@ -25,6 +25,7 @@ function createStyleRule(name: string, i: number, length: number) {
 class EditorHTMLTemplate {
     parentHTML: HTMLElement;
     functionPanelHTML: HTMLElement;
+    functionListHTML: HTMLElement;
     editorAreaHTML: HTMLElement;
     nodeAreaHTML: HTMLElement;
     nodeAreaSVG: SvgInHtml;
@@ -80,6 +81,12 @@ class EditorHTMLTemplate {
                     <input type="text" id="functionSearch" name="functionSearch" placeholder="Node name or description">
                     <div id="clearFunctionSearch">&#8612;</div>
                 </div>
+                <div id="functionActions">
+                    <div class="functionAction" id="functionReloadAction">Reaload Nodes</div>
+                    <div class="functionAction" id="functionNewScriptAction">New Script</div>
+                    <div class="functionAction" id="functionOpenFolderAction">Open Script Folder</div>
+                </div>
+                <div id="functionList"></div>
             </div>
             <div id="nodeArea">
                 <svg width="100%" height="100%" id="svgEditor"></svg>
@@ -96,6 +103,7 @@ class EditorHTMLTemplate {
         this.parentHTML = parent;
         this.parentHTML.innerHTML = editor;
         this.functionPanelHTML = document.getElementById("functionPanel");
+        this.functionListHTML = document.getElementById("functionList");
         this.editorAreaHTML = document.getElementById("nodes");
         this.nodeAreaHTML = document.getElementById("nodeArea");
         this.nodeAreaSVG = document.getElementById("svgEditor") as SvgInHtml;
@@ -106,7 +114,7 @@ class EditorHTMLTemplate {
         this.editorAreaHTML.onmouseup = (ev: MouseEvent) => this.mouseup(ev);
         this.editorAreaHTML.onwheel = (ev: WheelEvent) => this.wheel(ev);
 
-        this.setupFunctionSearch();
+        this.setupFunctionDialog();
         this.setupBottomMenu();
         this.resize();
     }
@@ -133,7 +141,7 @@ class EditorHTMLTemplate {
         </div>   
         `
 
-        this.functionPanelHTML.insertAdjacentHTML("beforeend", func);
+        this.functionListHTML.insertAdjacentHTML("beforeend", func);
         let funcHTML = this.functionPanelHTML.lastElementChild as HTMLElement;
         funcHTML.onmousedown = (ev: MouseEvent) => {
             if (ev.button == 0) {
@@ -157,10 +165,15 @@ class EditorHTMLTemplate {
         });
     }
 
-    private setupFunctionSearch() {
+    clearFunctionList() {
+        this.functionMenu = [];
+        this.functionListHTML.innerHTML = "";
+    }
+
+    private setupFunctionDialog() {
         let input = document.getElementById("functionSearch") as HTMLInputElement;
         let clear = document.getElementById("clearFunctionSearch");
-        
+        let reload = document.getElementById("functionReloadAction");
 
         input.onkeyup = (ev: Event) => {
             let query = input.value;
@@ -175,6 +188,13 @@ class EditorHTMLTemplate {
         clear.onclick = () => {
             input.value = '';
             this.functionMenu.map(v => v.html.style.display = 'block');
+        }
+
+        reload.onclick = () => {
+            this.clearFunctionList()
+            DataManager.instance.send({
+                'command': 'load_functions'
+            }, (data) => NodeEditor.instance.initFunctions(data))
         }
     }
 

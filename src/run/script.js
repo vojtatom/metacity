@@ -113,11 +113,11 @@ class DataManager {
         };
         this.socket = socket;
     }
-    static getInstance() {
-        if (!DataManager.instance) {
-            DataManager.instance = new DataManager();
+    static get instance() {
+        if (!DataManager.instanceObject) {
+            DataManager.instanceObject = new DataManager();
         }
-        return DataManager.instance;
+        return DataManager.instanceObject;
     }
     send(data, callbacks) {
         if (this.socket.readyState === 1) {
@@ -177,6 +177,12 @@ class EditorHTMLTemplate {
                     <input type="text" id="functionSearch" name="functionSearch" placeholder="Node name or description">
                     <div id="clearFunctionSearch">&#8612;</div>
                 </div>
+                <div id="functionActions">
+                    <div class="functionAction" id="functionReloadAction">Reaload Nodes</div>
+                    <div class="functionAction" id="functionNewScriptAction">New Script</div>
+                    <div class="functionAction" id="functionOpenFolderAction">Open Script Folder</div>
+                </div>
+                <div id="functionList"></div>
             </div>
             <div id="nodeArea">
                 <svg width="100%" height="100%" id="svgEditor"></svg>
@@ -192,6 +198,7 @@ class EditorHTMLTemplate {
         this.parentHTML = parent;
         this.parentHTML.innerHTML = editor;
         this.functionPanelHTML = document.getElementById("functionPanel");
+        this.functionListHTML = document.getElementById("functionList");
         this.editorAreaHTML = document.getElementById("nodes");
         this.nodeAreaHTML = document.getElementById("nodeArea");
         this.nodeAreaSVG = document.getElementById("svgEditor");
@@ -200,7 +207,7 @@ class EditorHTMLTemplate {
         this.editorAreaHTML.onmousemove = (ev) => this.mousemove(ev);
         this.editorAreaHTML.onmouseup = (ev) => this.mouseup(ev);
         this.editorAreaHTML.onwheel = (ev) => this.wheel(ev);
-        this.setupFunctionSearch();
+        this.setupFunctionDialog();
         this.setupBottomMenu();
         this.resize();
     }
@@ -231,7 +238,7 @@ class EditorHTMLTemplate {
             </div>
         </div>   
         `;
-        this.functionPanelHTML.insertAdjacentHTML("beforeend", func);
+        this.functionListHTML.insertAdjacentHTML("beforeend", func);
         let funcHTML = this.functionPanelHTML.lastElementChild;
         funcHTML.onmousedown = (ev) => {
             if (ev.button == 0) {
@@ -252,9 +259,14 @@ class EditorHTMLTemplate {
             html: funcHTML
         });
     }
-    setupFunctionSearch() {
+    clearFunctionList() {
+        this.functionMenu = [];
+        this.functionListHTML.innerHTML = "";
+    }
+    setupFunctionDialog() {
         let input = document.getElementById("functionSearch");
         let clear = document.getElementById("clearFunctionSearch");
+        let reload = document.getElementById("functionReloadAction");
         input.onkeyup = (ev) => {
             let query = input.value;
             if (query == '')
@@ -267,6 +279,12 @@ class EditorHTMLTemplate {
         clear.onclick = () => {
             input.value = '';
             this.functionMenu.map(v => v.html.style.display = 'block');
+        };
+        reload.onclick = () => {
+            this.clearFunctionList();
+            DataManager.instance.send({
+                'command': 'load_functions'
+            }, (data) => NodeEditor.instance.initFunctions(data));
         };
     }
     setupBottomMenu() {
@@ -900,8 +918,7 @@ class NodeEditor {
                 this.deselectNode(nodeID);
             }
         };
-        let dm = DataManager.getInstance();
-        dm.send({
+        DataManager.instance.send({
             'command': 'load_functions'
         }, (data) => this.initFunctions(data));
     }
@@ -1018,7 +1035,7 @@ function openProject() {
 }
 function runProject() {
     let content = NodeEditor.instance.serialized;
-    dm.send({
+    DataManager.instance.send({
         command: 'run',
         graph: content
     });
@@ -1027,8 +1044,7 @@ function runProject() {
 const { ipcRenderer, remote } = require('electron');
 const dialog = remote.dialog;
 const fs = require('fs');
-let dm = DataManager.getInstance();
-dm.setupInstance((data) => {
+DataManager.instance.setupInstance((data) => {
     console.log('got from server', data);
 });
 window.onload = function () {

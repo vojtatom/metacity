@@ -1,6 +1,6 @@
 class DataManager {
     
-    static instance: DataManager;
+    private static instanceObject: DataManager;
     
     rc: (data: object) => void;
     socket: ReconnectingWebSocket;
@@ -33,11 +33,11 @@ class DataManager {
         this.socket = socket;
     }
 
-    static getInstance() {
-        if (!DataManager.instance) {
-            DataManager.instance = new DataManager();
+    static get instance() {
+        if (!DataManager.instanceObject) {
+            DataManager.instanceObject = new DataManager();
         }
-        return DataManager.instance;
+        return DataManager.instanceObject;
     }
 
     send(data: object, callbacks?: (data: object) => void | Array<(data: object) => void>) {  

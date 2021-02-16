@@ -62,7 +62,7 @@ function openProject() {
 function runProject() {
     let content = NodeEditor.instance.serialized;
 
-	dm.send({
+	DataManager.instance.send({
 		command: 'run',
 		graph: content
 	});

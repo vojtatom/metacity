@@ -353,14 +353,13 @@ class NodeEditor {
         };
 
         //init nodes
-        let dm = DataManager.getInstance();
-        dm.send({
+        DataManager.instance.send({
             'command': 'load_functions'
         }, (data) => this.initFunctions(data))
     }
 
 
-    private initFunctions(data: any) {
+    initFunctions(data: any) {
         let types: string[] = [];
         for (let func in data) {
             let funcInfo = data[func] as EditorFunction;
