@@ -1,6 +1,6 @@
 from output import printOK
 from pprint import pprint
-
+from comms import sendNodeFinished, sendNodeStarted
 
 def input_connectors(node):
     return node['in']
@@ -24,7 +24,7 @@ def connection_output_node_id(connection):
 
 def function_input_params_order(functions, node):
     params = functions[node['title']]['ordered']
-    return [p['param'] for p in params if ('value' in p or ('inout' in p and p['inout'] == 'input'))]
+    return [p['param'] for p in params]
 
 
 ##recursive routine
@@ -140,7 +140,9 @@ def compute(graph, modules, functions_struct):
         input_values = pick_params(param_order, node, values)  
         module = modules[node['title']] #this is the callable thing
 
+        sendNodeStarted(node['title'])
         returned = module.call(*input_values)
+        sendNodeFinished(node['title'])
 
         if not isinstance(returned, tuple):
             returned = (returned,)

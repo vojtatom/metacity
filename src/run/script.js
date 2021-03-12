@@ -169,6 +169,7 @@ class EditorHTMLTemplate {
         this.moveArea = false;
         this.moveActive = () => { };
         this.clearSelectedNodes = () => { };
+        this.messageIdx = 0;
         const editor = `
         <div id="nodes">
             <div id="functionPanel">
@@ -187,6 +188,8 @@ class EditorHTMLTemplate {
             <div id="nodeArea">
                 <svg width="100%" height="100%" id="svgEditor"></svg>
             </div>
+            <div id="messages">
+            </div>
         </div>
         <div id="actionPanel">
             <div id="openProjectButton">Open</div>
@@ -203,10 +206,13 @@ class EditorHTMLTemplate {
         this.nodeAreaHTML = document.getElementById("nodeArea");
         this.nodeAreaSVG = document.getElementById("svgEditor");
         this.actionPanel = document.getElementById("actionPanel");
+        this.messagePanel = document.getElementById("messages");
         this.editorAreaHTML.onmousedown = (ev) => this.mousedown(ev);
         this.editorAreaHTML.onmousemove = (ev) => this.mousemove(ev);
         this.editorAreaHTML.onmouseup = (ev) => this.mouseup(ev);
         this.editorAreaHTML.onwheel = (ev) => this.wheel(ev);
+        this.functionListHTML.onwheel = (ev) => { ev.stopPropagation(); };
+        this.messagePanel.onwheel = (ev) => { ev.stopPropagation(); };
         this.setupFunctionDialog();
         this.setupBottomMenu();
         this.resize();
@@ -220,13 +226,13 @@ class EditorHTMLTemplate {
     }
     toggleFunctionPanel() {
         let nodes = document.getElementById("addNodeButton");
-        if (this.functionPanelHTML.style.display == 'none') {
-            nodes.classList.add('active');
-            this.functionPanelHTML.style.display = 'block';
+        if (this.functionPanelHTML.hasAttribute("data-active")) {
+            nodes.classList.remove('active');
+            this.functionPanelHTML.removeAttribute("data-active");
         }
         else {
-            nodes.classList.remove('active');
-            this.functionPanelHTML.style.display = 'none';
+            nodes.classList.add('active');
+            this.functionPanelHTML.setAttribute("data-active", "");
         }
     }
     addFunctionToPanel(data, onmousedown) {
@@ -239,7 +245,7 @@ class EditorHTMLTemplate {
         </div>   
         `;
         this.functionListHTML.insertAdjacentHTML("beforeend", func);
-        let funcHTML = this.functionPanelHTML.lastElementChild;
+        let funcHTML = this.functionListHTML.lastElementChild;
         funcHTML.onmousedown = (ev) => {
             if (ev.button == 0) {
                 this.toggleFunctionPanel();
@@ -255,7 +261,9 @@ class EditorHTMLTemplate {
             ev.stopPropagation();
         };
         this.functionMenu.push({
-            label: data.title + ' ' + data.description + ' ' + usesTypes(data).join(' '),
+            label: data.title.toLowerCase() + ' '
+                + data.description.join(' ').toLowerCase() + ' '
+                + usesTypes(data).join(' ').toLowerCase(),
             html: funcHTML
         });
     }
@@ -268,7 +276,7 @@ class EditorHTMLTemplate {
         let clear = document.getElementById("clearFunctionSearch");
         let reload = document.getElementById("functionReloadAction");
         input.onkeyup = (ev) => {
-            let query = input.value;
+            let query = input.value.toLowerCase();
             if (query == '')
                 this.functionMenu.map(v => v.html.style.display = 'block');
             else
@@ -283,14 +291,13 @@ class EditorHTMLTemplate {
         reload.onclick = () => {
             this.clearFunctionList();
             DataManager.instance.send({
-                'command': 'load_functions'
-            }, (data) => NodeEditor.instance.initFunctions(data));
+                'command': 'loadFunctions'
+            });
         };
     }
     setupBottomMenu() {
         let nodes = document.getElementById("addNodeButton");
         nodes.onclick = (ev) => this.toggleFunctionPanel();
-        this.functionPanelHTML.style.display = 'none';
         let open = document.getElementById("openProjectButton");
         open.onclick = (ev) => openProject();
         let save = document.getElementById("saveProjectButton");
@@ -369,6 +376,72 @@ class EditorHTMLTemplate {
             + this.transform.y + 'px) scale('
             + this.transform.zoom + ')';
     }
+    nonclosableMessage(title, body, timeout = 0) {
+        let messageIdx = this.messageIdx++;
+        let messageHTML = `
+        <div class="message" id="message${messageIdx}">
+            <div class="title">
+                ${title}
+            </div>
+            <div class="body">
+                ${body}
+            </div>
+        </div>
+        `;
+        this.messagePanel.insertAdjacentHTML("beforeend", messageHTML);
+        if (timeout > 0)
+            setTimeout(() => { this.closeMessage(messageIdx); }, timeout);
+        return messageIdx;
+    }
+    closableMessage(title, body, timeout = 0) {
+        let messageIdx = this.nonclosableMessage(title, body, timeout);
+        let message = this.messagePanel.lastElementChild;
+        message.onclick = (ev) => { this.closeMessage(messageIdx); };
+        return messageIdx;
+    }
+    closeMessage(messageIdx) {
+        let message = document.getElementById(`message${messageIdx}`);
+        if (message)
+            message.parentElement.removeChild(message);
+    }
+    closeAllMessages() {
+        this.messagePanel.innerHTML = "";
+    }
+    createProgressBar() {
+        let pb = `
+        <div class="progressBar" id="messageProgressBarElement">
+            <div class="progressBarContainer">
+                <div class="progressBarLine" id="messageProgressBar"></div>
+            </div>
+            <div class="progressBarTitle" id="messageProgressBarTitle">
+        </div>
+        `;
+        this.messagePanel.insertAdjacentHTML("beforeend", pb);
+        let pbHTML = this.messagePanel.lastElementChild;
+        return pbHTML;
+    }
+    updateProgressbar(value, text) {
+        let pbBar;
+        let pbTitle;
+        let pb = document.getElementById("messageProgressBarElement");
+        if (!pb)
+            this.createProgressBar();
+        pbBar = document.getElementById("messageProgressBar");
+        pbTitle = document.getElementById("messageProgressBarTitle");
+        pbBar.style.width = `${value}%`;
+        pbTitle.innerHTML = text;
+        if (value == 100)
+            this.closeProgressbar();
+    }
+    closeProgressbar() {
+        let pb = document.getElementById("messageProgressBarElement");
+        if (!pb)
+            return;
+        pb.parentElement.removeChild(pb);
+    }
+}
+function nameFromPath(path) {
+    return path.split("/").slice(-1)[0].split("\\").slice(-1)[0];
 }
 function valueHTMLTitle(value) {
     switch (value.type) {
@@ -413,7 +486,7 @@ function valueHTMLValue(value) {
         case 'file':
             return `
             <div class="value file">
-                    <input type="button" id="${value.node.id + value.param}" name="${value.node.id + value.param}", value="${value.value}">
+                    <input type="button" id="${value.node.id + value.param}" name="${value.node.id + value.param}", value="${nameFromPath(value.value)}">
             </div>
             `;
         case 'number':
@@ -484,7 +557,8 @@ function setupValueCallbacks(value) {
                     if (filename === undefined) {
                         return;
                     }
-                    file.value = filename;
+                    let name = nameFromPath(result.filePaths[0]);
+                    file.value = name;
                     value.value = filename;
                 }).catch((err) => {
                     alert(err);
@@ -524,11 +598,11 @@ class NodeHTMLTemplate {
             y: 0
         };
         const nodeHTML = `
-            <div class="node" id="${node.id}">
+            <div class="node ${node.disabled ? "disabled" : ""}" id="${node.id}">
                 <div class="title">${node.title}</div>
                 <div class="contents">
                     <div class="connectors">
-                        ${node.inParams.map(param => `<div class="connector in ${param.type}" title="${param.parameter} [${param.type}]"></div>`).join('')}
+                        ${node.inParams.map(param => `<div class="connector in ${param.type}" data-title="${param.parameter} [type ${param.type}]"></div>`).join('')}
                     </div>
                     
                     <div class="values">
@@ -540,7 +614,7 @@ class NodeHTMLTemplate {
                         </div>
                     </div>
                     <div class="connectors">
-                        ${node.outParams.map(param => `<div class="connector out ${param.type}" title="${param.parameter} [${param.type}]"></div>`).join('')}
+                        ${node.outParams.map(param => `<div class="connector out ${param.type}" data-title="${param.parameter} [type ${param.type}]"></div>`).join('')}
                     </div>
                 </div>   
             </div>   
@@ -692,6 +766,9 @@ function usesTypes(func) {
     let outputs = func.out.map(val => val.type);
     return inputs.concat(outputs.filter((item) => inputs.indexOf(item) < 0));
 }
+function objectEmpty(obj) {
+    return obj && Object.keys(obj).length === 0 && obj.constructor === Object;
+}
 class Connection {
     constructor(source) {
         if (source.inout == ConnectorType.input) {
@@ -767,6 +844,8 @@ class Connection {
         };
     }
     static load(outConn, inConn) {
+        if (!outConn || !inConn)
+            return;
         let connection = new Connection(outConn);
         connection.connect(inConn);
         connection.move(0, 0);
@@ -796,7 +875,6 @@ class Connector {
         return {
             param: this.parameter,
             type: this.type,
-            inout: this.inout,
             node: this.node.id,
             connections: connections
         };
@@ -829,6 +907,7 @@ class EditorNode {
             EditorNode.idCounter++;
         }
         this.title = structure.title;
+        this.disabled = structure.disabled;
         this.inParams = Array.from(structure.in, (con) => new Connector(con, ConnectorType.input, this));
         this.outParams = Array.from(structure.out, (con) => new Connector(con, ConnectorType.output, this));
         this.values = Array.from(structure.value, (val) => new NodeValue(val, this));
@@ -867,7 +946,8 @@ class EditorNode {
             },
             value: this.values.map(v => v.serialized),
             in: this.inParams.map(p => p.serialized),
-            out: this.outParams.map(p => p.serialized)
+            out: this.outParams.map(p => p.serialized),
+            disabled: this.disabled
         };
     }
     checkRequiredInputs() {
@@ -919,21 +999,28 @@ class NodeEditor {
             }
         };
         DataManager.instance.send({
-            'command': 'load_functions'
-        }, (data) => this.initFunctions(data));
+            'command': 'loadFunctions'
+        });
     }
     initFunctions(data) {
         let types = [];
+        this.functions = data;
         for (let func in data) {
-            let funcInfo = data[func];
-            this.editorHTML.addFunctionToPanel(funcInfo, (x, y) => {
-                let node = new EditorNode(funcInfo, x, y);
+            let structure = data[func];
+            this.editorHTML.addFunctionToPanel(structure, (x, y) => {
+                let node = new EditorNode(structure, x, y);
                 this.nodes[node.id] = node;
                 this.selectNode(node.id);
             });
-            types = types.concat(usesTypes(funcInfo).filter((item) => types.indexOf(item) < 0));
+            types = types.concat(usesTypes(structure).filter((item) => types.indexOf(item) < 0));
         }
         this.editorHTML.setupStyles(types);
+        if (!objectEmpty(this.nodes))
+            this.revalidate();
+    }
+    revalidate() {
+        let graph = this.serialized;
+        this.load(graph);
     }
     selectNode(nodeID) {
         this.selectedNodes[nodeID] = this.nodes[nodeID];
@@ -962,25 +1049,125 @@ class NodeEditor {
             nodes.push(this.nodes[node].serialized);
         return JSON.stringify(nodes);
     }
+    debugMessage(title, message) {
+        this.ui.closableMessage(title, message, 0);
+    }
+    validateParameter(p, structParams) {
+        for (let sp of structParams) {
+            if (sp.param == p.param && sp.type == p.type)
+                return true;
+        }
+        return false;
+    }
+    validateStructure(struct) {
+        if (!(struct.title in this.functions)) {
+            this.debugMessage("Node structure not valid", `Node ${struct.title} is unknown.`);
+            return false;
+        }
+        let f = this.functions[struct.title];
+        if (f.in.length != struct.in.length || f.out.length != struct.out.length) {
+            this.debugMessage("Node structure not valid", `Node ${struct.title} has ${struct.in.length} inputs (${f.in.length} expected) and ${struct.out.length} outputs (${f.out.length} expected).`);
+            return false;
+        }
+        for (let p of f.in)
+            if (!this.validateParameter(p, struct.in)) {
+                this.debugMessage("Node structure not valid", `Node ${struct.title} missing input parameter ${p.param} [type ${p.type}].`);
+                return false;
+            }
+        for (let p of f.out)
+            if (!this.validateParameter(p, struct.out)) {
+                this.debugMessage("Node structure not valid", `Node ${struct.title} missing output parameter ${p.param} [type ${p.type}].`);
+                return false;
+            }
+        return true;
+    }
+    sortParameters(structParams, templateParams) {
+        let params = [];
+        for (let p of templateParams)
+            for (let sp of structParams)
+                if (p.param == sp.param)
+                    params.push(sp);
+        return params;
+    }
+    sortConnectors(struct) {
+        struct.in = this.sortParameters(struct.in, this.functions[struct.title].in);
+        struct.out = this.sortParameters(struct.out, this.functions[struct.title].out);
+    }
+    updateStructure(struct) {
+        struct.description = this.functions[struct.title].description;
+        struct.disabled = this.functions[struct.title].disabled;
+        this.sortConnectors(struct);
+    }
+    validateConnection(inputNode, outNode) {
+        if (!(inputNode in this.nodes && outNode in this.nodes))
+            return false;
+        return true;
+    }
     load(contents) {
         try {
             let data = JSON.parse(contents);
             this.clear();
+            this.ui.closeAllMessages();
             for (let node of data) {
+                if (this.validateStructure(node)) {
+                    this.updateStructure(node);
+                }
+                else {
+                    node["disabled"] = true;
+                }
                 let n = EditorNode.load(node);
                 this.nodes[n.id] = n;
             }
             for (let node of data)
                 for (let param of node.in)
                     for (let conn of param.connections) {
+                        if (!this.validateConnection(conn.out.node, conn.in.node))
+                            continue;
                         let outConn = this.nodes[conn.out.node].getConnector(ConnectorType.output, conn.out.connector);
                         let inConn = this.nodes[conn.in.node].getConnector(ConnectorType.input, conn.in.connector);
                         Connection.load(outConn, inConn);
                     }
         }
         catch (error) {
-            alert("File corrupted, cannot be loaded");
+            this.debugMessage("Loading file failed", "The file format is corrupted.");
         }
+    }
+    statusUpdate(data) {
+        switch (data.status) {
+            case 'functionsLoaded':
+                this.initFunctions(data.functions);
+                break;
+            case 'pipelineDone':
+                break;
+            case 'error':
+                this.debugMessage("Pipeline Error", data.error);
+                break;
+            case 'nodeStarted':
+                this.debugMessage("Pipeline progress", `Node ${data.title} started.`);
+                break;
+            case 'nodeDone':
+                this.debugMessage("Pipeline progress", `Node ${data.title} finished.`);
+                break;
+            case 'progress':
+                this.ui.updateProgressbar(data.progress, data.message);
+                break;
+            case 'pipelineDone':
+                break;
+            default:
+                break;
+        }
+    }
+    recieved(data) {
+        if ('status' in data)
+            this.statusUpdate(data);
+    }
+    runProject() {
+        let content = this.serialized;
+        this.ui.closeAllMessages();
+        DataManager.instance.send({
+            command: 'run',
+            graph: content
+        });
     }
     clear() {
         for (let node in this.nodes)
@@ -1034,11 +1221,7 @@ function openProject() {
     });
 }
 function runProject() {
-    let content = NodeEditor.instance.serialized;
-    DataManager.instance.send({
-        command: 'run',
-        graph: content
-    });
+    NodeEditor.instance.runProject();
 }
 ;
 const { ipcRenderer, remote } = require('electron');
@@ -1046,6 +1229,7 @@ const dialog = remote.dialog;
 const fs = require('fs');
 DataManager.instance.setupInstance((data) => {
     console.log('got from server', data);
+    NodeEditor.instance.recieved(data);
 });
 window.onload = function () {
     let editorDom = document.getElementById("editor");

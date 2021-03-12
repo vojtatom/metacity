@@ -1,1 +1,10 @@
+attrs==20.3.0
+cjio==0.6.6
+click==7.1.2
+jsonref==0.2
+jsonschema==3.2.0
+mapbox-earcut==0.12.10
+numpy==1.20.1
+pyrsistent==0.17.3
+six==1.15.0
 websockets==8.1

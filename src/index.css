@@ -20,7 +20,7 @@ body {
 /* layout main */
 
 #editor {
-  width: 60vw;
+  width: 100vw;
   height: 100vh;
   background: #FFF;
   overflow: auto;
@@ -31,9 +31,10 @@ body {
 }
 
 #d3view {
-  width: 40vw;
+  width: 100vw;
   height: 100vh;
   background: #FFF;
+  display: none;
 }
 
 /* nodes */
@@ -61,6 +62,12 @@ body {
   z-index: 2;
   background: #FFF;
   border: 1px solid #DDD;
+  display: none;
+}
+
+#functionPanel[data-active] {
+  display: flex;
+  flex-direction: column;
 }
 
 #nodePanel {
@@ -98,6 +105,10 @@ body {
 
 #clearFunctionSearch:hover {
   background: #EEE;
+}
+
+#functionList {
+  overflow: auto;
 }
 
 .section-title {
@@ -171,13 +182,18 @@ body {
   background: #c7c7c7;
 }
 
+
+.node.disabled .title,
+.node.disabled .connectors {
+  background: #ff3897;
+}
+
 .connectors {
   text-align: right;
   background: #F8F8F8;
 }
 
 .connector {
-  background: #DDD;
   display: inline-block;
   position: relative;
   height: 20px;
@@ -185,12 +201,9 @@ body {
   vertical-align:top;
 }
 
-.connector:hover {
-  background: #F00;
-}
 
-.connector[title]:hover::after {
-  content: attr(title);
+.connector:hover::after {
+  content: attr(data-title);
   color: #999;
   position: absolute;
   left: 0;
@@ -199,11 +212,11 @@ body {
   white-space: nowrap;
 }
 
-.connector.in[title]:hover::after {
+.connector.in:hover::after {
   top: -150%;
 }
 
-.connector.out[title]:hover::after {
+.connector.out:hover::after {
   top: 110%;
 }
 
@@ -255,6 +268,7 @@ svg path.fatline:hover {
   display: block;
   font-size: 0.7em;
   padding-left: 0.5rem;
+  padding-right: 0.5rem;
 }
 
 .value.string input,
@@ -273,6 +287,10 @@ svg path.fatline:hover {
 .value.number input,
 .value.file input {
   width: 150px;
+}
+
+.value.file input {
+  text-align: right;
 }
 
 .value.vec3 {
@@ -298,11 +316,11 @@ input[type="checkbox"] {
   position: relative;
   height: 100%;
   width: 25px;
-  background: #DDD;
+  background: #EEE;
 }
 
 input[type="checkbox"]:checked ~ .checkmark {
-  background-color: #2196F3;
+  background-color: #74bff9;
 }
 
 
@@ -314,12 +332,12 @@ input[type="checkbox"]:checked ~ .checkmark:after {
   display: none;
   content: "";
   position: absolute;
-  left: 9px;
+  left: 10px;
   top: 5px;
-  width: 5px;
+  width: 4px;
   height: 10px;
   border: solid white;
-  border-width: 0 3px 3px 0;
+  border-width: 0 1px 1px 0;
   -webkit-transform: rotate(45deg);
   -ms-transform: rotate(45deg);
   transform: rotate(45deg);
@@ -346,4 +364,48 @@ input[type="checkbox"]:checked ~ .checkmark:after {
 
 #actionPanel .active {
   background: #DDD;
+}
+
+/*messages*/
+
+#messages {
+  position: absolute;
+  text-align: right;
+  top: 2rem;
+  right: 0;
+  padding-right: 2rem;
+  max-width: 20rem;
+  height: calc(100vh - 5rem);
+  overflow: auto;
+}
+
+#messages .message {
+  padding: 0.5rem;
+  /*background: #FFF;
+  border: 1px solid #EEE;*/
+  margin-bottom: 0.5rem;
+}
+
+#messages .message:hover {
+  background: #fde9e9;
+  cursor: pointer;
+}
+
+#messages .title {
+  font-size: 0.8em;
+  margin-bottom: 0.5rem
+}
+
+#messages .progressBarContainer {
+  width: 20rem;
+  height: 2px;
+  margin-bottom: 0.5rem;
+  background: #FFF;
+}
+
+#messages .progressBarLine {
+  background: #CCC;
+  height: 100%;
+  float: right;
+  transition: width 0.1s;
 }

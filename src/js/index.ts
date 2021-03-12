@@ -6,6 +6,7 @@ const fs = require('fs');
 //default callback for recieved data
 DataManager.instance.setupInstance((data: object) => {
     console.log('got from server', data);
+    NodeEditor.instance.recieved(data);
 });
 
 window.onload = function() {

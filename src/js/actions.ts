@@ -60,30 +60,6 @@ function openProject() {
 }
 
 function runProject() {
-    let content = NodeEditor.instance.serialized;
-
-	DataManager.instance.send({
-		command: 'run',
-		graph: content
-	});
+	NodeEditor.instance.runProject();
 };
 
-
-/*//communcation with the main thread
-ipcRenderer.on('editor', (event: any, command: any) => {
-	switch (command) {
-		case 'save':
-			saveProject();
-			break;
-		case 'open':
-			openProject();
-			break;
-		case 'run':
-			runProject();
-			break;
-		default:
-			break;
-	}
-	
-    //todo more commands
-})*/

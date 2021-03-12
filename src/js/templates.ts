@@ -30,6 +30,7 @@ class EditorHTMLTemplate {
     nodeAreaHTML: HTMLElement;
     nodeAreaSVG: SvgInHtml;
     actionPanel: HTMLElement;
+    messagePanel: HTMLElement;
 
     stagedConnection: Connection;
 
@@ -91,6 +92,8 @@ class EditorHTMLTemplate {
             <div id="nodeArea">
                 <svg width="100%" height="100%" id="svgEditor"></svg>
             </div>
+            <div id="messages">
+            </div>
         </div>
         <div id="actionPanel">
             <div id="openProjectButton">Open</div>
@@ -108,11 +111,15 @@ class EditorHTMLTemplate {
         this.nodeAreaHTML = document.getElementById("nodeArea");
         this.nodeAreaSVG = document.getElementById("svgEditor") as SvgInHtml;
         this.actionPanel = document.getElementById("actionPanel");
+        this.messagePanel = document.getElementById("messages");
 
         this.editorAreaHTML.onmousedown = (ev: MouseEvent) => this.mousedown(ev);
         this.editorAreaHTML.onmousemove = (ev: MouseEvent) => this.mousemove(ev);
         this.editorAreaHTML.onmouseup = (ev: MouseEvent) => this.mouseup(ev);
         this.editorAreaHTML.onwheel = (ev: WheelEvent) => this.wheel(ev);
+
+        this.functionListHTML.onwheel = (ev: WheelEvent) => {ev.stopPropagation()};
+        this.messagePanel.onwheel = (ev: WheelEvent) => {ev.stopPropagation()};
 
         this.setupFunctionDialog();
         this.setupBottomMenu();
@@ -121,13 +128,13 @@ class EditorHTMLTemplate {
 
     private toggleFunctionPanel() {
         let nodes = document.getElementById("addNodeButton");
-        if(this.functionPanelHTML.style.display == 'none')
+        if(this.functionPanelHTML.hasAttribute("data-active"))
         {
-            nodes.classList.add('active');
-            this.functionPanelHTML.style.display = 'block';
-        } else {
             nodes.classList.remove('active');
-            this.functionPanelHTML.style.display = 'none';
+            this.functionPanelHTML.removeAttribute("data-active");
+        } else {
+            nodes.classList.add('active');
+            this.functionPanelHTML.setAttribute("data-active", "");
         }
     }
 
@@ -142,13 +149,16 @@ class EditorHTMLTemplate {
         `
 
         this.functionListHTML.insertAdjacentHTML("beforeend", func);
-        let funcHTML = this.functionPanelHTML.lastElementChild as HTMLElement;
+        let funcHTML = this.functionListHTML.lastElementChild as HTMLElement;
+
         funcHTML.onmousedown = (ev: MouseEvent) => {
             if (ev.button == 0) {
                 this.toggleFunctionPanel();
                 this.setMouse(ev);
                 let pos = this.mousePosition;
+
                 onmousedown(pos.x, pos.y);
+
                 ev.preventDefault();
                 ev.stopPropagation();
             }
@@ -160,7 +170,9 @@ class EditorHTMLTemplate {
         }
 
         this.functionMenu.push({
-            label: data.title + ' ' + data.description + ' ' + usesTypes(data).join(' '),
+            label: data.title.toLowerCase() + ' ' 
+                   + data.description.join(' ').toLowerCase() + ' ' 
+                   + usesTypes(data).join(' ').toLowerCase(),
             html: funcHTML
         });
     }
@@ -176,7 +188,7 @@ class EditorHTMLTemplate {
         let reload = document.getElementById("functionReloadAction");
 
         input.onkeyup = (ev: Event) => {
-            let query = input.value;
+            let query = input.value.toLowerCase();
             if (query == '')
                 this.functionMenu.map(v => v.html.style.display = 'block');
             else 
@@ -193,15 +205,14 @@ class EditorHTMLTemplate {
         reload.onclick = () => {
             this.clearFunctionList()
             DataManager.instance.send({
-                'command': 'load_functions'
-            }, (data) => NodeEditor.instance.initFunctions(data))
+                'command': 'loadFunctions'
+            });
         }
     }
 
     private setupBottomMenu() {
         let nodes = document.getElementById("addNodeButton");
         nodes.onclick = (ev: MouseEvent) => this.toggleFunctionPanel();
-        this.functionPanelHTML.style.display = 'none';
 
         let open = document.getElementById("openProjectButton");
         open.onclick = (ev: MouseEvent) => openProject();
@@ -308,7 +319,97 @@ class EditorHTMLTemplate {
                                         + this.transform.zoom + ')';
 
     }
+
+
+    messageIdx: number = 0;
+
+    /*message system*/
+    nonclosableMessage(title: string, body: string, timeout: number = 0) {
+        let messageIdx = this.messageIdx++;
+        let messageHTML = `
+        <div class="message" id="message${messageIdx}">
+            <div class="title">
+                ${title}
+            </div>
+            <div class="body">
+                ${body}
+            </div>
+        </div>
+        `
+        this.messagePanel.insertAdjacentHTML("beforeend", messageHTML);
+
+        if (timeout > 0)
+            setTimeout(() => {this.closeMessage(messageIdx)}, timeout)
+
+        return messageIdx;
+    }
+    
+    closableMessage(title: string, body: string, timeout: number = 0) {
+        let messageIdx = this.nonclosableMessage(title, body, timeout);
+
+        let message = this.messagePanel.lastElementChild as HTMLElement;
+        message.onclick = (ev: MouseEvent) => { this.closeMessage(messageIdx) };
+
+        return messageIdx;
+    }
+
+    closeMessage(messageIdx: number) {
+        let message = document.getElementById(`message${messageIdx}`);
+        if (message)
+            message.parentElement.removeChild(message);
+    }
+
+    closeAllMessages() {
+        this.messagePanel.innerHTML = "";
+    }
+
+    private createProgressBar() {
+        let pb = `
+        <div class="progressBar" id="messageProgressBarElement">
+            <div class="progressBarContainer">
+                <div class="progressBarLine" id="messageProgressBar"></div>
+            </div>
+            <div class="progressBarTitle" id="messageProgressBarTitle">
+        </div>
+        `
+        this.messagePanel.insertAdjacentHTML("beforeend", pb);
+        let pbHTML = this.messagePanel.lastElementChild as HTMLElement;
+        return pbHTML;
+    }
+
+    updateProgressbar(value: number, text: string) {
+        let pbBar: HTMLElement;
+        let pbTitle: HTMLElement;
+        let pb = document.getElementById("messageProgressBarElement");
+        
+        if (!pb)
+            this.createProgressBar();
+        
+        pbBar = document.getElementById("messageProgressBar");
+        pbTitle = document.getElementById("messageProgressBarTitle");
+
+        pbBar.style.width = `${value}%`;
+        pbTitle.innerHTML = text;
+
+        if (value == 100)
+            this.closeProgressbar();
+    }
+
+    closeProgressbar() {
+        let pb = document.getElementById("messageProgressBarElement");
+
+        if (!pb)
+            return;
+
+        pb.parentElement.removeChild(pb);
+    }
 }
+
+
+function nameFromPath(path: string) {
+    return path.split("/").slice(-1)[0].split("\\").slice(-1)[0];
+}
+
 
 function valueHTMLTitle(value: NodeValue) {
     switch (value.type) {
@@ -354,7 +455,7 @@ function valueHTMLValue(value: NodeValue) {
         case 'file':    
             return `
             <div class="value file">
-                    <input type="button" id="${value.node.id + value.param}" name="${value.node.id + value.param}", value="${value.value}">
+                    <input type="button" id="${value.node.id + value.param}" name="${value.node.id + value.param}", value="${nameFromPath(value.value as string)}">
             </div>
             `
         case 'number':    
@@ -434,13 +535,15 @@ function setupValueCallbacks(value: NodeValue) {
             
                 dialog.showOpenDialog(options).then( (result: any) => {
                     let filename = result.filePaths[0];
+                    //a little nasty hack
                     
                     if (filename === undefined) {
                         //user didnt choose
                         return;
                     }
                     
-                    file.value = filename;
+                    let name = nameFromPath(result.filePaths[0]);
+                    file.value = name;
                     value.value = filename;
                     }).catch((err: any) => {
                     alert(err)
@@ -491,12 +594,12 @@ class NodeHTMLTemplate {
 
     constructor(node: EditorNode, x: number, y: number) {
         const nodeHTML = `
-            <div class="node" id="${node.id}">
+            <div class="node ${node.disabled ? "disabled" : ""}" id="${node.id}">
                 <div class="title">${node.title}</div>
                 <div class="contents">
                     <div class="connectors">
                         ${node.inParams.map(param =>
-                            `<div class="connector in ${param.type}" title="${param.parameter} [${param.type}]"></div>`).join('')}
+                            `<div class="connector in ${param.type}" data-title="${param.parameter} [type ${param.type}]"></div>`).join('')}
                     </div>
                     
                     <div class="values">
@@ -509,7 +612,7 @@ class NodeHTMLTemplate {
                     </div>
                     <div class="connectors">
                         ${node.outParams.map(param =>
-                            `<div class="connector out ${param.type}" title="${param.parameter} [${param.type}]"></div>`).join('')}
+                            `<div class="connector out ${param.type}" data-title="${param.parameter} [type ${param.type}]"></div>`).join('')}
                     </div>
                 </div>   
             </div>   

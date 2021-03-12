@@ -1,7 +1,7 @@
 from os import walk, path
 from inspect import getmembers, isfunction
 import importlib
-import parameters
+from functions import MetaFunction
 import sys
 
 
@@ -19,12 +19,7 @@ def load_modules():
             if file_extension == '.py':
                 files.append([filename, path.join(scripts_dir, file)])
 
-    #module = importlib.import_module('scripts')
-    #print(dir(module))
-    #members = [ func[0] for func in getmembers(module) ]
-    #print(members)
-
-    parameters.enable_params()
+    MetaFunction.enableMeta()
 
     #find call method
     for module, file in files:
@@ -41,21 +36,16 @@ def load_modules():
             importlib.reload(pymodule)
 
         members = [ func[0] for func in getmembers(pymodule, isfunction) ]
+        
         if 'call' in members:
             modules[module] = pymodule
+            print(f"loading {module}")
+            metafunction = modules[module].call()
+            functionStruct = metafunction.toDict()
+            functionStruct['title'] = module
+            functions[module] = functionStruct
 
-            paramlist = modules[module].call()
-
-            functions[module] = {
-                'title': module,
-                'in': paramlist.inputParams(),
-                'out': paramlist.outputParams(),
-                'value': paramlist.valueParams(),
-                'description': paramlist.description(),
-                'ordered': paramlist.orderedParams()
-            }
-
-    parameters.disable_params()
+    MetaFunction.disableMeta()
     return modules, functions
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ enum ConnectorType {
 interface ConnectorInterface {
     param: string;
     type: string;
-    inout: ConnectorType;
 }
 
 interface ValueInterface {
@@ -17,16 +16,21 @@ interface ValueInterface {
 
 interface EditorFunction {
     title: string,
-    description: string,
+    description: string[],
     in: ConnectorInterface[],
     out: ConnectorInterface[],
-    value: ValueInterface[]
+    value: ValueInterface[],
+    disabled: boolean
 }
 
 function usesTypes(func: EditorFunction) {
     let inputs = func.in.map(val => val.type);
     let outputs = func.out.map(val => val.type);
     return inputs.concat(outputs.filter((item) => inputs.indexOf(item) < 0));
+}
+
+function objectEmpty(obj: Object) {
+    return obj && Object.keys(obj).length === 0 && obj.constructor === Object;
 }
 
 class Connection {
@@ -134,6 +138,9 @@ class Connection {
     }
 
     static load(outConn: Connector, inConn: Connector) {
+        if (!outConn || !inConn)
+            return;
+
         let connection = new Connection(outConn);
         connection.connect(inConn);
         connection.move(0, 0);
@@ -177,7 +184,6 @@ class Connector {
         return {
             param: this.parameter,
             type: this.type,
-            inout: this.inout,
             node: this.node.id,
             connections: connections
         }
@@ -214,6 +220,7 @@ class NodeValue {
 class EditorNode { 
     id: string;
     title: string;
+    disabled: boolean;
     
     inParams: Connector[];
     outParams: Connector[];
@@ -231,6 +238,7 @@ class EditorNode {
         } 
         
         this.title = structure.title;
+        this.disabled = structure.disabled;
 
         this.inParams = Array.from(structure.in, (con) => new Connector(con, ConnectorType.input, this));
         this.outParams = Array.from(structure.out, (con) => new Connector(con, ConnectorType.output, this));  
@@ -279,8 +287,9 @@ class EditorNode {
             },
             value: this.values.map(v => v.serialized),
             in: this.inParams.map(p => p.serialized),
-            out: this.outParams.map(p => p.serialized)
-        }
+            out: this.outParams.map(p => p.serialized),
+            disabled: this.disabled
+        };
     }
 
     checkRequiredInputs() {
@@ -321,7 +330,7 @@ class NodeEditor {
     private selectedNodes: { [name: string]: EditorNode } = {};
 
     private editorHTML: EditorHTMLTemplate;
-    private functions: EditorFunction[];
+    private functions: {[name: string]: EditorFunction};
 
     //Editor node is a singleton
     private constructor() { }
@@ -354,26 +363,38 @@ class NodeEditor {
 
         //init nodes
         DataManager.instance.send({
-            'command': 'load_functions'
-        }, (data) => this.initFunctions(data))
+            'command': 'loadFunctions'
+        })
     }
 
 
     initFunctions(data: any) {
         let types: string[] = [];
+        this.functions = data;
+
         for (let func in data) {
-            let funcInfo = data[func] as EditorFunction;
-            this.editorHTML.addFunctionToPanel(funcInfo,
+            let structure = data[func] as EditorFunction;
+            this.editorHTML.addFunctionToPanel(structure,
                 (x: number, y: number) => {
-                    let node = new EditorNode(funcInfo, x, y);
+                    
+                    let node = new EditorNode(structure, x, y);
                     this.nodes[node.id] = node;
                     this.selectNode(node.id);
                 });
 
-            types = types.concat(usesTypes(funcInfo).filter((item) => types.indexOf(item) < 0))
+            types = types.concat(usesTypes(structure).filter((item) => types.indexOf(item) < 0))
         }
 
         this.editorHTML.setupStyles(types);
+
+        if(!objectEmpty(this.nodes))
+            this.revalidate();
+    }
+
+
+    revalidate() {
+        let graph = this.serialized;
+        this.load(graph);
     }
 
     selectNode(nodeID: string) {
@@ -413,13 +434,96 @@ class NodeEditor {
         return JSON.stringify(nodes);
     }
 
+    debugMessage(title: string, message: string) {
+        this.ui.closableMessage(title, message, 0);
+    }
+
+    validateParameter(p: ConnectorInterface, structParams: ConnectorInterface[]) {
+        for(let sp of structParams) {
+            if (sp.param == p.param && sp.type == p.type)
+                return true;
+        }
+        return false;
+    }
+
+    validateStructure(struct: EditorFunction) {
+        
+        if(!(struct.title in this.functions))
+        {
+            this.debugMessage("Node structure not valid", `Node ${struct.title} is unknown.`)
+            return false;
+        }
+        
+        let f = this.functions[struct.title];
+
+        if (f.in.length != struct.in.length || f.out.length != struct.out.length)
+        {
+            this.debugMessage("Node structure not valid", `Node ${struct.title} has ${struct.in.length} inputs (${f.in.length} expected) and ${struct.out.length} outputs (${f.out.length} expected).`)
+            return false;
+        }
+
+        for(let p of f.in)
+            if (!this.validateParameter(p, struct.in))
+            {
+                this.debugMessage("Node structure not valid", `Node ${struct.title} missing input parameter ${p.param} [type ${p.type}].`)
+                return false;
+            }
+
+        for(let p of f.out)
+            if (!this.validateParameter(p, struct.out))
+            {
+                this.debugMessage("Node structure not valid", `Node ${struct.title} missing output parameter ${p.param} [type ${p.type}].`)
+                return false;
+            }
+
+        return true;
+    }
+
+    sortParameters(structParams: ConnectorInterface[], templateParams: ConnectorInterface[]) {
+        let params = [];
+        for(let p of templateParams)
+            for(let sp of structParams)
+                if (p.param == sp.param)    
+                    params.push(sp);
+
+        return params
+    }
+
+
+    sortConnectors(struct: EditorFunction) {
+        struct.in = this.sortParameters(struct.in, this.functions[struct.title].in);
+        struct.out = this.sortParameters(struct.out, this.functions[struct.title].out);
+    }
+
+
+    updateStructure(struct: EditorFunction) {
+        struct.description = this.functions[struct.title].description;
+        struct.disabled = this.functions[struct.title].disabled;
+        this.sortConnectors(struct);
+    }
+
+
+    validateConnection(inputNode: string, outNode: string) {
+        if (!(inputNode in this.nodes && outNode in this.nodes))
+            return false;
+        return true;
+    }
+
+
     load(contents: string) {
         try {
             let data = JSON.parse(contents);
             this.clear();
+            this.ui.closeAllMessages();
     
             for(let node of data) {
-                let n = EditorNode.load(node)
+                if (this.validateStructure(node)) {                  
+                    this.updateStructure(node);
+                } else {
+                    node["disabled"] = true;
+                }
+                
+                let n = EditorNode.load(node);
                 this.nodes[n.id] = n;
             }
 
@@ -427,13 +531,60 @@ class NodeEditor {
                 for(let param of node.in)
                     for(let conn of param.connections)
                     {
+                        if (!this.validateConnection(conn.out.node, conn.in.node))
+                            continue;
+                        
                         let outConn = this.nodes[conn.out.node].getConnector(ConnectorType.output, conn.out.connector);
                         let inConn = this.nodes[conn.in.node].getConnector(ConnectorType.input, conn.in.connector);
                         Connection.load(outConn, inConn);
                     }
         } catch (error) {
-            alert("File corrupted, cannot be loaded");
+            this.debugMessage("Loading file failed", "The file format is corrupted.")
         }
+    }
+
+    statusUpdate(data: any) {
+        switch (data.status) {
+            case 'functionsLoaded':
+                this.initFunctions(data.functions);
+                break;
+            case 'pipelineDone':
+                
+                break;
+            case 'error':
+                this.debugMessage("Pipeline Error", data.error);
+                break;
+            case 'nodeStarted':
+                this.debugMessage("Pipeline progress", `Node ${data.title} started.`);
+                break;
+            case 'nodeDone':
+                this.debugMessage("Pipeline progress", `Node ${data.title} finished.`);
+                break;
+            case 'progress':
+                this.ui.updateProgressbar(data.progress, data.message);
+                break;
+            case 'pipelineDone':
+                
+                break;    
+            default:
+                break;
+        }
+    }
+
+    recieved(data: any) {
+        if('status' in data)
+            this.statusUpdate(data);
+
+
+    }
+
+    runProject() {
+        let content = this.serialized;
+        this.ui.closeAllMessages();
+        DataManager.instance.send({
+            command: 'run',
+            graph: content
+        });
     }
 
     clear() {
