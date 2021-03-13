@@ -3,6 +3,30 @@ import json
 
 metaCommsSocket = None
 
+def setSocket(s):
+    global metaCommsSocket
+    metaCommsSocket = s
+
+
+def is_serializable(obj):
+    try:
+        json.dumps(obj)
+        return True
+    except:
+        return False
+
+
+def setLoop(loop):
+    asyncio.set_event_loop(loop)
+
+
+def closeLoop():
+    loop = asyncio.get_event_loop()
+    loop.close()
+
+
+##############################################
+
 
 async def asyncSend(message):
     global metaCommsSocket
@@ -12,11 +36,13 @@ async def asyncSend(message):
 
 
 def send(message):
-    asyncio.run(asyncSend(message))
+    loop = asyncio.get_event_loop()
+    asyncio.run_coroutine_threadsafe((asyncSend(message)), loop)
 
 
 def sendProgress(percentage, message):
     send({
+        "recipient": "editor",
         "status": "progress",
         "progress": percentage,
         "message": message
@@ -29,6 +55,7 @@ def sendProgressPerc(percentage):
 
 def sendNodeFinished(title):
     send({
+        "recipient": "editor",
         "status": "nodeDone",
         "title": title
     })
@@ -36,30 +63,43 @@ def sendNodeFinished(title):
 
 def sendNodeStarted(title):
     send({
+        "recipient": "editor",
         "status": "nodeStarted",
         "title": title
     })
 
+def sendClearViewer():
+    send({
+        "recipient": "viewer",
+        "status": "clearViewer"
+    })
+
+
+def sendAddLayer(data):
+    send({
+        "recipient": "viewer",
+        "status": "addLayer",
+        "layer": data
+    })
+
+
+##############################################
+
+
 def error(error):
     return json.dumps({
-        "status": error,
+        "recipient": "editor",
+        "status": "error",
         "error": "Pipeline processing failed: {}".format(error)
         })
 
 
 def functionList(data):
     return json.dumps({
+        "recipient": "editor",
         "status": "functionsLoaded",
         "functions": data
     })
-
-
-def is_serializable(obj):
-    try:
-        json.dumps(obj)
-        return True
-    except:
-        return False
 
 
 def pipelineResult(data):
@@ -70,11 +110,9 @@ def pipelineResult(data):
         response[key] = value if is_serializable(value) else "Python Object"
 
     return json.dumps({
+        "recipient": "editor",
         "status": "pipelineDone",
         "data": response
     })
 
 
-def setSocket(s):
-    global metaCommsSocket
-    metaCommsSocket = s

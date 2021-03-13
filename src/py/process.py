@@ -25,16 +25,20 @@ commands = {
 }
 
 
-def process(data): 
+def process(data, loop): 
     logger = logging.getLogger(__name__)
     command = data['command']
-    
+
+    comms.setLoop(loop)
+
     try:
         if command in commands:
             output = commands[command](data)
-            return output
 
     except Exception as e: 
         logger.error("Failed command {0}\n".format(str(command)))
         logger.exception(e)
-        return comms.error(e)
+        output = comms.error(e) 
+    
+    finally:
+        return output

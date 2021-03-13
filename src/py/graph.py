@@ -1,6 +1,6 @@
 from output import printOK
 from pprint import pprint
-from comms import sendNodeFinished, sendNodeStarted
+from comms import sendNodeFinished, sendNodeStarted, sendClearViewer
 
 def input_connectors(node):
     return node['in']
@@ -133,6 +133,8 @@ def compute(graph, modules, functions_struct):
     nodes = node_dict(graph)
     values = {}
 
+    sendClearViewer()
+    
     for node_id in order:
         node = nodes[node_id]
         

@@ -30,23 +30,23 @@ body {
   border-right: 1px solid #DDD;
 }
 
-#d3view {
-  width: 100vw;
-  height: 100vh;
-  background: #FFF;
-  display: none;
-}
-
-/* nodes */
-
 #nodes {
-  display: flex;
+  display: block;
   height: calc(100vh - 2rem);
   position: relative;
   overflow: hidden;
   background: #F8F8F8;
 }
 
+#viewer {
+  display: none;
+  height: calc(100vh - 2rem);
+  position: relative;
+  overflow: hidden;
+}
+
+
+/*nodes*/
 #nodeArea {
   position: relative;
   width: 100%;
@@ -381,9 +381,7 @@ input[type="checkbox"]:checked ~ .checkmark:after {
 
 #messages .message {
   padding: 0.5rem;
-  /*background: #FFF;
-  border: 1px solid #EEE;*/
-  margin-bottom: 0.5rem;
+  background: #F8F8F8;
 }
 
 #messages .message:hover {
@@ -396,11 +394,16 @@ input[type="checkbox"]:checked ~ .checkmark:after {
   margin-bottom: 0.5rem
 }
 
+#messages .progressBar {
+  background: #F8F8F8;
+}
+
 #messages .progressBarContainer {
   width: 20rem;
   height: 2px;
   margin-bottom: 0.5rem;
   background: #FFF;
+
 }
 
 #messages .progressBarLine {
@@ -409,3 +412,10 @@ input[type="checkbox"]:checked ~ .checkmark:after {
   float: right;
   transition: width 0.1s;
 }
+
+/*viewer*/
+#viewerCanvas {
+  width: 100%;
+  height: 100%;
+}
+

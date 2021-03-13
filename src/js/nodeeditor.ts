@@ -539,11 +539,15 @@ class NodeEditor {
                         Connection.load(outConn, inConn);
                     }
         } catch (error) {
+            console.error(error);
             this.debugMessage("Loading file failed", "The file format is corrupted.")
         }
     }
 
-    statusUpdate(data: any) {
+    recieved(data: any) {
+        if(!(data.recipient == "editor" && "status" in data))
+            return;
+
         switch (data.status) {
             case 'functionsLoaded':
                 this.initFunctions(data.functions);
@@ -569,13 +573,6 @@ class NodeEditor {
             default:
                 break;
         }
-    }
-
-    recieved(data: any) {
-        if('status' in data)
-            this.statusUpdate(data);
-
-
     }
 
     runProject() {

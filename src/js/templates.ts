@@ -31,6 +31,7 @@ class EditorHTMLTemplate {
     nodeAreaSVG: SvgInHtml;
     actionPanel: HTMLElement;
     messagePanel: HTMLElement;
+    viewerAreaHTML: HTMLElement;
 
     stagedConnection: Connection;
 
@@ -95,11 +96,16 @@ class EditorHTMLTemplate {
             <div id="messages">
             </div>
         </div>
+        <div id="viewer">
+            <canvas id="viewerCanvas"></canvas>
+        </div>
         <div id="actionPanel">
             <div id="openProjectButton">Open</div>
             <div id="saveProjectButton">Save</div>
             <div id="runProjectButton" class="delimiter">Run</div>
-            <div id="addNodeButton">Nodes</div>
+            <div id="addNodeButton" class="delimiter">Nodes Menu</div>
+            <div id="nodesButton">Nodes</div>
+            <div id="viewerButton">Viewer</div>
         </div>
         `
 
@@ -108,6 +114,7 @@ class EditorHTMLTemplate {
         this.functionPanelHTML = document.getElementById("functionPanel");
         this.functionListHTML = document.getElementById("functionList");
         this.editorAreaHTML = document.getElementById("nodes");
+        this.viewerAreaHTML = document.getElementById("viewer");
         this.nodeAreaHTML = document.getElementById("nodeArea");
         this.nodeAreaSVG = document.getElementById("svgEditor") as SvgInHtml;
         this.actionPanel = document.getElementById("actionPanel");
@@ -119,7 +126,6 @@ class EditorHTMLTemplate {
         this.editorAreaHTML.onwheel = (ev: WheelEvent) => this.wheel(ev);
 
         this.functionListHTML.onwheel = (ev: WheelEvent) => {ev.stopPropagation()};
-        this.messagePanel.onwheel = (ev: WheelEvent) => {ev.stopPropagation()};
 
         this.setupFunctionDialog();
         this.setupBottomMenu();
@@ -211,8 +217,8 @@ class EditorHTMLTemplate {
     }
 
     private setupBottomMenu() {
-        let nodes = document.getElementById("addNodeButton");
-        nodes.onclick = (ev: MouseEvent) => this.toggleFunctionPanel();
+        let nodeMenu = document.getElementById("addNodeButton");
+        nodeMenu.onclick = (ev: MouseEvent) => this.toggleFunctionPanel();
 
         let open = document.getElementById("openProjectButton");
         open.onclick = (ev: MouseEvent) => openProject();
@@ -221,6 +227,20 @@ class EditorHTMLTemplate {
         save.onclick = (ev: MouseEvent) => saveProject();
 
         let run = document.getElementById("runProjectButton");
+        run.onclick = (ev: MouseEvent) => runProject();
+
+        let nodes = document.getElementById("nodesButton");
+        nodes.onclick = () => {
+            this.editorAreaHTML.style.display = 'block';
+            this.viewerAreaHTML.style.display = 'none';
+        }
+
+        let viewer = document.getElementById("viewerButton");
+        viewer.onclick = () => {
+            this.editorAreaHTML.style.display = 'none';
+            this.viewerAreaHTML.style.display = 'block';
+            Viewer.instance.willAppear();
+        }
         run.onclick = (ev: MouseEvent) => runProject();
     }
 
@@ -340,6 +360,9 @@ class EditorHTMLTemplate {
 
         if (timeout > 0)
             setTimeout(() => {this.closeMessage(messageIdx)}, timeout)
+
+        let message = this.messagePanel.lastElementChild as HTMLElement;
+        message.onwheel = (ev: WheelEvent) => {ev.stopPropagation()};
 
         return messageIdx;
     }

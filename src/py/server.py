@@ -10,7 +10,7 @@ _executor = ThreadPoolExecutor(10)
 
 async def in_thread(func, params):
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(_executor, func, params)
+    return await loop.run_in_executor(_executor, func, params, loop)
 
 
 async def serve(websocket, path):
@@ -27,8 +27,10 @@ async def serve(websocket, path):
 
 
 if __name__ == "__main__":
-        HOST = 'localhost'
-        PORT_RECIEVE = 9003
-        start_server = websockets.serve(serve, HOST, PORT_RECIEVE)
-        asyncio.get_event_loop().run_until_complete(start_server)
-        asyncio.get_event_loop().run_forever()
+    HOST = 'localhost'
+    PORT_RECIEVE = 9003
+    start_server = websockets.serve(serve, HOST, PORT_RECIEVE)
+    asyncio.get_event_loop().run_until_complete(start_server)
+    asyncio.get_event_loop().run_forever()
+
+

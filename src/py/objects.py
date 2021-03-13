@@ -234,6 +234,10 @@ class MetaObjectLayer(MetaLayer):
         self.normals = []
         self.idxL1 = []
         self.idxL2 = []
+        self.bbox = {
+            'min': np.array([np.inf, np.inf, np.inf], dtype=np.float32),
+            'max': np.array([-np.inf, -np.inf, -np.inf], dtype=np.float32)
+        }
 
         self.meta = {}
         self.idxToId = {}
@@ -246,6 +250,7 @@ class MetaObjectLayer(MetaLayer):
         self.idxL1 = np.concatenate(self.idxL1)
         self.idxL2 = np.concatenate(self.idxL2)
 
+        self._computeBBox()
         self._computeNormals()
 
 
@@ -292,18 +297,26 @@ class MetaObjectLayer(MetaLayer):
         self.idxL2.append(np.full((nvert,), idxL2)) 
 
 
+    def _computeBBox(self):
+        nvert = self.triangles.shape[0] // 3
+        vertices = self.triangles.reshape((nvert, 3))
+        self.bbox['min'] = np.amin(vertices, axis=0).tolist()
+        self.bbox['max'] = np.amax(vertices, axis=0).tolist()
+
+
     def _computeNormals(self):
         ntri =  self.triangles.shape[0] // 9
         faces = self.triangles.reshape((ntri, 3, 3))
 
-        normals = np.cross(faces[::,1] - faces[::,0], faces[::,2] - faces[::,0])
+        normals = np.cross(faces[::,2] - faces[::,0], faces[::,1] - faces[::,0])
         normalize(normals)
         normals = np.repeat(normals, 3, axis=0)
         self.normals = normals.flatten()
 
 
-    def toJSON(self):
-        return json.dumps({
+    def toDict(self):
+        return {
+            "type": "objects",
             "triangles":  self.serialize_array(self.triangles, dtype=np.float32),
             "normals": self.serialize_array(self.normals, dtype=np.float32),
             "idxL1": self.serialize_array(self.idxL1, dtype=np.uint32),
@@ -311,5 +324,10 @@ class MetaObjectLayer(MetaLayer):
             "lod": self.lods,
             "meta": self.meta,
             "idToIdx": self.idToIdx,
-            "idxToId": self.idxToId
-        })
+            "idxToId": self.idxToId,
+            "bbox": self.bbox
+        }
+
+
+    def toJSON(self):
+        return json.dumps(self.toDict())

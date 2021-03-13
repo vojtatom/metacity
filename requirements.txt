@@ -8,3 +8,4 @@ numpy==1.20.1
 pyrsistent==0.17.3
 six==1.15.0
 websockets==8.1
+websocket-client==0.58.0

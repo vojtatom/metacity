@@ -11,8 +11,18 @@
 
     "files": [
       "externals/websocket.ts",
+      "externals/glmatrix.d.ts",
+      "externals/glmatrix.js",
       "datamanager.ts",
       "templates.ts",
+      "gl/canvasIO.ts",
+      "gl/camera.ts",
+      "gl/graphics.ts",
+      "gl/program.ts",
+      "gl/shadow.ts",
+      "gl/object.ts",
+      "gl/triangle.ts",
+      "viewer.ts",
       "nodeeditor.ts",
       "actions.ts",
       "index.ts"
