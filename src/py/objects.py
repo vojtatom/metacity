@@ -4,11 +4,12 @@ import numpy as np
 from typing import List
 import json
 import base64
-
+import uuid
 
 
 def progress(data, callback):
     if callable(callback):
+        progressID = str(uuid.uuid4())
         total = len(data)
         status = 0
         lastUpdate = -1
@@ -16,7 +17,7 @@ def progress(data, callback):
             status = (i / total) * 100
             yield d
             if status - lastUpdate > 1:
-                callback(int(status + 1))
+                callback(int(status + 1), progressID)
                 lastUpdate = status
     else:
         return data

@@ -100,7 +100,7 @@ class Viewer {
 
 
     addLayer(layer: GeneralLayerInterface) {
-        console.log(layer);
+        console.log("adding", layer);
         
         switch (layer.type) {
             case "objects":
@@ -151,5 +151,9 @@ class Viewer {
 
     errorCheck() {
         this.graphics.checkError();
+    }
+
+    resize() {
+        this.graphics.resize();
     }
 }

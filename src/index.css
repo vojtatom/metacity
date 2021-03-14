@@ -19,30 +19,55 @@ body {
 
 /* layout main */
 
-#editor {
+#main {
   width: 100vw;
   height: 100vh;
   background: #FFF;
-  overflow: auto;
+  overflow: auto; /*hidden*/
   display: flex;
-  flex-direction: column;
-  /*resize: horizontal;*/
-  border-right: 1px solid #DDD;
+  flex-direction: row;
 }
 
-#nodes {
-  display: block;
-  height: calc(100vh - 2rem);
+#applicationMenu {
+
+}
+
+#nodes,
+#viewer {
+  height: 100vh;
+  width: 100%;
   position: relative;
   overflow: hidden;
   background: #F8F8F8;
 }
 
+#nodes {
+  display: block;
+}
+
 #viewer {
   display: none;
-  height: calc(100vh - 2rem);
-  position: relative;
-  overflow: hidden;
+}
+
+
+/*application menu*/
+#applicationMenu > * {
+  text-align: center;
+  padding: 0.5rem;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+
+#applicationMenu > *:hover {
+  background: #EEE;
+}
+
+
+#applicationMenu > *::before {
+  content: url(assets/copy.svg);
+  width: 2rem;
+  display: block;
+  margin: 0.5rem auto 0.5rem;
 }
 
 
@@ -63,6 +88,8 @@ body {
   background: #FFF;
   border: 1px solid #DDD;
   display: none;
+  top: 0;
+  left: 0;
 }
 
 #functionPanel[data-active] {
@@ -70,18 +97,26 @@ body {
   flex-direction: column;
 }
 
-#nodePanel {
+#nodeMenu {
   position: absolute;
-  right: 0;
-  width: 200px;
-  height: 100%;
+  bottom: 2rem;
+  left: 2rem;
 }
 
-#actionPanel {
-  border-top: 1px solid #DDD;
-  display: flex;
-  height: 2rem;
+
+/* node menu */
+
+#nodeMenu > * {
+  padding: 0.5rem 1rem;
+  background: #FFF;
+  cursor: pointer;
 }
+
+#nodeMenu > *:hover {
+  background: #EEE;
+}
+
+
 
 /* function panel */
 #functionSearchBar {
@@ -99,11 +134,13 @@ body {
   width: 100%;
 }
 
-#clearFunctionSearch {
+#clearFunctionSearch,
+#closeFunctionPanel {
   cursor: pointer;
 }
 
-#clearFunctionSearch:hover {
+#clearFunctionSearch:hover,
+#closeFunctionPanel:hover {
   background: #EEE;
 }
 
@@ -368,50 +405,106 @@ input[type="checkbox"]:checked ~ .checkmark:after {
 
 /*messages*/
 
-#messages {
+#messagePanel {
   position: absolute;
   text-align: right;
-  top: 2rem;
   right: 0;
-  padding-right: 2rem;
-  max-width: 20rem;
-  height: calc(100vh - 5rem);
-  overflow: auto;
+  top: 0;
+  width: 22rem;
+  height: 100vh;
+  z-index: 15;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
 }
 
-#messages .message {
-  padding: 0.5rem;
+#messageList {
+   overflow: auto;
+   height: 100%;
+}
+
+#messagePanelTop {
+  display: none;
+
+}
+
+#messagePanel .message,
+#messagePanel .progressBar {
+  padding: 0.5rem 2rem;
+  width: 100%;
   background: #F8F8F8;
+  box-sizing: border-box;
+  pointer-events: all;
 }
 
-#messages .message:hover {
+#messagePanel .message {
+  display: none;
+}
+
+#messagePanel .message[data-active] {
+  display: block;
+}
+
+#messagePanel .message:hover {
   background: #fde9e9;
   cursor: pointer;
 }
 
-#messages .title {
+#messagePanel .title {
   font-size: 0.8em;
   margin-bottom: 0.5rem
 }
 
-#messages .progressBar {
+#messagePanel .progressBar {
   background: #F8F8F8;
 }
 
-#messages .progressBarContainer {
-  width: 20rem;
+#messagePanel .progressBarContainer {
   height: 2px;
   margin-bottom: 0.5rem;
   background: #FFF;
-
 }
 
-#messages .progressBarLine {
+#messagePanel .progressBarLine {
   background: #CCC;
   height: 100%;
   float: right;
   transition: width 0.1s;
 }
+
+/*message view*/
+
+#messagePanel[data-active] {
+  pointer-events: all;
+  background: #FFF;
+}
+
+#messagePanel[data-active] #messagePanelTop {
+  display: flex;
+  justify-content: flex-end;
+}
+
+#messagePanel[data-active] #closeMessagePanelButton {
+  padding: 1rem;
+}
+
+#messagePanel[data-active] #closeMessagePanelButton:hover{
+  background: #EEE;
+  cursor: pointer;
+}
+
+#messagePanel[data-active] .progressBar {
+  background: #FFF;
+}
+
+
+
+#messagePanel[data-active] .message {
+  display: block;
+  background: #FFF;
+}
+
+
 
 /*viewer*/
 #viewerCanvas {

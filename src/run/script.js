@@ -4006,580 +4006,257 @@ class DataManager {
         }
     }
 }
-let colorScheme = {
-    colors: [
-        [159, 237, 215],
-        [254, 249, 199],
-        [252, 225, 129]
-    ],
-    gray: [237, 234, 229],
-    black: [10, 10, 10]
+function HTMLElementType() {
+    return undefined;
+}
+function HTMLInputElementType() {
+    return undefined;
+}
+function SVGPathElementType() {
+    return undefined;
+}
+function SVGAElementType() {
+    return undefined;
+}
+function HTMLCanvasElementType() {
+    return undefined;
+}
+const Symbols = {
+    cross: '&#10005;',
+    erase: '&#8612;',
 };
-function createStyleRule(name, i, length) {
-    let colorIdx = (i / (length - 1)) * (colorScheme.colors.length - 1);
-    let colorA = Math.floor(colorIdx);
-    let colorB = Math.ceil(colorIdx);
-    let t = colorIdx - colorA;
-    return `.connector.${name} {
-        background: rgb(${colorScheme.colors[colorA].map((v, i) => v * (1 - t) + colorScheme.colors[colorB][i] * t).join(", ")});
-    }`;
-}
-class EditorHTMLTemplate {
-    constructor(parent) {
-        this.mouse = {
-            x: 0,
-            y: 0
-        };
-        this.functionMenu = [];
-        this.transform = {
-            zoom: 1,
-            x: 0,
-            y: 0,
-        };
-        this.moveArea = false;
-        this.moveActive = () => { };
-        this.clearSelectedNodes = () => { };
-        this.messageIdx = 0;
-        const editor = `
-        <div id="nodes">
-            <div id="functionPanel">
-                <div id="functionSearchBar">
-                    <label for="functionSearch">Search</label>
-                    <input type="text" id="functionSearch" name="functionSearch" placeholder="Node name or description">
-                    <div id="clearFunctionSearch">&#8612;</div>
-                </div>
-                <div id="functionActions">
-                    <div class="functionAction" id="functionReloadAction">Reaload Nodes</div>
-                    <div class="functionAction" id="functionNewScriptAction">New Script</div>
-                    <div class="functionAction" id="functionOpenFolderAction">Open Script Folder</div>
-                </div>
-                <div id="functionList"></div>
-            </div>
-            <div id="nodeArea">
-                <svg width="100%" height="100%" id="svgEditor"></svg>
-            </div>
-            <div id="messages">
-            </div>
-        </div>
-        <div id="viewer">
-            <canvas id="viewerCanvas"></canvas>
-        </div>
-        <div id="actionPanel">
-            <div id="openProjectButton">Open</div>
-            <div id="saveProjectButton">Save</div>
-            <div id="runProjectButton" class="delimiter">Run</div>
-            <div id="addNodeButton" class="delimiter">Nodes Menu</div>
-            <div id="nodesButton">Nodes</div>
-            <div id="viewerButton">Viewer</div>
-        </div>
-        `;
-        this.parentHTML = parent;
-        this.parentHTML.innerHTML = editor;
-        this.functionPanelHTML = document.getElementById("functionPanel");
-        this.functionListHTML = document.getElementById("functionList");
-        this.editorAreaHTML = document.getElementById("nodes");
-        this.viewerAreaHTML = document.getElementById("viewer");
-        this.nodeAreaHTML = document.getElementById("nodeArea");
-        this.nodeAreaSVG = document.getElementById("svgEditor");
-        this.actionPanel = document.getElementById("actionPanel");
-        this.messagePanel = document.getElementById("messages");
-        this.editorAreaHTML.onmousedown = (ev) => this.mousedown(ev);
-        this.editorAreaHTML.onmousemove = (ev) => this.mousemove(ev);
-        this.editorAreaHTML.onmouseup = (ev) => this.mouseup(ev);
-        this.editorAreaHTML.onwheel = (ev) => this.wheel(ev);
-        this.functionListHTML.onwheel = (ev) => { ev.stopPropagation(); };
-        this.setupFunctionDialog();
-        this.setupBottomMenu();
-        this.resize();
-    }
-    get mousePosition() {
-        let offsetX = (this.mouse.x - this.start.x - this.center.x - this.transform.x) / this.transform.zoom;
-        let offsetY = (this.mouse.y - this.start.y - this.center.y - this.transform.y) / this.transform.zoom;
-        let x = this.center.x + offsetX;
-        let y = this.center.y + offsetY;
-        return { x: x, y: y };
-    }
-    toggleFunctionPanel() {
-        let nodes = document.getElementById("addNodeButton");
-        if (this.functionPanelHTML.hasAttribute("data-active")) {
-            nodes.classList.remove('active');
-            this.functionPanelHTML.removeAttribute("data-active");
-        }
-        else {
-            nodes.classList.add('active');
-            this.functionPanelHTML.setAttribute("data-active", "");
-        }
-    }
-    addFunctionToPanel(data, onmousedown) {
-        const func = `
-        <div class="function">
-            <div class="labels">
-                <div class="title">${data.title}</div>
-                <div class="description">${data.description}</div>
-            </div>
-        </div>   
-        `;
-        this.functionListHTML.insertAdjacentHTML("beforeend", func);
-        let funcHTML = this.functionListHTML.lastElementChild;
-        funcHTML.onmousedown = (ev) => {
-            if (ev.button == 0) {
-                this.toggleFunctionPanel();
-                this.setMouse(ev);
-                let pos = this.mousePosition;
-                onmousedown(pos.x, pos.y);
-                ev.preventDefault();
-                ev.stopPropagation();
-            }
-        };
-        funcHTML.onmouseup = (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-        };
-        this.functionMenu.push({
-            label: data.title.toLowerCase() + ' '
-                + data.description.join(' ').toLowerCase() + ' '
-                + usesTypes(data).join(' ').toLowerCase(),
-            html: funcHTML
-        });
-    }
-    clearFunctionList() {
-        this.functionMenu = [];
-        this.functionListHTML.innerHTML = "";
-    }
-    setupFunctionDialog() {
-        let input = document.getElementById("functionSearch");
-        let clear = document.getElementById("clearFunctionSearch");
-        let reload = document.getElementById("functionReloadAction");
-        input.onkeyup = (ev) => {
-            let query = input.value.toLowerCase();
-            if (query == '')
-                this.functionMenu.map(v => v.html.style.display = 'block');
-            else
-                this.functionMenu.map(v => v.label.includes(query) ?
-                    v.html.style.display = 'block' :
-                    v.html.style.display = 'none');
-        };
-        clear.onclick = () => {
-            input.value = '';
-            this.functionMenu.map(v => v.html.style.display = 'block');
-        };
-        reload.onclick = () => {
-            this.clearFunctionList();
-            DataManager.instance.send({
-                'command': 'loadFunctions'
-            });
-        };
-    }
-    setupBottomMenu() {
-        let nodeMenu = document.getElementById("addNodeButton");
-        nodeMenu.onclick = (ev) => this.toggleFunctionPanel();
-        let open = document.getElementById("openProjectButton");
-        open.onclick = (ev) => openProject();
-        let save = document.getElementById("saveProjectButton");
-        save.onclick = (ev) => saveProject();
-        let run = document.getElementById("runProjectButton");
-        run.onclick = (ev) => runProject();
-        let nodes = document.getElementById("nodesButton");
-        nodes.onclick = () => {
-            this.editorAreaHTML.style.display = 'block';
-            this.viewerAreaHTML.style.display = 'none';
-        };
-        let viewer = document.getElementById("viewerButton");
-        viewer.onclick = () => {
-            this.editorAreaHTML.style.display = 'none';
-            this.viewerAreaHTML.style.display = 'block';
-            Viewer.instance.willAppear();
-        };
-        run.onclick = (ev) => runProject();
-    }
-    setupStyles(types) {
-        let style = document.getElementById("colorScheme");
-        if (!style) {
-            style = document.createElement('style');
-            document.getElementsByTagName('head')[0].appendChild(style);
-        }
-        style.innerHTML = `
-            ${types.map((t, i) => createStyleRule(t, i, types.length)).join("\n\n")}
-        `;
-    }
-    clear() {
-        this.stagedConnection = null;
-        while (this.nodeAreaHTML.children.length > 1) {
-            this.nodeAreaHTML.removeChild(this.nodeAreaHTML.lastElementChild);
-        }
-    }
-    mousedown(ev) {
-        if (!this.stagedConnection) {
-            this.moveArea = true;
-            return;
-        }
-        this.nodeAreaSVG.removeChild(this.stagedConnection.connHTML.line);
-        this.nodeAreaSVG.removeChild(this.stagedConnection.connHTML.selectLine);
-        this.stagedConnection = null;
-        ev.stopPropagation();
-        ev.preventDefault();
-    }
-    mousemove(ev) {
-        let dx = ev.clientX - this.mouse.x;
-        let dy = ev.clientY - this.mouse.y;
-        this.mouse.x = ev.clientX;
-        this.mouse.y = ev.clientY;
-        if (this.moveArea) {
-            this.transform.x += dx;
-            this.transform.y += dy;
-            this.applyTransform();
-        }
-        else {
-            dx = dx / this.transform.zoom;
-            dy = dy / this.transform.zoom;
-            this.moveActive(dx, dy);
-        }
-    }
-    setMouse(ev) {
-        this.mouse.x = ev.clientX;
-        this.mouse.y = ev.clientY;
-    }
-    mouseup(ev) {
-        this.clearSelectedNodes();
-        this.moveArea = false;
-    }
-    wheel(ev) {
-        let delta = -ev.deltaY / 1000;
-        delta = this.transform.zoom + delta > 0.1 ? delta : 0;
-        let old_zoom = this.transform.zoom;
-        this.transform.zoom = this.transform.zoom + delta;
-        this.transform.x = this.transform.x * (this.transform.zoom / old_zoom);
-        this.transform.y = this.transform.y * (this.transform.zoom / old_zoom);
-        this.applyTransform();
-        ev.preventDefault();
-    }
-    resize() {
-        const rect = this.editorAreaHTML.getBoundingClientRect();
-        this.center = { x: this.editorAreaHTML.offsetWidth / 2, y: this.editorAreaHTML.offsetHeight / 2 };
-        this.start = { x: rect.left, y: rect.top };
-    }
-    applyTransform() {
-        this.nodeAreaHTML.style.transform = 'translate(' + this.transform.x + 'px, '
-            + this.transform.y + 'px) scale('
-            + this.transform.zoom + ')';
-    }
-    nonclosableMessage(title, body, timeout = 0) {
-        let messageIdx = this.messageIdx++;
-        let messageHTML = `
-        <div class="message" id="message${messageIdx}">
-            <div class="title">
-                ${title}
-            </div>
-            <div class="body">
-                ${body}
-            </div>
-        </div>
-        `;
-        this.messagePanel.insertAdjacentHTML("beforeend", messageHTML);
-        if (timeout > 0)
-            setTimeout(() => { this.closeMessage(messageIdx); }, timeout);
-        let message = this.messagePanel.lastElementChild;
-        message.onwheel = (ev) => { ev.stopPropagation(); };
-        return messageIdx;
-    }
-    closableMessage(title, body, timeout = 0) {
-        let messageIdx = this.nonclosableMessage(title, body, timeout);
-        let message = this.messagePanel.lastElementChild;
-        message.onclick = (ev) => { this.closeMessage(messageIdx); };
-        return messageIdx;
-    }
-    closeMessage(messageIdx) {
-        let message = document.getElementById(`message${messageIdx}`);
-        if (message)
-            message.parentElement.removeChild(message);
-    }
-    closeAllMessages() {
-        this.messagePanel.innerHTML = "";
-    }
-    createProgressBar() {
-        let pb = `
-        <div class="progressBar" id="messageProgressBarElement">
-            <div class="progressBarContainer">
-                <div class="progressBarLine" id="messageProgressBar"></div>
-            </div>
-            <div class="progressBarTitle" id="messageProgressBarTitle">
-        </div>
-        `;
-        this.messagePanel.insertAdjacentHTML("beforeend", pb);
-        let pbHTML = this.messagePanel.lastElementChild;
-        return pbHTML;
-    }
-    updateProgressbar(value, text) {
-        let pbBar;
-        let pbTitle;
-        let pb = document.getElementById("messageProgressBarElement");
-        if (!pb)
-            this.createProgressBar();
-        pbBar = document.getElementById("messageProgressBar");
-        pbTitle = document.getElementById("messageProgressBarTitle");
-        pbBar.style.width = `${value}%`;
-        pbTitle.innerHTML = text;
-        if (value == 100)
-            this.closeProgressbar();
-    }
-    closeProgressbar() {
-        let pb = document.getElementById("messageProgressBarElement");
-        if (!pb)
-            return;
-        pb.parentElement.removeChild(pb);
+class HTMLContainer {
+    constructor() {
+        this.elements = {};
     }
 }
-function nameFromPath(path) {
-    return path.split("/").slice(-1)[0].split("\\").slice(-1)[0];
-}
-function valueHTMLTitle(value) {
-    switch (value.type) {
-        case 'string':
-            return `
-                <label for="${value.node.id + value.param}"><span class="title string">${value.param}</span></label>
-            `;
-        case 'file':
-            return `
-                <label for="${value.node.id + value.param}"><span class="title file">${value.param}</span></label>
-            `;
-        case 'number':
-            return `
-                <label for="${value.node.id + value.param}"><span class="title number">${value.param}</span></label>
-            `;
-        case 'color':
-            return `
-            <div class="value color">
-
-            </div>
-            `;
-        case 'bool':
-            return `
-                <label for="${value.node.id + value.param}"><span class="title bool">${value.param}</span></label>
-            `;
-        case 'vec3':
-            return `
-                <label for="${value.node.id + value.param}"><span class="title vec3">${value.param}</span></label>
-            `;
-        default:
-            break;
+class HTMLComponent extends HTMLContainer {
+    constructor() {
+        super();
+    }
+    initElements() {
+        for (let id in this.elements) {
+            this.elements[id] = document.getElementById(id);
+        }
+        for (let id in this.components) {
+            let comp = this.components[id];
+            if (comp instanceof StaticHTMLComponent)
+                comp.initElements();
+        }
+    }
+    compile(parent) {
+        let contents = this.render();
+        parent.innerHTML += contents;
+        this.initElements();
+        this.setupComponents();
+    }
+    setupComponents() {
+        for (let id in this.components) {
+            let comp = this.components[id];
+            if (comp instanceof StaticHTMLComponent)
+                comp.setup();
+            if (comp instanceof HTMLComponent)
+                comp.setupComponents();
+        }
+    }
+    appenToEnd(parent, html) {
+        parent.insertAdjacentHTML("beforeend", html);
+        return parent.lastElementChild;
+    }
+    toggleElement(elem) {
+        if (elem.hasAttribute("data-active"))
+            elem.removeAttribute("data-active");
+        else
+            elem.setAttribute("data-active", "");
     }
 }
-function valueHTMLValue(value) {
-    switch (value.type) {
-        case 'string':
-            return `
-            <div class="value string">
-                <input type="text" id="${value.node.id + value.param}" name="${value.node.id + value.param}" value="${value.value}">
-            </div>
-            `;
-        case 'file':
-            return `
-            <div class="value file">
-                    <input type="button" id="${value.node.id + value.param}" name="${value.node.id + value.param}", value="${nameFromPath(value.value)}">
-            </div>
-            `;
-        case 'number':
-            return `
-            <div class="value number">
-                    <input type="number" id="${value.node.id + value.param}" name="${value.node.id + value.param}" value="${value.value}">
-            </div>
-            `;
-        case 'color':
-            return `
-            <div class="value color">
-
-            </div>
-            `;
-        case 'bool':
-            return `
-            <div class="value bool">
-                <label for="${value.node.id + value.param}">
-                    <input type="checkbox" id="${value.node.id + value.param}" name="${value.node.id + value.param}" ${value.value ? 'Checked' : ''}>
-                    <span class="checkmark"></span>
-                </label>
-            </div>
-            `;
-        case 'vec3':
-            return `
-            <div class="value vec3">
-                    <input type="number" id="${value.node.id + value.param + 'x'}" name="${value.node.id + value.param}" value="${value.value[0]}">
-                    <input type="number" id="${value.node.id + value.param + 'y'}" name="${value.node.id + value.param}" value="${value.value[1]}">
-                    <input type="number" id="${value.node.id + value.param + 'z'}" name="${value.node.id + value.param}" value="${value.value[2]}">
-            </div>
-            `;
-        default:
-            break;
+class StaticHTMLComponent extends HTMLComponent {
+    constructor() {
+        super();
     }
 }
 function nothing(ev) {
     ev.stopPropagation();
 }
-function setupValueCallbacks(value) {
-    switch (value.type) {
-        case 'string':
-        case 'number':
-            let input = document.getElementById(value.node.id + value.param);
-            input.onkeyup = (ev) => {
-                value.value = input.value;
-            };
-            input.onmousedown = nothing;
-            input.onmousemove = nothing;
-            break;
-        case 'bool':
-            let checkbox = document.getElementById(value.node.id + value.param);
-            checkbox.onchange = (ev) => {
-                value.value = checkbox.checked;
-            };
-            checkbox.onmousedown = nothing;
-            checkbox.onmousemove = nothing;
-        case 'color':
-            let color = document.getElementById(value.node.id + value.param);
-            break;
-        case 'file':
-            let file = document.getElementById(value.node.id + value.param);
-            file.onclick = (ev) => {
-                let options = {
-                    defaultPath: value.value
-                };
-                dialog.showOpenDialog(options).then((result) => {
-                    let filename = result.filePaths[0];
-                    if (filename === undefined) {
-                        return;
-                    }
-                    let name = nameFromPath(result.filePaths[0]);
-                    file.value = name;
-                    value.value = filename;
-                }).catch((err) => {
-                    alert(err);
-                });
-            };
-            break;
-        case 'vec3':
-            let vec3x = document.getElementById(value.node.id + value.param + 'x');
-            let vec3y = document.getElementById(value.node.id + value.param + 'y');
-            let vec3z = document.getElementById(value.node.id + value.param + 'z');
-            let callback = (ev) => {
-                value.value = [parseFloat(vec3x.value), parseFloat(vec3y.value), parseFloat(vec3z.value)];
-            };
-            [vec3x, vec3y, vec3z].map(elem => {
-                elem.onkeydown = callback;
-                elem.onmousedown = nothing;
-                elem.onmousemove = nothing;
+function nameFromPath(path) {
+    return path.split("/").slice(-1)[0].split("\\").slice(-1)[0];
+}
+class FunctionItemComponent extends HTMLComponent {
+    constructor(data) {
+        super();
+        this.data = data;
+        this.label = data.title.toLowerCase() + ' '
+            + data.description.join(' ').toLowerCase() + ' '
+            + usesTypes(data).join(' ').toLowerCase();
+    }
+    render() {
+        return `
+        <div class="function">
+            <div class="labels">
+                <div class="title">${this.data.title}</div>
+                <div class="description">${this.data.description}</div>
+            </div>
+        </div>  
+        `;
+    }
+}
+class FunctionPanelComponent extends StaticHTMLComponent {
+    constructor() {
+        super();
+        this.elements = {
+            functionSearchBar: HTMLElementType(),
+            functionSearch: HTMLInputElementType(),
+            clearFunctionSearch: HTMLElementType(),
+            closeFunctionPanel: HTMLElementType(),
+            functionReloadAction: HTMLElementType(),
+            functionList: HTMLElementType()
+        };
+        this.functions = [];
+    }
+    render() {
+        return `
+        <div id="functionSearchBar">
+            <label for="functionSearch">Search</label>
+            <input type="text" id="functionSearch" name="functionSearch" placeholder="Node name or description">
+            <div id="clearFunctionSearch">${Symbols.erase}</div>
+            <div id="closeFunctionPanel">${Symbols.cross}</div>
+        </div>
+        <div id="functionActions">
+            <div class="functionAction" id="functionReloadAction">Reaload Nodes</div>
+            <div class="functionAction" id="functionNewScriptAction">New Script</div>
+            <div class="functionAction" id="functionOpenFolderAction">Open Script Folder</div>
+        </div>
+        <div id="functionList"></div>
+        `;
+    }
+    loadFunction(data) {
+        let func = new FunctionItemComponent(data);
+        let funcHTML = this.appenToEnd(this.elements.functionList, func.render());
+        func.elements.function = funcHTML;
+        this.functions.push(func);
+        return funcHTML;
+    }
+    clearFunctionList() {
+        this.functions = [];
+        this.elements.functionList.innerHTML = "";
+    }
+    setup() {
+        this.elements.functionSearch.onkeyup = (ev) => {
+            let query = this.elements.functionSearch.value.toLowerCase();
+            if (query == '')
+                this.functions.map(v => v.elements.function.style.display = 'block');
+            else
+                this.functions.map(v => v.label.includes(query) ?
+                    v.elements.function.style.display = 'block' :
+                    v.elements.function.style.display = 'none');
+        };
+        this.elements.clearFunctionSearch.onclick = () => {
+            this.elements.functionSearch.value = '';
+            this.functions.map(v => v.elements.function.style.display = 'block');
+        };
+        this.elements.functionReloadAction.onclick = () => {
+            this.clearFunctionList();
+            DataManager.instance.send({
+                'command': 'loadFunctions'
             });
-        default:
-            break;
-    }
-}
-function setupConnector(node, nodeHTML, connectorHTML, param) {
-    for (let i = 0; i < connectorHTML.length; ++i) {
-        param[i].connHTML = new ConnectorHTMLTemplate(connectorHTML[i], nodeHTML);
-        connectorHTML[i].onmousedown = (ev) => {
-            node.addConnection(param[i]);
-            ev.preventDefault();
-            ev.stopPropagation();
+        };
+        this.elements.closeFunctionPanel.onclick = (ev) => {
+            this.toggleElement(NodeEditor.ui.elements.functionPanel);
         };
     }
 }
-class NodeHTMLTemplate {
-    constructor(node, x, y) {
-        this.pos = {
-            x: 0,
-            y: 0
+class NodeEditorMenuComponent extends StaticHTMLComponent {
+    constructor() {
+        super();
+        this.elements = {
+            functionPanelButton: HTMLElementType(),
         };
-        const nodeHTML = `
-            <div class="node ${node.disabled ? "disabled" : ""}" id="${node.id}">
-                <div class="title">${node.title}</div>
-                <div class="contents">
-                    <div class="connectors">
-                        ${node.inParams.map(param => `<div class="connector in ${param.type}" data-title="${param.parameter} [type ${param.type}]"></div>`).join('')}
-                    </div>
-                    
-                    <div class="values">
-                        <div class="values-titles">
-                            ${node.values.map(value => valueHTMLTitle(value)).join('')}
-                        </div>
-                        <div class="values-values">
-                            ${node.values.map(value => valueHTMLValue(value)).join('')}
-                        </div>
-                    </div>
-                    <div class="connectors">
-                        ${node.outParams.map(param => `<div class="connector out ${param.type}" data-title="${param.parameter} [type ${param.type}]"></div>`).join('')}
-                    </div>
-                </div>   
-            </div>   
-            `;
-        let area = NodeEditor.instance.ui.nodeAreaHTML;
-        area.insertAdjacentHTML("beforeend", nodeHTML);
-        this.nodeHTML = area.lastElementChild;
-        node.values.map(value => setupValueCallbacks(value));
-        this.pos.x = x;
-        this.pos.y = y;
-        let inParamHTMLs = this.nodeHTML.lastElementChild.firstElementChild.children;
-        let outParamHTMLs = this.nodeHTML.lastElementChild.lastElementChild.children;
-        setupConnector(node, this, inParamHTMLs, node.inParams);
-        setupConnector(node, this, outParamHTMLs, node.outParams);
-        this.nodeHTML.onmousedown = (ev) => this.onmousedown(ev, node);
-        this.move = (dx, dy) => this.onmove(dx, dy, node);
-        this.applyTransform();
     }
-    applyTransform() {
-        this.nodeHTML.style.transform = 'translate(' + this.pos.x + 'px, ' + this.pos.y + 'px)';
+    render() {
+        return `
+        <div id="functionPanelButton">Nodes</div>
+        `;
     }
-    remove() {
-        NodeEditor.instance.ui.nodeAreaHTML.removeChild(this.nodeHTML);
-    }
-    onmousedown(ev, node) {
-        if (ev.button == 0) {
-            NodeEditor.instance.selectNode(this.nodeHTML.id);
-        }
-        else if (ev.button == 2) {
-            node.remove();
-            this.remove();
-        }
-        ev.preventDefault();
-        ev.stopPropagation();
-    }
-    onmove(dx, dy, node) {
-        this.pos.x += dx;
-        this.pos.y += dy;
-        this.applyTransform();
-        for (let param of node.inParams)
-            param.drawConnections();
-        for (let param of node.outParams)
-            param.drawConnections();
-    }
-    setNotActive() {
-        this.nodeHTML.classList.add("nonactive");
-    }
-    setActive() {
-        this.nodeHTML.classList.remove("nonactive");
+    setup() {
+        this.elements.functionPanelButton.onclick = (ev) => {
+            this.toggleElement(NodeEditor.ui.elements.functionPanel);
+        };
     }
 }
-class ConnectorHTMLTemplate {
-    constructor(elem, nodeHTML) {
-        this.nodeHTML = nodeHTML;
-        this.connHTML = elem;
+class ApplicationMenuComponent extends StaticHTMLComponent {
+    constructor() {
+        super();
+        this.elements = {
+            openProjectButton: HTMLElementType(),
+            saveProjectButton: HTMLElementType(),
+            runProjectButton: HTMLElementType(),
+            nodesButton: HTMLElementType(),
+            viewerButton: HTMLElementType(),
+            messageButton: HTMLElementType(),
+        };
+    }
+    render() {
+        return `
+        <div id="openProjectButton">Open</div>
+        <div id="saveProjectButton">Save</div>
+        <div id="runProjectButton" class="delimiter">Run</div>
+        <div id="nodesButton">Nodes</div>
+        <div id="viewerButton">Viewer</div>
+        <div id="messageButton">Messages</div>
+        `;
+    }
+    setup() {
+        this.elements.openProjectButton.onclick = (ev) => openProject();
+        this.elements.saveProjectButton.onclick = (ev) => saveProject();
+        this.elements.runProjectButton.onclick = (ev) => runProject();
+        this.elements.nodesButton.onclick = () => {
+            Application.ui.openNodeEditor();
+        };
+        this.elements.viewerButton.onclick = () => {
+            Application.ui.openViewer();
+        };
+        this.elements.runProjectButton.onclick = () => runProject();
+        this.elements.messageButton.onclick = () => {
+            this.toggleElement(Application.ui.messages.elements.messagePanel);
+        };
+    }
+}
+class ConnectorHTMLContainer extends HTMLContainer {
+    constructor(connector, node) {
+        super();
+        this.elements = {
+            connector: HTMLElementType()
+        };
+        this.elements = {
+            connector: connector
+        };
+        this.components = {
+            node: node
+        };
     }
     get pos() {
-        let offTop = this.connHTML.offsetTop;
-        let offLeft = this.connHTML.offsetLeft;
-        let pos = this.nodeHTML.pos;
+        let offTop = this.elements.connector.offsetTop;
+        let offLeft = this.elements.connector.offsetLeft;
+        let pos = this.components.node.pos;
         return {
             x: pos.x + offLeft + 20 / 2,
             y: pos.y + offTop + 20 / 2
         };
     }
 }
-class ConnectionHTMLTemplate {
+class ConnectionHTMLContainer extends HTMLContainer {
     constructor(connection) {
-        this.line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        this.line.classList.add("connection");
-        this.selectLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        this.selectLine.classList.add("fatline");
-        this.selectLine.onmousedown = (ev) => this.onmousedown(ev, connection);
-        this.move = () => this.onmove(connection);
-        NodeEditor.instance.ui.nodeAreaSVG.appendChild(this.line);
-        NodeEditor.instance.ui.nodeAreaSVG.appendChild(this.selectLine);
+        super();
+        this.elements = {
+            line: SVGPathElementType(),
+            selectLine: SVGPathElementType()
+        };
+        this.connection = connection;
+        this.elements.line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        this.elements.line.classList.add("connection");
+        this.elements.selectLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        this.elements.selectLine.classList.add("fatline");
+        this.elements.selectLine.onmousedown = (ev) => this.onmousedown(ev, connection);
     }
     redraw(inx, iny, outx, outy) {
         let handle = Math.min(Math.max((outy - iny) / 2 - 10, 0), 100);
@@ -4590,19 +4267,19 @@ class ConnectionHTMLTemplate {
         let d = 'M' + startx + ' ' + starty;
         d += ' C ' + (startx) + ' ' + (starty + handle) + ', ' + (endx) + ' ' + (endy - handle);
         d += ', ' + endx + ' ' + endy;
-        this.line.setAttribute('d', d);
-        this.selectLine.setAttribute('d', d);
+        this.elements.line.setAttribute('d', d);
+        this.elements.selectLine.setAttribute('d', d);
     }
     remove() {
-        NodeEditor.instance.ui.nodeAreaSVG.removeChild(this.line);
-        NodeEditor.instance.ui.nodeAreaSVG.removeChild(this.selectLine);
+        this.elements.line.parentElement.removeChild(this.elements.line);
+        this.elements.selectLine.parentElement.removeChild(this.elements.selectLine);
     }
     onmousedown(ev, connection) {
         if (connection.in && connection.out) {
             if (ev.button == 0) {
                 let posIn = connection.in.connHTML.pos;
                 let posOut = connection.out.connHTML.pos;
-                let pos = NodeEditor.instance.ui.mousePosition;
+                let pos = NodeEditor.ui.mousePosition;
                 let distIn = (posIn.x - pos.x) * (posIn.x - pos.x) + (posIn.y - pos.y) * (posIn.y - pos.y);
                 let distOut = (posOut.x - pos.x) * (posOut.x - pos.x) + (posOut.y - pos.y) * (posOut.y - pos.y);
                 connection.deregister();
@@ -4615,7 +4292,7 @@ class ConnectionHTMLTemplate {
                     connection.out = null;
                     source = connection.in;
                 }
-                NodeEditor.instance.ui.stagedConnection = connection;
+                NodeEditor.instance.stageConnection(connection);
                 this.move();
             }
             else if (ev.button == 2) {
@@ -4626,23 +4303,604 @@ class ConnectionHTMLTemplate {
         }
     }
     ;
-    onmove(connection) {
+    move() {
         let inpos, outpos;
-        let pos = NodeEditor.instance.ui.mousePosition;
-        if (connection.in && connection.out) {
-            inpos = connection.in.connHTML.pos;
-            outpos = connection.out.connHTML.pos;
+        let pos = NodeEditor.ui.mousePosition;
+        if (this.connection.in && this.connection.out) {
+            inpos = this.connection.in.connHTML.pos;
+            outpos = this.connection.out.connHTML.pos;
         }
-        else if (connection.in) {
-            inpos = connection.in.connHTML.pos;
+        else if (this.connection.in) {
+            inpos = this.connection.in.connHTML.pos;
             outpos = pos;
             this.redraw(pos.x, pos.y, inpos.x, inpos.y);
         }
-        else if (connection.out) {
+        else if (this.connection.out) {
             inpos = pos;
-            outpos = connection.out.connHTML.pos;
+            outpos = this.connection.out.connHTML.pos;
         }
         this.redraw(outpos.x, outpos.y, inpos.x, inpos.y);
+    }
+}
+class ValueComponent {
+}
+;
+class StringValueComponent extends ValueComponent {
+    static title(value) {
+        return `<label for="${value.node.id + value.param}"><span class="title string">${value.param}</span></label>`;
+    }
+    static value(value) {
+        return `
+        <div class="value string">
+            <input type="text" id="${value.node.id + value.param}" name="${value.node.id + value.param}" value="${value.value}">
+        </div>
+        `;
+    }
+    static callback(value) {
+        let input = document.getElementById(value.node.id + value.param);
+        input.onkeyup = (ev) => { value.value = input.value; };
+        input.onmousedown = nothing;
+        input.onmousemove = nothing;
+    }
+}
+class NumberValueComponent extends ValueComponent {
+    static title(value) {
+        return `<label for="${value.node.id + value.param}"><span class="title number">${value.param}</span></label>`;
+    }
+    static value(value) {
+        return `
+        <div class="value number">
+            <input type="number" id="${value.node.id + value.param}" name="${value.node.id + value.param}" value="${value.value}">
+        </div>
+        `;
+    }
+    static callback(value) {
+        let input = document.getElementById(value.node.id + value.param);
+        input.onkeyup = (ev) => { value.value = input.value; };
+        input.onmousedown = nothing;
+        input.onmousemove = nothing;
+    }
+}
+class FileValueComponent extends ValueComponent {
+    static title(value) {
+        return `<label for="${value.node.id + value.param}"><span class="title file">${value.param}</span></label>`;
+    }
+    static value(value) {
+        return `
+        <div class="value file">
+            <input type="button" id="${value.node.id + value.param}" name="${value.node.id + value.param}", value="${nameFromPath(value.value)}">
+        </div>
+        `;
+    }
+    static callback(value) {
+        let file = document.getElementById(value.node.id + value.param);
+        file.onclick = (ev) => {
+            let options = {
+                defaultPath: value.value
+            };
+            dialog.showOpenDialog(options).then((result) => {
+                let filename = result.filePaths[0];
+                if (filename === undefined) {
+                    return;
+                }
+                let name = nameFromPath(result.filePaths[0]);
+                file.value = name;
+                value.value = filename;
+            }).catch((err) => {
+                alert(err);
+            });
+        };
+    }
+}
+class Vec3ValueComponent extends ValueComponent {
+    static title(value) {
+        return `
+        <label for="${value.node.id + value.param}"><span class="title vec3">${value.param}</span></label>
+    `;
+    }
+    static value(value) {
+        return `
+        <div class="value vec3">
+            <input type="number" id="${value.node.id + value.param + 'x'}" name="${value.node.id + value.param}" value="${value.value[0]}">
+            <input type="number" id="${value.node.id + value.param + 'y'}" name="${value.node.id + value.param}" value="${value.value[1]}">
+            <input type="number" id="${value.node.id + value.param + 'z'}" name="${value.node.id + value.param}" value="${value.value[2]}">
+        </div>
+        `;
+    }
+    static callback(value) {
+        let vec3x = document.getElementById(value.node.id + value.param + 'x');
+        let vec3y = document.getElementById(value.node.id + value.param + 'y');
+        let vec3z = document.getElementById(value.node.id + value.param + 'z');
+        let callback = (ev) => {
+            value.value = [parseFloat(vec3x.value), parseFloat(vec3y.value), parseFloat(vec3z.value)];
+        };
+        [vec3x, vec3y, vec3z].map(elem => {
+            elem.onkeydown = callback;
+            elem.onmousedown = nothing;
+            elem.onmousemove = nothing;
+        });
+    }
+}
+class BoolValueComponent extends ValueComponent {
+    static title(value) {
+        return `
+        <label for="${value.node.id + value.param}"><span class="title bool">${value.param}</span></label>
+    `;
+    }
+    static value(value) {
+        return `
+        <div class="value bool">
+            <label for="${value.node.id + value.param}">
+                <input type="checkbox" id="${value.node.id + value.param}" name="${value.node.id + value.param}" ${value.value ? 'Checked' : ''}>
+                <span class="checkmark"></span>
+            </label>
+        </div>
+        `;
+    }
+    static callback(value) {
+        let checkbox = document.getElementById(value.node.id + value.param);
+        checkbox.onchange = (ev) => {
+            value.value = checkbox.checked;
+        };
+        checkbox.onmousedown = nothing;
+        checkbox.onmousemove = nothing;
+    }
+}
+const ValueInitializer = {
+    string: StringValueComponent,
+    number: NumberValueComponent,
+    bool: BoolValueComponent,
+    file: FileValueComponent,
+    vec3: Vec3ValueComponent
+};
+class NodeComponent extends HTMLComponent {
+    constructor(node) {
+        super();
+        this.elements = {
+            node: HTMLElementType()
+        };
+        this.pos = {
+            x: 0,
+            y: 0
+        };
+        this.node = node;
+    }
+    render() {
+        return `
+        <div class="node ${this.node.disabled ? "disabled" : ""}" id="${this.node.id}">
+        <div class="title">${this.node.title}</div>
+        <div class="contents">
+            <div class="connectors">${this.node.inParams.map(param => `<div class="connector in ${param.type}" data-title="${param.parameter} [type ${param.type}]">
+                 </div>`).join('')}
+            </div>
+            <div class="values">
+                <div class="values-titles">
+                    ${this.node.values.map(value => ValueInitializer[value.type].title(value)).join('')}
+                </div>
+                <div class="values-values">
+                    ${this.node.values.map(value => ValueInitializer[value.type].value(value)).join('')}
+                </div>
+            </div>
+            <div class="connectors">${this.node.outParams.map(param => `<div class="connector out ${param.type}" data-title="${param.parameter} [type ${param.type}]">
+                 </div>`).join('')}
+            </div>
+        </div>   
+    </div>   
+        `;
+    }
+    get id() {
+        return this.node.id;
+    }
+    get inputConnectors() {
+        return this.elements.node.lastElementChild.firstElementChild.children;
+    }
+    get outputConnectors() {
+        return this.elements.node.lastElementChild.lastElementChild.children;
+    }
+    init(elem, x, y) {
+        this.elements.node = elem;
+        this.pos.x = x;
+        this.pos.y = y;
+        this.node.values.map(value => ValueInitializer[value.type].callback(value));
+        console.log(this.node);
+        this.setupConnector(this.inputConnectors, this.node.inParams);
+        this.setupConnector(this.outputConnectors, this.node.outParams);
+        this.elements.node.onmousedown = (ev) => this.mousedown(ev);
+        this.applyTransform();
+    }
+    move(dx, dy) {
+        this.pos.x += dx;
+        this.pos.y += dy;
+        this.applyTransform();
+        for (let param of this.node.inParams)
+            param.drawConnections();
+        for (let param of this.node.outParams)
+            param.drawConnections();
+    }
+    mousedown(ev) {
+        if (ev.button == 0) {
+            NodeEditor.instance.selectNode(this.elements.node.id);
+        }
+        else if (ev.button == 2) {
+            this.node.remove();
+            this.remove();
+        }
+        ev.preventDefault();
+        ev.stopPropagation();
+    }
+    remove() {
+        this.elements.node.parentElement.removeChild(this.elements.node);
+    }
+    setupConnector(connectorHTML, param) {
+        for (let i = 0; i < connectorHTML.length; ++i) {
+            param[i].connHTML = new ConnectorHTMLContainer(connectorHTML[i], this);
+            connectorHTML[i].onmousedown = (ev) => {
+                this.node.addConnection(param[i]);
+                ev.preventDefault();
+                ev.stopPropagation();
+            };
+        }
+    }
+    setNotActive() {
+        this.elements.node.classList.add("nonactive");
+    }
+    setActive() {
+        this.elements.node.classList.remove("nonactive");
+    }
+    applyTransform() {
+        this.elements.node.style.transform = 'translate(' + this.pos.x + 'px, ' + this.pos.y + 'px)';
+    }
+}
+class ProgressBarComponent extends HTMLComponent {
+    constructor(id) {
+        super();
+        this.elements = {
+            container: HTMLElementType(),
+            title: HTMLElementType(),
+            bar: HTMLElementType()
+        };
+        this.id = `progressbar${id}`;
+    }
+    render() {
+        return `
+        <div class="progressBar" id="${this.id}">
+            <div class="progressBarContainer">
+                <div class="progressBarLine" id="messageProgressBar"></div>
+            </div>
+            <div class="progressBarTitle" id="messageProgressBarTitle">
+        </div>
+        `;
+    }
+    init(elem) {
+        this.elements.container = elem;
+        this.elements.title = elem.lastElementChild;
+        this.elements.bar = elem.firstElementChild.firstElementChild;
+    }
+    update(value, text) {
+        this.elements.bar.style.width = `${value}%`;
+        this.elements.title.innerHTML = text;
+        if (value == 100)
+            this.remove();
+    }
+    remove() {
+        this.elements.container.parentElement.removeChild(this.elements.container);
+    }
+}
+class MessageComponent extends HTMLComponent {
+    constructor(title, body) {
+        super();
+        this.elements = {
+            message: HTMLElementType(),
+        };
+        this.title = title;
+        this.body = body;
+        this.id = `message${MessageComponent.staicId++}`;
+    }
+    render() {
+        return `
+            <div class="message" id="${this.id}" data-active>
+                <div class="title">
+                    ${this.title}
+                </div>
+                <div class="body">
+                    ${this.body}
+                </div>
+            </div>
+        `;
+    }
+    init(elem, timeout) {
+        this.elements.message = elem;
+        if (timeout > 0)
+            setTimeout(() => { this.close(elem); }, timeout);
+        elem.onwheel = (ev) => { ev.stopPropagation(); };
+        elem.onclick = (ev) => { this.close(elem); };
+    }
+    close(elem) {
+        elem.removeAttribute("data-active");
+    }
+}
+MessageComponent.staicId = 0;
+class MessagePanelComponent extends StaticHTMLComponent {
+    constructor() {
+        super();
+        this.elements = {
+            messagePanel: HTMLElementType(),
+            closeMessagePanelButton: HTMLElementType(),
+            messageList: HTMLElementType()
+        };
+        this.bars = {};
+        this.messageIdx = 0;
+        this.lastMessage = null;
+    }
+    render() {
+        return `
+            <div id="messagePanelTop">
+                <div id="closeMessagePanelButton">${Symbols.cross}</div>
+            </div>
+            <div id="messageList"></div>
+        `;
+    }
+    setup() {
+        this.elements.closeMessagePanelButton.onclick = () => {
+            this.toggleElement(this.elements.messagePanel);
+        };
+    }
+    addMessage(title, body, timeout = 0) {
+        if (this.lastMessage) {
+            this.lastMessage.elements.message.removeAttribute("data-active");
+        }
+        let message = new MessageComponent(title, body);
+        this.lastMessage = message;
+        let elem = this.appenToEnd(this.elements.messageList, message.render());
+        message.init(elem, timeout);
+    }
+    updateProgressbar(id, value, text) {
+        let progress = this.bars[id];
+        console.log(progress, id);
+        if (!progress) {
+            progress = new ProgressBarComponent(id);
+            let elem = this.appenToEnd(this.elements.messageList, progress.render());
+            progress.init(elem);
+            this.bars[id] = progress;
+        }
+        progress.update(value, text);
+    }
+    closeAllMessages() {
+        this.elements.messageList.innerHTML = "";
+    }
+}
+class NodeEditorComponent extends StaticHTMLComponent {
+    constructor() {
+        super();
+        this.elements = {
+            nodes: HTMLElementType(),
+            nodeArea: HTMLElementType(),
+            svgArea: SVGAElementType(),
+            functionPanel: HTMLElementType(),
+            nodeMenu: HTMLElementType()
+        };
+        this.transform = {
+            zoom: 1,
+            x: 0,
+            y: 0,
+        };
+        this.mouse = {
+            x: 0,
+            y: 0
+        };
+        this.userIsMovingArea = false;
+        this.components = {
+            functionPanel: new FunctionPanelComponent(),
+            nodeMenu: new NodeEditorMenuComponent()
+        };
+    }
+    render() {
+        return `
+        <div id="nodeArea">
+            <svg width="100%" height="100%" id="svgArea"></svg>
+        </div>
+        <div id="functionPanel">
+            ${this.components.functionPanel.render()}
+        </div>
+        <div id="nodeMenu">
+            ${this.components.nodeMenu.render()}
+        </div>
+        `;
+    }
+    setup() {
+        this.elements.nodes.onmousedown = (ev) => this.mousedown(ev);
+        this.elements.nodes.onmousemove = (ev) => this.mousemove(ev);
+        this.elements.nodes.onmouseup = (ev) => this.mouseup(ev);
+        this.elements.nodes.onwheel = (ev) => this.wheel(ev);
+        this.resize();
+    }
+    loadFunction(data, onmousedown) {
+        let funcHTML = this.components.functionPanel.loadFunction(data);
+        funcHTML.onmousedown = (ev) => {
+            if (ev.button == 0) {
+                this.toggleElement(this.elements.functionPanel);
+                this.setMouse(ev);
+                let pos = this.mousePosition;
+                onmousedown(pos.x, pos.y);
+                ev.preventDefault();
+                ev.stopPropagation();
+            }
+        };
+        funcHTML.onmouseup = (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+        };
+    }
+    addConnection(conn) {
+        let connection = new ConnectionHTMLContainer(conn);
+        this.elements.svgArea.appendChild(connection.elements.line);
+        this.elements.svgArea.appendChild(connection.elements.selectLine);
+        return connection;
+    }
+    addNode(node, x, y) {
+        let nodeComp = new NodeComponent(node);
+        let nodeHTML = this.appenToEnd(this.elements.nodeArea, nodeComp.render());
+        nodeComp.init(nodeHTML, x, y);
+        return nodeComp;
+    }
+    mousedown(ev) {
+        if (!NodeEditor.instance.isConnectionStaged()) {
+            this.userIsMovingArea = true;
+            return;
+        }
+        NodeEditor.instance.cancelStagedConnection();
+        ev.stopPropagation();
+        ev.preventDefault();
+    }
+    mousemove(ev) {
+        let dx = ev.clientX - this.mouse.x;
+        let dy = ev.clientY - this.mouse.y;
+        this.mouse.x = ev.clientX;
+        this.mouse.y = ev.clientY;
+        if (this.userIsMovingArea) {
+            this.transform.x += dx;
+            this.transform.y += dy;
+            this.applyTransform();
+        }
+        else {
+            dx = dx / this.transform.zoom;
+            dy = dy / this.transform.zoom;
+            NodeEditor.instance.moveNodes(dx, dy);
+        }
+    }
+    mouseup(ev) {
+        NodeEditor.instance.deselectAllNodes();
+        this.userIsMovingArea = false;
+    }
+    wheel(ev) {
+        let delta = -ev.deltaY / 1000;
+        delta = this.transform.zoom + delta > 0.1 ? delta : 0;
+        let old_zoom = this.transform.zoom;
+        this.transform.zoom = this.transform.zoom + delta;
+        this.transform.x = this.transform.x * (this.transform.zoom / old_zoom);
+        this.transform.y = this.transform.y * (this.transform.zoom / old_zoom);
+        this.applyTransform();
+        ev.preventDefault();
+    }
+    resize() {
+        const area = this.elements.nodeArea;
+        const rect = area.getBoundingClientRect();
+        this.center = { x: area.offsetWidth / 2, y: area.offsetHeight / 2 };
+        this.start = { x: rect.left, y: rect.top };
+    }
+    applyTransform() {
+        this.elements.nodeArea.style.transform = 'translate(' + this.transform.x + 'px, '
+            + this.transform.y + 'px) scale('
+            + this.transform.zoom + ')';
+    }
+    setMouse(ev) {
+        this.mouse.x = ev.clientX;
+        this.mouse.y = ev.clientY;
+    }
+    get mousePosition() {
+        let offsetX = (this.mouse.x - this.start.x - this.center.x - this.transform.x) / this.transform.zoom;
+        let offsetY = (this.mouse.y - this.start.y - this.center.y - this.transform.y) / this.transform.zoom;
+        let x = this.center.x + offsetX;
+        let y = this.center.y + offsetY;
+        return { x: x, y: y };
+    }
+    clear() {
+        while (this.elements.nodeArea.children.length > 1) {
+            this.elements.nodeArea.removeChild(this.elements.nodeArea.lastElementChild);
+        }
+    }
+}
+class ViewerComponent extends StaticHTMLComponent {
+    constructor() {
+        super();
+        this.elements = {
+            viewerCanvas: HTMLCanvasElementType()
+        };
+    }
+    render() {
+        return `
+            <canvas id="viewerCanvas"></canvas>
+        `;
+    }
+    setup() {
+    }
+}
+class ApplicationComponent extends StaticHTMLComponent {
+    constructor() {
+        super();
+        this.elements = {
+            nodes: HTMLElementType(),
+            viewer: HTMLElementType(),
+            messagePanel: HTMLElementType(),
+            applicationMenu: HTMLElementType()
+        };
+        this.colorScheme = {
+            colors: [
+                [159, 237, 215],
+                [254, 249, 199],
+                [252, 225, 129]
+            ],
+            gray: [237, 234, 229],
+            black: [10, 10, 10]
+        };
+        this.components = {
+            nodeEditor: new NodeEditorComponent(),
+            messagePanel: new MessagePanelComponent(),
+            viewer: new ViewerComponent(),
+            applicationMenu: new ApplicationMenuComponent()
+        };
+    }
+    render() {
+        return `
+        <div id="applicationMenu">
+            ${this.components.applicationMenu.render()}
+        </div>
+        <div id="messagePanel">
+            ${this.components.messagePanel.render()}
+        </div>
+        <div id="nodes">
+            ${this.components.nodeEditor.render()}
+        </div>
+        <div id="viewer">
+            ${this.components.viewer.render()}
+        </div>
+        `;
+    }
+    setup() {
+    }
+    createStyleRule(name, i, length) {
+        let colorIdx = (i / (length - 1)) * (this.colorScheme.colors.length - 1);
+        let colorA = Math.floor(colorIdx);
+        let colorB = Math.ceil(colorIdx);
+        let t = colorIdx - colorA;
+        return `.connector.${name} {
+            background: rgb(${this.colorScheme.colors[colorA].map((v, i) => v * (1 - t) + this.colorScheme.colors[colorB][i] * t).join(", ")});
+        }`;
+    }
+    setupStyles(types) {
+        let style = document.getElementById("colorScheme");
+        if (!style) {
+            style = document.createElement('style');
+            document.getElementsByTagName('head')[0].appendChild(style);
+        }
+        style.innerHTML = `
+            ${types.map((t, i) => this.createStyleRule(t, i, types.length)).join("\n\n")}
+        `;
+    }
+    openNodeEditor() {
+        this.elements.nodes.style.display = 'block';
+        this.elements.viewer.style.display = 'none';
+    }
+    openViewer() {
+        this.elements.nodes.style.display = 'none';
+        this.elements.viewer.style.display = 'block';
+        Viewer.instance.willAppear();
+    }
+    clear() {
+        this.components.nodeEditor.clear();
+    }
+    get messages() {
+        return this.components.messagePanel;
     }
 }
 class IO {
@@ -5445,7 +5703,7 @@ class Viewer {
     clear() {
     }
     addLayer(layer) {
-        console.log(layer);
+        console.log("adding", layer);
         switch (layer.type) {
             case "objects":
                 this.layers.push(new ObjectLayer(layer));
@@ -5485,6 +5743,9 @@ class Viewer {
     errorCheck() {
         this.graphics.checkError();
     }
+    resize() {
+        this.graphics.resize();
+    }
 }
 var ConnectorType;
 (function (ConnectorType) {
@@ -5509,7 +5770,7 @@ class Connection {
             this.out = source;
             this.in = null;
         }
-        this.connHTML = new ConnectionHTMLTemplate(this);
+        this.connectionContainer = NodeEditor.ui.addConnection(this);
     }
     static key(connA, connB) {
         if (connA.inout == ConnectorType.input)
@@ -5555,11 +5816,11 @@ class Connection {
         }
     }
     remove() {
-        this.connHTML.remove();
+        this.connectionContainer.remove();
         this.deregister();
     }
     move(dx, dy) {
-        this.connHTML.move();
+        this.connectionContainer.move();
     }
     get serialized() {
         return {
@@ -5641,11 +5902,11 @@ class EditorNode {
         this.inParams = Array.from(structure.in, (con) => new Connector(con, ConnectorType.input, this));
         this.outParams = Array.from(structure.out, (con) => new Connector(con, ConnectorType.output, this));
         this.values = Array.from(structure.value, (val) => new NodeValue(val, this));
-        this.nodeHTML = new NodeHTMLTemplate(this, x, y);
+        this.nodeComponent = NodeEditor.ui.addNode(this, x, y);
         this.checkRequiredInputs();
     }
     move(dx, dy) {
-        this.nodeHTML.move(dx, dy);
+        this.nodeComponent.move(dx, dy);
     }
     remove() {
         for (let param of this.inParams)
@@ -5655,24 +5916,24 @@ class EditorNode {
         NodeEditor.instance.removeNode(this.id);
     }
     addConnection(param) {
-        if (NodeEditor.instance.ui.stagedConnection) {
-            let conn = NodeEditor.instance.ui.stagedConnection;
+        if (NodeEditor.instance.isConnectionStaged()) {
+            let conn = NodeEditor.stagedConnection;
             if (conn.connect(param)) {
-                NodeEditor.instance.ui.stagedConnection = null;
+                NodeEditor.instance.clearStagedConnection();
                 conn.move(0, 0);
             }
             return;
         }
         let connection = new Connection(param);
-        NodeEditor.instance.ui.stagedConnection = connection;
+        NodeEditor.instance.stageConnection(connection);
     }
     get serialized() {
         return {
             title: this.title,
             id: this.id,
             pos: {
-                x: this.nodeHTML.pos.x,
-                y: this.nodeHTML.pos.y
+                x: this.nodeComponent.pos.x,
+                y: this.nodeComponent.pos.y
             },
             value: this.values.map(v => v.serialized),
             in: this.inParams.map(p => p.serialized),
@@ -5683,10 +5944,10 @@ class EditorNode {
     checkRequiredInputs() {
         for (let connector of this.inParams)
             if (connector.connectionCount == 0) {
-                this.nodeHTML.setNotActive();
+                this.nodeComponent.setNotActive();
                 return;
             }
-        this.nodeHTML.setActive();
+        this.nodeComponent.setActive();
     }
     static load(data) {
         let node = new EditorNode(data, data.pos.x, data.pos.y, data.id);
@@ -5708,6 +5969,7 @@ class NodeEditor {
         this.nodes = {};
         this.connections = {};
         this.selectedNodes = {};
+        this.stagedConnection = null;
     }
     static get instance() {
         if (!this.instanceObject) {
@@ -5715,36 +5977,27 @@ class NodeEditor {
         }
         return this.instanceObject;
     }
-    init(parent) {
-        this.editorHTML = new EditorHTMLTemplate(parent);
-        this.editorHTML.moveActive = (dx, dy) => {
-            for (let node in this.selectedNodes)
-                this.selectedNodes[node].move(dx, dy);
-            if (this.editorHTML.stagedConnection)
-                this.editorHTML.stagedConnection.move(dx, dy);
-        };
-        this.editorHTML.clearSelectedNodes = () => {
-            for (let nodeID in this.selectedNodes) {
-                this.deselectNode(nodeID);
-            }
-        };
-        DataManager.instance.send({
-            'command': 'loadFunctions'
-        });
+    init() {
+    }
+    moveNodes(dx, dy) {
+        for (let node in this.selectedNodes)
+            this.selectedNodes[node].move(dx, dy);
+        if (this.stagedConnection)
+            this.stagedConnection.move(dx, dy);
     }
     initFunctions(data) {
         let types = [];
         this.functions = data;
         for (let func in data) {
             let structure = data[func];
-            this.editorHTML.addFunctionToPanel(structure, (x, y) => {
+            NodeEditor.ui.loadFunction(structure, (x, y) => {
                 let node = new EditorNode(structure, x, y);
                 this.nodes[node.id] = node;
                 this.selectNode(node.id);
             });
             types = types.concat(usesTypes(structure).filter((item) => types.indexOf(item) < 0));
         }
-        this.editorHTML.setupStyles(types);
+        Application.ui.setupStyles(types);
         if (!objectEmpty(this.nodes))
             this.revalidate();
     }
@@ -5758,6 +6011,11 @@ class NodeEditor {
     deselectNode(nodeID) {
         delete this.selectedNodes[nodeID];
     }
+    deselectAllNodes() {
+        for (let nodeID in this.selectedNodes) {
+            this.deselectNode(nodeID);
+        }
+    }
     connectionExists(key) {
         return key in this.connections;
     }
@@ -5770,17 +6028,21 @@ class NodeEditor {
     removeNode(nodeID) {
         delete this.nodes[nodeID];
     }
-    get ui() {
-        return this.editorHTML;
+    stageConnection(conn) {
+        this.stagedConnection = conn;
     }
-    get serialized() {
-        let nodes = [];
-        for (let node in this.nodes)
-            nodes.push(this.nodes[node].serialized);
-        return JSON.stringify(nodes);
+    cancelStagedConnection() {
+        this.stagedConnection.remove();
+        this.clearStagedConnection();
+    }
+    clearStagedConnection() {
+        this.stagedConnection = null;
+    }
+    isConnectionStaged() {
+        return this.stagedConnection != null;
     }
     debugMessage(title, message) {
-        this.ui.closableMessage(title, message, 0);
+        Application.ui.messages.addMessage(title, message, 0);
     }
     validateParameter(p, structParams) {
         for (let sp of structParams) {
@@ -5837,7 +6099,7 @@ class NodeEditor {
         try {
             let data = JSON.parse(contents);
             this.clear();
-            this.ui.closeAllMessages();
+            Application.ui.messages.closeAllMessages();
             for (let node of data) {
                 if (this.validateStructure(node)) {
                     this.updateStructure(node);
@@ -5863,9 +6125,17 @@ class NodeEditor {
             this.debugMessage("Loading file failed", "The file format is corrupted.");
         }
     }
+    get serialized() {
+        let nodes = [];
+        for (let node in this.nodes)
+            nodes.push(this.nodes[node].serialized);
+        return JSON.stringify(nodes);
+    }
     recieved(data) {
-        if (!(data.recipient == "editor" && "status" in data))
+        if (!("status" in data)) {
+            console.error("unmarked data for node editor", data);
             return;
+        }
         switch (data.status) {
             case 'functionsLoaded':
                 this.initFunctions(data.functions);
@@ -5882,7 +6152,7 @@ class NodeEditor {
                 this.debugMessage("Pipeline progress", `Node ${data.title} finished.`);
                 break;
             case 'progress':
-                this.ui.updateProgressbar(data.progress, data.message);
+                Application.ui.messages.updateProgressbar(data.progressID, data.progress, data.message);
                 break;
             case 'pipelineDone':
                 break;
@@ -5892,7 +6162,7 @@ class NodeEditor {
     }
     runProject() {
         let content = this.serialized;
-        this.ui.closeAllMessages();
+        Application.ui.messages.closeAllMessages();
         DataManager.instance.send({
             command: 'run',
             graph: content
@@ -5901,7 +6171,47 @@ class NodeEditor {
     clear() {
         for (let node in this.nodes)
             this.nodes[node].remove();
-        this.editorHTML.clear();
+        Application.ui.clear();
+    }
+    static get ui() {
+        return Application.instance.ui.components.nodeEditor;
+    }
+    static get stagedConnection() {
+        return NodeEditor.instance.stagedConnection;
+    }
+}
+class Application {
+    constructor() { }
+    static get instance() {
+        if (!this.instanceObject) {
+            this.instanceObject = new this();
+        }
+        return this.instanceObject;
+    }
+    init(main) {
+        this.ui = new ApplicationComponent();
+        this.ui.compile(main);
+        NodeEditor.instance.init();
+        Viewer.instance.init();
+        Viewer.instance.startRender();
+        DataManager.instance.setupInstance((data) => {
+            this.recieved(data);
+        });
+        DataManager.instance.send({
+            'command': 'loadFunctions'
+        });
+    }
+    recieved(data) {
+        console.log(data);
+        if (data.recipient == "editor")
+            NodeEditor.instance.recieved(data);
+        else if (data.recipient == "viewer")
+            Viewer.instance.recieved(data);
+        else
+            console.error("message misses recipient", data);
+    }
+    static get ui() {
+        return Application.instance.ui;
     }
 }
 function saveProject() {
@@ -5956,18 +6266,12 @@ function runProject() {
 const { ipcRenderer, remote } = require('electron');
 const dialog = remote.dialog;
 const fs = require('fs');
-DataManager.instance.setupInstance((data) => {
-    console.log('got from server', data);
-    NodeEditor.instance.recieved(data);
-    Viewer.instance.recieved(data);
-});
 window.onload = function () {
-    let editorDom = document.getElementById("editor");
-    NodeEditor.instance.init(editorDom);
-    Viewer.instance.init();
-    Viewer.instance.startRender();
+    const main = document.getElementById("main");
+    Application.instance.init(main);
 };
 window.onresize = (ev) => {
-    NodeEditor.instance.ui.resize();
+    NodeEditor.ui.resize();
+    Viewer.instance.resize();
 };
 //# sourceMappingURL=script.js.map

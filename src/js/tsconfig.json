@@ -24,6 +24,7 @@
       "gl/triangle.ts",
       "viewer.ts",
       "nodeeditor.ts",
+      "application.ts",
       "actions.ts",
       "index.ts"
     ]

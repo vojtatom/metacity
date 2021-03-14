@@ -1,5 +1,6 @@
 import asyncio
 import json
+from output import printOK
 
 metaCommsSocket = None
 
@@ -36,21 +37,23 @@ async def asyncSend(message):
 
 
 def send(message):
+    printOK(message)
     loop = asyncio.get_event_loop()
     asyncio.run_coroutine_threadsafe((asyncSend(message)), loop)
 
 
-def sendProgress(percentage, message):
+def sendProgress(percentage, message, progressID):
     send({
         "recipient": "editor",
         "status": "progress",
         "progress": percentage,
-        "message": message
+        "message": message,
+        "progressID": progressID
     })
 
 
-def sendProgressPerc(percentage):
-    sendProgress(percentage, f"{percentage}%")
+def sendProgressPerc(percentage, progressID):
+    sendProgress(percentage, f"{percentage}%", progressID)
 
 
 def sendNodeFinished(title):
