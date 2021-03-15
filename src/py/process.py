@@ -1,11 +1,10 @@
-from output import printOK
 from loader import load_modules
 from graph import compute
 import json
 import comms
 
 import logging
-logging.basicConfig(filename='python.log', level=logging.DEBUG)
+logging.basicConfig(filename='python.log', level=logging.WARNING)
 
 def loadFunctions(data):
     modules, functions = load_modules()

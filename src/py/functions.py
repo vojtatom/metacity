@@ -46,11 +46,12 @@ class MetaFunction:
         })
 
 
-    def addValue(self, paramtitle, paramtype, value):
+    def addValue(self, paramtitle, paramtype, value, optionals):
         value = {
             'param': paramtitle,
             'type': paramtype,
-            'value': value
+            'value': value,
+            'optionals': optionals
         }
         self.values.append(value)
         self.ordered.append(value)
@@ -124,7 +125,7 @@ def param(paramtitle, paramtype):
     return inner 
 
 
-def value(paramtitle, paramtype, default): 
+def value(paramtitle, paramtype, default, optionals=None): 
     """Registres an user-accesible input field of the function
 
     Args:
@@ -136,7 +137,7 @@ def value(paramtitle, paramtype, default):
         def wrapper(*args, **kwargs):   
             if MetaFunction.metaVisible:
                 params = MetaFunction()
-                params.addValue(paramtitle, paramtype, default)
+                params.addValue(paramtitle, paramtype, default, optionals)
 
                 try:
                     params = params + func(*args, **kwargs)

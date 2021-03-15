@@ -7,10 +7,11 @@ from comms import sendProgressPerc
 
 @param('CityJSON', 'CityJSON')
 @param('Types', 'CityJSONTypes')
+@param('Lods', 'LoDs')
 @output('Source', 'MetaSource')
 @description('Converts CityJSON into MetaSource, only supplied CityJSON Types are processed.')
-def call(cj: CityJSON, types: List[str]):
+def call(cj: CityJSON, types: List[str], lods: List[int]):
     source = MetaSource()
-    source.fromCityJSON(cj, types, sendProgressPerc)
+    source.fromCityJSON(cj, types, lods, sendProgressPerc)
     return source
 

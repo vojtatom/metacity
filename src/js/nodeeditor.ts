@@ -8,11 +8,14 @@ interface ConnectorInterface {
     type: string;
 }
 
+type ValueTypes = "string" | "number" | "select" | "bool" | "file" | "vec3";
+
 
 interface ValueInterface {
     param: string;
-    type: "string" | "number" | "bool" | "file" | "vec3";
+    type: ValueTypes;
     value: string;
+    optionals: any;
 }
 
 interface EditorFunction {
@@ -197,14 +200,16 @@ class Connector {
 
 class NodeValue {
     param: string;
-    type: "string" | "number" | "bool" | "file" | "vec3";
+    type: ValueTypes;
     value: string | number | number[] | boolean;
     node: EditorNode;
+    optionals: any;
 
     constructor(value: ValueInterface, node: EditorNode) {
         this.param = value.param;
         this.type = value.type;
         this.value = value.value;
+        this.optionals = value.optionals;
         this.node = node;
     }
 
@@ -212,7 +217,8 @@ class NodeValue {
         return {
             param: this.param,
             type: this.type,
-            value: this.value
+            value: this.value,
+            optionals: this.optionals
         };
     }
 }
@@ -570,7 +576,7 @@ class NodeEditor {
                 this.debugMessage("Pipeline Error", data.error);
                 break;
             case 'nodeStarted':
-                this.debugMessage("Pipeline progress", `Node ${data.title} started.`);
+                this.debugMessage("Pipeline progress", `Node ${data.title} processing...`);
                 break;
             case 'nodeDone':
                 this.debugMessage("Pipeline progress", `Node ${data.title} finished.`);

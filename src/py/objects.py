@@ -5,6 +5,10 @@ from typing import List
 import json
 import base64
 import uuid
+import geometry
+from meshio import Mesh
+
+from comms import printOK
 
 
 def progress(data, callback):
@@ -23,18 +27,17 @@ def progress(data, callback):
         return data
         
 
+class MetaGeometry:
+    def __init__(self, tag, geometry):
+        self.tag = tag
+        self.geometry = geometry
 
 
 class MetaSource:
     staticID = 0
 
     def __init__(self):
-        self.lod1 = {}
-        self.lod2 = {}
-        self.lod3 = {}
-        self.lod4 = {}
-        self.lod5 = {}
-        self.lods = [self.lod1, self.lod2, self.lod3, self.lod4, self.lod5]
+        self.geometry = {}
         
         self.id = MetaSource.staticID
         MetaSource.staticID += 1
@@ -42,17 +45,17 @@ class MetaSource:
 
         self.idxToId = {}
         self.idToIdx = {}
-        self.objects = {}
+        self.objects = {} #dictionary with IDs
 
 
-    def _addGeometry(self, objID, lod, geom, gtype):
-        if gtype not in self.lods[lod]:
-            self.lods[lod][gtype] = {}
+    def _addGeometry(self, objID, gtag, gtype, geom):
+        if gtype not in self.geometry:
+            self.geometry[gtype] = {}
 
-        if objID not in self.lods[lod][gtype]:
-            self.lods[lod][gtype][objID] = []
+        if objID not in self.geometry[gtype]:
+            self.geometry[gtype][objID] = []
          
-        self.lods[lod][gtype][objID].append(geom)   
+        self.geometry[gtype][objID].append(MetaGeometry(gtag, geom)) 
 
 
     def _processFace(self, cj: CityJSON, face, invertices, triangles):
@@ -80,10 +83,10 @@ class MetaSource:
             self.idxToId[idx] = ID 
 
 
-    def fromCityJSON(self, cj: CityJSON, types: List[str], progressCall=None):
+    def fromCityJSON(self, cj: CityJSON, types: List[str], lods: List[int], progressCall=None):
         vnp = np.array(cj.j["vertices"])
 
-        #-- start with the CO
+        #start with the CO
         for objID in progress(cj.j['CityObjects'], progressCall):
             if cj.j['CityObjects'][objID]['type'] not in types:
                 continue
@@ -93,6 +96,9 @@ class MetaSource:
             #for each geometry/LOD
             for geom in cj.j['CityObjects'][objID]['geometry']:
                 vertices, gtype = [], geom['type']
+
+                if geom["lod"] not in lods:
+                    continue
 
                 if gtype.lower() == 'multipoint':
                     self._processPoints(geom['boundaries'], vnp, vertices)
@@ -121,19 +127,43 @@ class MetaSource:
                                 self._processFace(cj, face, vnp, vertices)
                     gtype = MetaObject.gtype
 
-                self._addGeometry(objID, geom["lod"], np.array(vertices), gtype)
+                self._addGeometry(objID, geom["lod"], gtype, np.array(vertices))
         
+        # TODO maybe change this to a localy constructed object with known structure? 
         self.objects = cj.get_cityobjects(type=types)
 
 
-    def getGeometry(self, objID, lod, gtype):
-        if gtype not in self.lods[lod]:
+    def fromSTL(self, mesh: Mesh, progressCall=None):
+        for objID, c in enumerate(progress(mesh.cells, progressCall)):
+            if c.type != "triangle":
+                raise Exception("Encountered non-triangular faces while parsing STL")
+
+            self._updateIndex(objID)
+
+            indices = c.data.flatten()
+            triangles = mesh.points[indices]
+            self._addGeometry(objID, '', MetaObject.gtype, triangles)
+
+
+    def getGeometry(self, objID, gtype):
+        """Returns array of vertices for supplied gtype and objectID
+
+        Args:
+            objID (string): objectID in self.objects dictionary
+            gtype (string): geometry type
+
+        Returns:
+            np.array: array of vertices
+        """
+        if gtype not in self.geometry:
             return None
 
-        if objID not in self.lods[lod][gtype]:
+        if objID not in self.geometry[gtype]:
             return None
          
-        return self.lods[lod][gtype][objID]
+        geometries: List[MetaGeometry]
+        geometries = self.geometry[gtype][objID]
+        return geometries
 
 
     def getObject(self, ID):
@@ -144,9 +174,8 @@ class MetaSource:
 
 
 class MetaElement:
-    def __init__(self, ID: str, source: MetaSource, lod: int):
+    def __init__(self, ID: str, source: MetaSource):
         self.id = ID
-        self.lod = lod
         self.source = source
 
 
@@ -160,8 +189,21 @@ class MetaElement:
         return {}
 
 
-    def getGeometry(self, lod: int):
-        return self.source.getGeometry(self.id, self.lod, self.gtype)
+    def getGeometry(self):
+        geometries = self.source.getGeometry(self.id, self.gtype)
+
+        if geometries is None:
+            return None
+
+        if len(geometries) > 1:
+            pass
+            #raise Exception("Objects with more than one geometry not yet supported (multiple LoDs or multiple geometry objects))")
+
+        return geometries[0].geometry
+
+    
+    def getBBox(self):
+        return geometry.computeBBox(self.getGeometry())
 
 
     def getIndex(self):
@@ -172,43 +214,72 @@ class MetaElement:
         return self.source.id, self.id
 
 
+    def switchAxis(self, srcAxis, destAxis):
+        printOK(srcAxis)
+        printOK(destAxis)
+        geometries = self.source.getGeometry(self.id, self.gtype)
+
+        if geometries is None:
+            return
+
+        srcIdx = ["x", "y", "z"].index(srcAxis)
+        destIdx = ["x", "y", "z", "-x", "-y", "-z"].index(destAxis) % 3
+
+        negate = (len(destAxis) == 2) 
+        printOK(srcIdx)
+        printOK(destIdx)
+        printOK(negate)
+
+        geometry: MetaGeometry
+        for geometry in geometries:
+            printOK(geometry.geometry.shape)
+            geometry.geometry[:, [srcIdx, destIdx]] = geometry.geometry[:, [destIdx, srcIdx]]
+            if negate:
+               geometry.geometry[:, destIdx] = -geometry.geometry[:, destIdx] 
+        
+
+
+
+
+
+
+
 class MetaObject(MetaElement):
     gtype = 'object'
 
-    def __init__(self, ID, source, lod):
-        super().__init__(ID, source, lod)
+    def __init__(self, ID, source):
+        super().__init__(ID, source)
         self.style = {}
         
 
 class MetaArea(MetaElement):
     gtype = 'area'
 
-    def __init__(self, ID, source, lod):
-        super().__init__(ID, source, lod)
+    def __init__(self, ID, source):
+        super().__init__(ID, source)
         self.style = {}
 
 
 class MetaLines(MetaElement):
     gtype = 'lines'
 
-    def __init__(self, ID, source, lod):
-        super().__init__(ID, source, lod)
+    def __init__(self, ID, source):
+        super().__init__(ID, source)
         self.style = {}
 
 
 class MetaPoints(MetaElement):
     gtype = 'points'
 
-    def __init__(self, ID, source, lod):
-        super().__init__(ID, source, lod)
+    def __init__(self, ID, source):
+        super().__init__(ID, source)
         self.style = {}
 
 
 
 class MetaLayer:
-    def __init__(self, lods):
-        self.lods = lods
-
+    def __init__(self):
+        pass
 
     @staticmethod
     def serialize_array(array, dtype):
@@ -217,28 +288,22 @@ class MetaLayer:
         return a.decode('utf-8')
 
 
-def normalize(arr):
-    ''' Normalize a numpy array of 3 component vectors shape=(n,3) '''
-    lens = np.sqrt( arr[:,0]**2 + arr[:,1]**2 + arr[:,2]**2 )
-    arr[:,0] /= lens
-    arr[:,1] /= lens
-    arr[:,2] /= lens                
-    return arr
-
+    def flipNormals(self):
+        pass
 
 
 class MetaObjectLayer(MetaLayer):
-    def __init__(self, lods: List[int], objects: List[MetaObject]):
-        super().__init__(lods)
+    def __init__(self, objects: List[MetaObject]):
+        super().__init__()
         
         self.triangles = []
         self.normals = []
         self.idxL1 = []
         self.idxL2 = []
-        self.bbox = {
-            'min': np.array([np.inf, np.inf, np.inf], dtype=np.float32),
-            'max': np.array([-np.inf, -np.inf, -np.inf], dtype=np.float32)
-        }
+        self.bbox = np.array([
+            np.array([np.inf, np.inf, np.inf], dtype=np.float32),
+            np.array([-np.inf, -np.inf, -np.inf], dtype=np.float32)
+            ])
 
         self.meta = {}
         self.idxToId = {}
@@ -274,26 +339,17 @@ class MetaObjectLayer(MetaLayer):
 
 
     def _processObject(self, mobject: MetaObject):
-        if mobject.lod not in self.lods:
-            return
-
         idL1, idL2 = mobject.getID()
         idxL1, idxL2 = mobject.getIndex()
-        geometry = mobject.getGeometry(mobject.lod)
+        geometry = mobject.getGeometry()
         
-        if geometry == None:
+        if geometry is None:
             return
 
-        if len(geometry) >  1:
-            vertices = np.concatenate(geometry)
-        else:
-            vertices = geometry[0]
-        nvert = vertices.shape[0]
-
-
+        nvert = geometry.shape[0]
         self._updateMeta(idL1, idL2, mobject)
         self._updateIndex(idL1, idL2, idxL1, idxL2)
-        self.triangles.append(vertices.flatten())
+        self.triangles.append(geometry.flatten())
         self.idxL1.append(np.full((nvert,), idxL1))
         self.idxL2.append(np.full((nvert,), idxL2)) 
 
@@ -301,17 +357,19 @@ class MetaObjectLayer(MetaLayer):
     def _computeBBox(self):
         nvert = self.triangles.shape[0] // 3
         vertices = self.triangles.reshape((nvert, 3))
-        self.bbox['min'] = np.amin(vertices, axis=0).tolist()
-        self.bbox['max'] = np.amax(vertices, axis=0).tolist()
+        self.bbox = geometry.computeBBox(vertices)
 
 
     def _computeNormals(self):
         ntri =  self.triangles.shape[0] // 9
         faces = self.triangles.reshape((ntri, 3, 3))
+        normals = geometry.computeNormals(faces)
+        self.normals = normals.flatten()
 
-        normals = np.cross(faces[::,2] - faces[::,0], faces[::,1] - faces[::,0])
-        normalize(normals)
-        normals = np.repeat(normals, 3, axis=0)
+    
+    def flipNormals(self):
+        nnorm = self.normals.shape[0] // 3
+        normals = geometry.flipNormals(self.normals.reshape((nnorm, 3)))
         self.normals = normals.flatten()
 
 
@@ -322,11 +380,10 @@ class MetaObjectLayer(MetaLayer):
             "normals": self.serialize_array(self.normals, dtype=np.float32),
             "idxL1": self.serialize_array(self.idxL1, dtype=np.uint32),
             "idxL2": self.serialize_array(self.idxL2, dtype=np.uint32),
-            "lod": self.lods,
             "meta": self.meta,
             "idToIdx": self.idToIdx,
             "idxToId": self.idxToId,
-            "bbox": self.bbox
+            "bbox": geometry.bboxToDict(self.bbox)
         }
 
 

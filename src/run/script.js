@@ -4160,6 +4160,9 @@ class FunctionPanelComponent extends StaticHTMLComponent {
                 'command': 'loadFunctions'
             });
         };
+        this.elements.functionList.onwheel = (ev) => {
+            ev.stopPropagation();
+        };
         this.elements.closeFunctionPanel.onclick = (ev) => {
             this.toggleElement(NodeEditor.ui.elements.functionPanel);
         };
@@ -4325,19 +4328,22 @@ class ConnectionHTMLContainer extends HTMLContainer {
 class ValueComponent {
 }
 ;
+function rw(text) {
+    return text.replace(/\s/g, "");
+}
 class StringValueComponent extends ValueComponent {
     static title(value) {
-        return `<label for="${value.node.id + value.param}"><span class="title string">${value.param}</span></label>`;
+        return `<label for="${rw(value.node.id + value.param)}"><span class="title string">${value.param}</span></label>`;
     }
     static value(value) {
         return `
         <div class="value string">
-            <input type="text" id="${value.node.id + value.param}" name="${value.node.id + value.param}" value="${value.value}">
+            <input type="text" id="${rw(value.node.id + value.param)}" name="${rw(value.node.id + value.param)}" value="${value.value}">
         </div>
         `;
     }
     static callback(value) {
-        let input = document.getElementById(value.node.id + value.param);
+        let input = document.getElementById(rw(value.node.id + value.param));
         input.onkeyup = (ev) => { value.value = input.value; };
         input.onmousedown = nothing;
         input.onmousemove = nothing;
@@ -4345,35 +4351,56 @@ class StringValueComponent extends ValueComponent {
 }
 class NumberValueComponent extends ValueComponent {
     static title(value) {
-        return `<label for="${value.node.id + value.param}"><span class="title number">${value.param}</span></label>`;
+        return `<label for="${rw(value.node.id + value.param)}"><span class="title number">${value.param}</span></label>`;
     }
     static value(value) {
         return `
         <div class="value number">
-            <input type="number" id="${value.node.id + value.param}" name="${value.node.id + value.param}" value="${value.value}">
+            <input type="number" id="${rw(value.node.id + value.param)}" name="${rw(value.node.id + value.param)}" value="${value.value}">
         </div>
         `;
     }
     static callback(value) {
-        let input = document.getElementById(value.node.id + value.param);
+        let input = document.getElementById(rw(value.node.id + value.param));
         input.onkeyup = (ev) => { value.value = input.value; };
         input.onmousedown = nothing;
         input.onmousemove = nothing;
     }
 }
-class FileValueComponent extends ValueComponent {
+class SelectValueComponent extends ValueComponent {
     static title(value) {
-        return `<label for="${value.node.id + value.param}"><span class="title file">${value.param}</span></label>`;
+        return `<label for="${rw(value.node.id + value.param)}"><span class="title select">${value.param}</span></label>`;
     }
     static value(value) {
+        let options = value.optionals;
         return `
-        <div class="value file">
-            <input type="button" id="${value.node.id + value.param}" name="${value.node.id + value.param}", value="${nameFromPath(value.value)}">
+        <div class="value select">
+            <select type="text" id="${rw(value.node.id + value.param)}" name="${rw(value.node.id + value.param)}" value="${value.value}">
+                ${options.map(option => ` <option value="${option}" ${option == value.value ? 'selected' : ''}>${option}</option>`)}
+            </select>
         </div>
         `;
     }
     static callback(value) {
-        let file = document.getElementById(value.node.id + value.param);
+        let selection = document.getElementById(rw(value.node.id + value.param));
+        selection.onchange = (ev) => { value.value = selection.value; };
+        selection.onmousedown = nothing;
+        selection.onmousemove = nothing;
+    }
+}
+class FileValueComponent extends ValueComponent {
+    static title(value) {
+        return `<label for="${rw(value.node.id + value.param)}"><span class="title file">${value.param}</span></label>`;
+    }
+    static value(value) {
+        return `
+        <div class="value file">
+            <input type="button" id="${rw(value.node.id + value.param)}" name="${rw(value.node.id + value.param)}", value="${nameFromPath(value.value)}">
+        </div>
+        `;
+    }
+    static callback(value) {
+        let file = document.getElementById(rw(value.node.id + value.param));
         file.onclick = (ev) => {
             let options = {
                 defaultPath: value.value
@@ -4395,22 +4422,22 @@ class FileValueComponent extends ValueComponent {
 class Vec3ValueComponent extends ValueComponent {
     static title(value) {
         return `
-        <label for="${value.node.id + value.param}"><span class="title vec3">${value.param}</span></label>
+        <label for="${rw(value.node.id + value.param)}"><span class="title vec3">${value.param}</span></label>
     `;
     }
     static value(value) {
         return `
         <div class="value vec3">
-            <input type="number" id="${value.node.id + value.param + 'x'}" name="${value.node.id + value.param}" value="${value.value[0]}">
-            <input type="number" id="${value.node.id + value.param + 'y'}" name="${value.node.id + value.param}" value="${value.value[1]}">
-            <input type="number" id="${value.node.id + value.param + 'z'}" name="${value.node.id + value.param}" value="${value.value[2]}">
+            <input type="number" id="${rw(value.node.id + value.param + 'x')}" name="${rw(value.node.id + value.param + 'x')}" value="${value.value[0]}">
+            <input type="number" id="${rw(value.node.id + value.param + 'y')}" name="${rw(value.node.id + value.param + 'y')}" value="${value.value[1]}">
+            <input type="number" id="${rw(value.node.id + value.param + 'z')}" name="${rw(value.node.id + value.param + 'z')}" value="${value.value[2]}">
         </div>
         `;
     }
     static callback(value) {
-        let vec3x = document.getElementById(value.node.id + value.param + 'x');
-        let vec3y = document.getElementById(value.node.id + value.param + 'y');
-        let vec3z = document.getElementById(value.node.id + value.param + 'z');
+        let vec3x = document.getElementById(rw(value.node.id + value.param + 'x'));
+        let vec3y = document.getElementById(rw(value.node.id + value.param + 'y'));
+        let vec3z = document.getElementById(rw(value.node.id + value.param + 'z'));
         let callback = (ev) => {
             value.value = [parseFloat(vec3x.value), parseFloat(vec3y.value), parseFloat(vec3z.value)];
         };
@@ -4424,21 +4451,21 @@ class Vec3ValueComponent extends ValueComponent {
 class BoolValueComponent extends ValueComponent {
     static title(value) {
         return `
-        <label for="${value.node.id + value.param}"><span class="title bool">${value.param}</span></label>
+        <label for="${rw(value.node.id + value.param)}"><span class="title bool">${value.param}</span></label>
     `;
     }
     static value(value) {
         return `
         <div class="value bool">
-            <label for="${value.node.id + value.param}">
-                <input type="checkbox" id="${value.node.id + value.param}" name="${value.node.id + value.param}" ${value.value ? 'Checked' : ''}>
+            <label for="${rw(value.node.id + value.param)}">
+                <input type="checkbox" id="${rw(value.node.id + value.param)}" name="${rw(value.node.id + value.param)}" ${value.value ? 'Checked' : ''}>
                 <span class="checkmark"></span>
             </label>
         </div>
         `;
     }
     static callback(value) {
-        let checkbox = document.getElementById(value.node.id + value.param);
+        let checkbox = document.getElementById(rw(value.node.id + value.param));
         checkbox.onchange = (ev) => {
             value.value = checkbox.checked;
         };
@@ -4451,7 +4478,8 @@ const ValueInitializer = {
     number: NumberValueComponent,
     bool: BoolValueComponent,
     file: FileValueComponent,
-    vec3: Vec3ValueComponent
+    vec3: Vec3ValueComponent,
+    select: SelectValueComponent
 };
 class NodeComponent extends HTMLComponent {
     constructor(node) {
@@ -4783,7 +4811,7 @@ class NodeEditorComponent extends StaticHTMLComponent {
         ev.preventDefault();
     }
     resize() {
-        const area = this.elements.nodeArea;
+        const area = this.elements.nodes;
         const rect = area.getBoundingClientRect();
         this.center = { x: area.offsetWidth / 2, y: area.offsetHeight / 2 };
         this.start = { x: rect.left, y: rect.top };
@@ -4803,6 +4831,8 @@ class NodeEditorComponent extends StaticHTMLComponent {
         let x = this.center.x + offsetX;
         let y = this.center.y + offsetY;
         return { x: x, y: y };
+    }
+    resetTransform() {
     }
     clear() {
         while (this.elements.nodeArea.children.length > 1) {
@@ -5879,13 +5909,15 @@ class NodeValue {
         this.param = value.param;
         this.type = value.type;
         this.value = value.value;
+        this.optionals = value.optionals;
         this.node = node;
     }
     get serialized() {
         return {
             param: this.param,
             type: this.type,
-            value: this.value
+            value: this.value,
+            optionals: this.optionals
         };
     }
 }

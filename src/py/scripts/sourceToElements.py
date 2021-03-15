@@ -14,17 +14,16 @@ def call(source: MetaSource):
     lines = []
     points = []
 
-    for ilod, lod in enumerate(source.lods):
-        for gtype, entries in lod.items():
-            for ID in entries:
-                if gtype == MetaObject.gtype:
-                    objects.append(MetaObject(ID, source, ilod))
-                elif gtype == MetaArea.gtype:
-                    areas.append(MetaArea(ID, source, ilod))
-                elif gtype == MetaLines.gtype:
-                    lines.append(MetaLines(ID, source, ilod))
-                elif gtype == MetaPoints.gtype:
-                    points.append(MetaPoints(ID, source, ilod))
+    for gtype, entries in source.geometry.items():
+        for ID in entries:
+            if gtype == MetaObject.gtype:
+                objects.append(MetaObject(ID, source))
+            elif gtype == MetaArea.gtype:
+                areas.append(MetaArea(ID, source))
+            elif gtype == MetaLines.gtype:
+                lines.append(MetaLines(ID, source))
+            elif gtype == MetaPoints.gtype:
+                points.append(MetaPoints(ID, source))
 
     return objects, areas, lines, points
 

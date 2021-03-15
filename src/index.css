@@ -215,8 +215,11 @@ body {
 }
 
 .node.nonactive .title,
-.node.nonactive .connectors {
-  background: #c7c7c7;
+.node.nonactive .values-titles,
+.node.nonactive .connectors,
+.node.nonactive select,
+.node.nonactive input {
+  background-color: #c7c7c7;
 }
 
 
@@ -363,6 +366,30 @@ input[type="checkbox"]:checked ~ .checkmark {
 
 input[type="checkbox"]:checked ~ .checkmark:after {
   display: block;
+}
+
+
+select{
+    height: 1.5rem;
+    background-color: #FFF;
+
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    width: 100%;
+    padding: 0rem 2rem 0 1rem;
+    box-sizing: border-box;
+
+    background-image:
+    linear-gradient(45deg, transparent 50%, gray 50%),
+    linear-gradient(135deg, gray 50%, transparent 50%);
+    background-position: calc(100% - 15px) calc(1em - 3px), calc(100% - 10px) calc(1em - 3px);
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
 }
 
 .checkmark:after {

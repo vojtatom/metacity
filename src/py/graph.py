@@ -1,4 +1,3 @@
-from output import printOK
 from pprint import pprint
 from comms import sendNodeFinished, sendNodeStarted, sendClearViewer
 
@@ -152,8 +151,5 @@ def compute(graph, modules, functions_struct):
         for val, connector in zip(returned, node['out']):
             param_key = out_connector_key(connector)
             values[param_key] = val
-        
-        print(values)
-
-    print(values)
+    
     return values
