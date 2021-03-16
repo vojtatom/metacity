@@ -5,8 +5,9 @@ See https://vojtatom.github.io/metacity
 ## Users
 See [Releases](https://github.com/vojtatom/metacity/releases), we use Github Actions to automate the creation of releases for Windows and Linux, so you can download a single archive, unpack it and run the application. 
 ## Developers
-If want change the source code and run the application (assuming you've already downloaded the contents of this repo), **in the repo root** do the following:
+If you want to change the source code and run the application, download this repo, and add Standalone Python distributable. Alternatively, modify `src/index.js` to use your local installation of Python. Required packages are in `requirements.txt`.
 
+To add the Standalone Python Distributable, in the repo **root directory**:
 1. Install Node.js stuff: `npm install`
 2. Get standalone Python (over 200 MB):
     - for Linux: http://urbann.vojtatom.cz/deps/linux-python-386.tar.gz
