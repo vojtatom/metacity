@@ -54,6 +54,10 @@ jobs:
         with:
           node-version: '12'
 
+      - name: Change Directories
+        run: |
+          cd metacity
+
       - name: Install Dependencies and Build
         run: |
           npm install
