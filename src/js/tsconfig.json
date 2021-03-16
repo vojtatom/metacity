@@ -1,0 +1,31 @@
+{
+    "compilerOptions": {
+      "noImplicitAny": true,
+      "removeComments": true,
+      "preserveConstEnums": true,
+      "outFile": "../run/script.js",
+      "sourceMap": true,
+      "target": "ES6",
+      "allowJs": true
+    },
+
+    "files": [
+      "externals/websocket.ts",
+      "externals/glmatrix.d.ts",
+      "externals/glmatrix.js",
+      "datamanager.ts",
+      "templates.ts",
+      "gl/canvasIO.ts",
+      "gl/camera.ts",
+      "gl/graphics.ts",
+      "gl/program.ts",
+      "gl/shadow.ts",
+      "gl/object.ts",
+      "gl/triangle.ts",
+      "viewer.ts",
+      "nodeeditor.ts",
+      "application.ts",
+      "actions.ts",
+      "index.ts"
+    ]
+}
