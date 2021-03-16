@@ -90,7 +90,7 @@ out/
 
 #####MINE
 #package lock
-package-lock.json
+#package-lock.json
 
 #python source
 #python/

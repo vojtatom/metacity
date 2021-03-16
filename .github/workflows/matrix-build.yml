@@ -58,6 +58,7 @@ jobs:
         run: |
           ls metacity/
           cd metacity
+          ls
 
       - name: Install Dependencies and Build
         run: |

@@ -16,6 +16,10 @@
     "name": "vojtatom",
     "email": "tomas@vojtatom.cz"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vojtatom/metacity.git"
+  },
   "license": "MIT",
   "config": {
     "forge": {
