@@ -83,19 +83,21 @@ def sendProgressPerc(percentage, progressID):
     sendProgress(percentage, f"{percentage}%", progressID)
 
 
-def sendNodeFinished(title):
+def sendNodeFinished(title, nodeid):
     send({
         "recipient": "editor",
         "status": "nodeDone",
-        "title": title
+        "title": title,
+        "id": nodeid
     })
 
 
-def sendNodeStarted(title):
+def sendNodeStarted(title, nodeid):
     send({
         "recipient": "editor",
         "status": "nodeStarted",
-        "title": title
+        "title": title,
+        "id": nodeid
     })
 
 def sendClearViewer():

@@ -3996,7 +3996,6 @@ class DataManager {
                     this.callbacks.push(callbacks);
             else if (callbacks)
                 this.callbacks.push(callbacks);
-            console.log('sending', data);
             this.socket.send(JSON.stringify(data));
         }
         else {
@@ -4326,6 +4325,9 @@ class ConnectionHTMLContainer extends HTMLContainer {
     }
 }
 class ValueComponent {
+    static updated() {
+        NodeEditor.instance.checkGraph();
+    }
 }
 ;
 function rw(text) {
@@ -4344,7 +4346,7 @@ class StringValueComponent extends ValueComponent {
     }
     static callback(value) {
         let input = document.getElementById(rw(value.node.id + value.param));
-        input.onkeyup = (ev) => { value.value = input.value; };
+        input.onkeyup = (ev) => { value.value = input.value; ValueComponent.updated(); };
         input.onmousedown = nothing;
         input.onmousemove = nothing;
     }
@@ -4362,7 +4364,7 @@ class NumberValueComponent extends ValueComponent {
     }
     static callback(value) {
         let input = document.getElementById(rw(value.node.id + value.param));
-        input.onkeyup = (ev) => { value.value = input.value; };
+        input.onkeyup = (ev) => { value.value = input.value; ValueComponent.updated(); };
         input.onmousedown = nothing;
         input.onmousemove = nothing;
     }
@@ -4383,7 +4385,7 @@ class SelectValueComponent extends ValueComponent {
     }
     static callback(value) {
         let selection = document.getElementById(rw(value.node.id + value.param));
-        selection.onchange = (ev) => { value.value = selection.value; };
+        selection.onchange = (ev) => { value.value = selection.value; ValueComponent.updated(); };
         selection.onmousedown = nothing;
         selection.onmousemove = nothing;
     }
@@ -4413,6 +4415,7 @@ class FileValueComponent extends ValueComponent {
                 let name = nameFromPath(result.filePaths[0]);
                 file.value = name;
                 value.value = filename;
+                ValueComponent.updated();
             }).catch((err) => {
                 alert(err);
             });
@@ -4440,6 +4443,7 @@ class Vec3ValueComponent extends ValueComponent {
         let vec3z = document.getElementById(rw(value.node.id + value.param + 'z'));
         let callback = (ev) => {
             value.value = [parseFloat(vec3x.value), parseFloat(vec3y.value), parseFloat(vec3z.value)];
+            ValueComponent.updated();
         };
         [vec3x, vec3y, vec3z].map(elem => {
             elem.onkeydown = callback;
@@ -4468,6 +4472,7 @@ class BoolValueComponent extends ValueComponent {
         let checkbox = document.getElementById(rw(value.node.id + value.param));
         checkbox.onchange = (ev) => {
             value.value = checkbox.checked;
+            ValueComponent.updated();
         };
         checkbox.onmousedown = nothing;
         checkbox.onmousemove = nothing;
@@ -4495,7 +4500,7 @@ class NodeComponent extends HTMLComponent {
     }
     render() {
         return `
-        <div class="node ${this.node.disabled ? "disabled" : ""}" id="${this.node.id}">
+        <div class="node" id="${this.node.id}">
         <div class="title">${this.node.title}</div>
         <div class="contents">
             <div class="connectors">${this.node.inParams.map(param => `<div class="connector in ${param.type}" data-title="${param.parameter} [type ${param.type}]">
@@ -4530,7 +4535,6 @@ class NodeComponent extends HTMLComponent {
         this.pos.x = x;
         this.pos.y = y;
         this.node.values.map(value => ValueInitializer[value.type].callback(value));
-        console.log(this.node);
         this.setupConnector(this.inputConnectors, this.node.inParams);
         this.setupConnector(this.outputConnectors, this.node.outParams);
         this.elements.node.onmousedown = (ev) => this.mousedown(ev);
@@ -4563,17 +4567,27 @@ class NodeComponent extends HTMLComponent {
         for (let i = 0; i < connectorHTML.length; ++i) {
             param[i].connHTML = new ConnectorHTMLContainer(connectorHTML[i], this);
             connectorHTML[i].onmousedown = (ev) => {
-                this.node.addConnection(param[i]);
+                this.node.addConnection(param[i], NodeEditor.instance.connections);
                 ev.preventDefault();
                 ev.stopPropagation();
             };
         }
     }
-    setNotActive() {
-        this.elements.node.classList.add("nonactive");
+    setDisabled() {
+        this.elements.node.classList.add("disabled");
+        this.elements.node.classList.remove("execute", "active", "cycle");
     }
     setActive() {
-        this.elements.node.classList.remove("nonactive");
+        this.elements.node.classList.add("active");
+        this.elements.node.classList.remove("execute", "disabled", "cycle");
+    }
+    setExecute() {
+        this.elements.node.classList.remove("disabled", "active", "cycle");
+        this.elements.node.classList.add("execute");
+    }
+    setCyclePart() {
+        this.elements.node.classList.remove("disabled", "active", "execute");
+        this.elements.node.classList.add("cycle");
     }
     applyTransform() {
         this.elements.node.style.transform = 'translate(' + this.pos.x + 'px, ' + this.pos.y + 'px)';
@@ -4684,7 +4698,6 @@ class MessagePanelComponent extends StaticHTMLComponent {
     }
     updateProgressbar(id, value, text) {
         let progress = this.bars[id];
-        console.log(progress, id);
         if (!progress) {
             progress = new ProgressBarComponent(id);
             let elem = this.appenToEnd(this.elements.messageList, progress.render());
@@ -4958,11 +4971,13 @@ class IO {
         this.mouse.y = y;
         this.mouse.button = button;
         this.mouse.time = Date.now();
+        console.log("down");
     }
     ;
     onMouseUp(x, y) {
         this.mouse.down = false;
         let now = Date.now();
+        console.log("up");
         if (now - this.mouse.time < 200 && this.mouse.button == 0) {
         }
     }
@@ -5241,13 +5256,15 @@ class Graphics {
             event.stopPropagation();
         };
     }
-    renderFrame() {
-        this.gl.depthMask(true);
-        this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
-        this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
-        this.gl.enable(this.gl.DEPTH_TEST);
-        this.gl.disable(this.gl.BLEND);
-        this.programs.objects.render(this.scene);
+    renderFrame(userRedraw = false) {
+        if (this.scene.camera.needsRedraw || userRedraw) {
+            this.gl.depthMask(true);
+            this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
+            this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
+            this.gl.enable(this.gl.DEPTH_TEST);
+            this.gl.disable(this.gl.BLEND);
+            this.programs.objects.render(this.scene);
+        }
         this.scene.camera.frame();
     }
     resize() {
@@ -5687,6 +5704,175 @@ class TriangleProgram extends Program {
         this.gl.useProgram(null);
     }
 }
+function debugMessage(title, message) {
+    Application.ui.messages.addMessage(title, message, 0);
+}
+function findCycle(node, visited) {
+    if (visited.has(node.id)) {
+        return node;
+    }
+    visited.add(node.id);
+    for (let param of node.outParams) {
+        for (let conn in param.connections) {
+            let successor = param.connections[conn].in.node;
+            let cc = findCycle(successor, new Set(visited));
+            if (cc instanceof EditorNode) {
+                successor.markCycle();
+                if (node.id == cc.id)
+                    return true;
+                return cc;
+            }
+        }
+    }
+    return false;
+}
+function markExecutable(node, parentExecutable, active) {
+    let executable = (node.hasBeenUpdated || parentExecutable) && active.has(node.id);
+    if (executable)
+        node.markForExecution();
+    for (let param of node.outParams) {
+        for (let conn in param.connections) {
+            let successor = param.connections[conn].in.node;
+            markExecutable(successor, executable, active);
+        }
+    }
+}
+function getStartingNodes(nodes) {
+    let startings = [];
+    for (let nodeId in nodes) {
+        if (nodes[nodeId].inParams.length == 0)
+            startings.push(nodes[nodeId]);
+    }
+    return startings;
+}
+function validateNodeGraph(nodes) {
+    for (let nodeID in nodes) {
+        nodes[nodeID].markDisabled();
+    }
+    let startNodes = getStartingNodes(nodes);
+    if (startNodes.length == 0) {
+        debugMessage("No start found", "No starting nodes founds, insert node with no inputs");
+        return [];
+    }
+    for (let node of startNodes)
+        if (findCycle(node, new Set())) {
+            debugMessage("Cycle detected", "Cycle detected, please rearrange highlited nodes");
+            return [];
+        }
+    let ordered = [...startNodes];
+    let active = new Set();
+    ordered.map(value => {
+        active.add(value.id);
+        value.markActive();
+    });
+    for (let i = 0; i < ordered.length; ++i) {
+        let node = ordered[i];
+        for (let oparam of node.outParams) {
+            for (let oconn in oparam.connections) {
+                let succesor = oparam.connections[oconn].in.node;
+                let satisfied = true;
+                for (let iparam of succesor.inParams) {
+                    for (let iconn in iparam.connections) {
+                        let requiredNode = iparam.connections[iconn].out.node;
+                        if (!active.has(requiredNode.id))
+                            satisfied = false;
+                    }
+                    if (Object.keys(iparam.connections).length == 0)
+                        satisfied = false;
+                }
+                if (satisfied && !active.has(succesor.id)) {
+                    ordered.push(succesor);
+                    active.add(succesor.id);
+                    succesor.markActive();
+                }
+            }
+        }
+    }
+    for (let node of startNodes)
+        markExecutable(node, false, active);
+    return ordered;
+}
+function validateParameter(p, structParams) {
+    for (let sp of structParams) {
+        if (sp.param == p.param && sp.type == p.type)
+            return true;
+    }
+    return false;
+}
+function validateStructure(struct, funcDefs) {
+    if (!(struct.title in funcDefs)) {
+        debugMessage("Node structure not valid", `Node ${struct.title} is unknown.`);
+        return false;
+    }
+    let f = funcDefs[struct.title];
+    if (f.in.length != struct.in.length || f.out.length != struct.out.length) {
+        debugMessage("Node structure not valid", `Node ${struct.title} has ${struct.in.length} inputs (${f.in.length} expected) and ${struct.out.length} outputs (${f.out.length} expected).`);
+        return false;
+    }
+    for (let p of f.in)
+        if (!this.validateParameter(p, struct.in)) {
+            debugMessage("Node structure not valid", `Node ${struct.title} missing input parameter ${p.param} [type ${p.type}].`);
+            return false;
+        }
+    for (let p of f.out)
+        if (!this.validateParameter(p, struct.out)) {
+            debugMessage("Node structure not valid", `Node ${struct.title} missing output parameter ${p.param} [type ${p.type}].`);
+            return false;
+        }
+    return true;
+}
+function sortParameters(structParams, templateParams) {
+    let params = [];
+    for (let p of templateParams)
+        for (let sp of structParams)
+            if (p.param == sp.param)
+                params.push(sp);
+    return params;
+}
+function sortConnectors(struct, funcDefs) {
+    struct.in = sortParameters(struct.in, funcDefs[struct.title].in);
+    struct.out = sortParameters(struct.out, funcDefs[struct.title].out);
+}
+function updateStructure(struct, funcDefs) {
+    struct.description = funcDefs[struct.title].description;
+    struct.disabled = funcDefs[struct.title].disabled;
+    sortConnectors(struct, funcDefs);
+}
+function validateConnection(inputNode, outNode, nodes) {
+    if (!(inputNode in nodes && outNode in nodes))
+        return false;
+    return true;
+}
+function load(contents, funcDefs) {
+    let connections = {};
+    let nodes = {};
+    let data = JSON.parse(contents);
+    for (let node of data) {
+        if (validateStructure(node, funcDefs)) {
+            updateStructure(node, funcDefs);
+        }
+        else {
+            node["disabled"] = true;
+        }
+        let n = EditorNode.load(node);
+        nodes[n.id] = n;
+    }
+    for (let node of data) {
+        for (let param of node.in) {
+            for (let conn of param.connections) {
+                if (!validateConnection(conn.out.node, conn.in.node, nodes))
+                    continue;
+                let outConn = nodes[conn.out.node].getConnector(ConnectorType.output, conn.out.connector);
+                let inConn = nodes[conn.in.node].getConnector(ConnectorType.input, conn.in.connector);
+                Connection.load(outConn, inConn, connections);
+            }
+        }
+    }
+    return {
+        nodes: nodes,
+        connections: connections
+    };
+}
 class Layer {
     constructor(data) {
         this.idToIdx = data.idToIdx;
@@ -5734,7 +5920,6 @@ class Viewer {
     clear() {
     }
     addLayer(layer) {
-        console.log("adding", layer);
         switch (layer.type) {
             case "objects":
                 this.layers.push(new ObjectLayer(layer));
@@ -5770,6 +5955,7 @@ class Viewer {
     }
     willAppear() {
         this.graphics.resize();
+        this.graphics.renderFrame(true);
     }
     errorCheck() {
         this.graphics.checkError();
@@ -5783,6 +5969,13 @@ var ConnectorType;
     ConnectorType[ConnectorType["input"] = 0] = "input";
     ConnectorType[ConnectorType["output"] = 1] = "output";
 })(ConnectorType || (ConnectorType = {}));
+;
+var CycleSearch;
+(function (CycleSearch) {
+    CycleSearch[CycleSearch["nocycle"] = 0] = "nocycle";
+    CycleSearch[CycleSearch["cycle"] = 1] = "cycle";
+})(CycleSearch || (CycleSearch = {}));
+;
 function usesTypes(func) {
     let inputs = func.in.map(val => val.type);
     let outputs = func.out.map(val => val.type);
@@ -5812,17 +6005,17 @@ class Connection {
     get key() {
         return Connection.key(this.out, this.in);
     }
-    connect(conn) {
+    connect(conn, connections) {
         let sourceConn = this.in ? this.in : this.out;
         let key = Connection.key(sourceConn, conn);
         if (conn.node.id == sourceConn.node.id)
-            return false;
+            return null;
         if (conn.inout + sourceConn.inout != ConnectorType.input + ConnectorType.output)
-            return false;
+            return null;
         if (sourceConn.type != conn.type)
-            return false;
-        if (NodeEditor.instance.connectionExists(key))
-            return false;
+            return null;
+        if (key in connections)
+            return null;
         if (this.in)
             this.out = conn;
         else
@@ -5831,10 +6024,7 @@ class Connection {
             this.in.connections[conn].remove();
         this.in.connections[key] = this;
         this.out.connections[key] = this;
-        NodeEditor.instance.addConnection(this);
-        this.in.node.checkRequiredInputs();
-        this.out.node.checkRequiredInputs();
-        return true;
+        return this;
     }
     deregister() {
         if (this.in && this.out) {
@@ -5842,8 +6032,6 @@ class Connection {
             delete this.in.connections[key];
             delete this.out.connections[key];
             NodeEditor.instance.removeConnection(key);
-            this.in.node.checkRequiredInputs();
-            this.out.node.checkRequiredInputs();
         }
     }
     remove() {
@@ -5865,11 +6053,11 @@ class Connection {
             }
         };
     }
-    static load(outConn, inConn) {
+    static load(outConn, inConn, connections) {
         if (!outConn || !inConn)
             return;
         let connection = new Connection(outConn);
-        connection.connect(inConn);
+        connection.connect(inConn, connections);
         connection.move(0, 0);
     }
 }
@@ -5880,6 +6068,7 @@ class Connector {
         this.type = structure.type;
         this.inout = inout;
         this.node = node;
+        this.computedForConnKey = null;
     }
     drawConnections() {
         for (let conn in this.connections) {
@@ -5889,6 +6078,18 @@ class Connector {
     removeAllConnections() {
         for (let conn in this.connections)
             this.connections[conn].remove();
+    }
+    get hasBeenUpdated() {
+        if (this.inout == ConnectorType.output)
+            return false;
+        if (!this.computedForConnKey ||
+            this.computedForConnKey != Object.keys(this.connections)[0])
+            return true;
+    }
+    computed() {
+        if (this.inout == ConnectorType.output)
+            return;
+        this.computedForConnKey = Object.keys(this.connections)[0];
     }
     get serialized() {
         let connections = [];
@@ -5905,6 +6106,7 @@ class Connector {
         return Object.keys(this.connections).length;
     }
 }
+const arrayEquals = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
 class NodeValue {
     constructor(value, node) {
         this.param = value.param;
@@ -5912,6 +6114,16 @@ class NodeValue {
         this.value = value.value;
         this.optionals = value.optionals;
         this.node = node;
+        this.computedForValue = null;
+    }
+    computed() {
+        this.computedForValue = this.value;
+    }
+    get hasBeenUpdated() {
+        if (this.value instanceof Array && this.computedForValue instanceof Array) {
+            return !arrayEquals(this.value, this.computedForValue);
+        }
+        return this.computedForValue != this.value;
     }
     get serialized() {
         return {
@@ -5931,12 +6143,10 @@ class EditorNode {
             EditorNode.idCounter++;
         }
         this.title = structure.title;
-        this.disabled = structure.disabled;
         this.inParams = Array.from(structure.in, (con) => new Connector(con, ConnectorType.input, this));
         this.outParams = Array.from(structure.out, (con) => new Connector(con, ConnectorType.output, this));
         this.values = Array.from(structure.value, (val) => new NodeValue(val, this));
         this.nodeComponent = NodeEditor.ui.addNode(this, x, y);
-        this.checkRequiredInputs();
     }
     move(dx, dy) {
         this.nodeComponent.move(dx, dy);
@@ -5948,11 +6158,23 @@ class EditorNode {
             param.removeAllConnections();
         NodeEditor.instance.removeNode(this.id);
     }
-    addConnection(param) {
+    markForExecution() {
+        this.nodeComponent.setExecute();
+    }
+    markActive() {
+        this.nodeComponent.setActive();
+    }
+    markDisabled() {
+        this.nodeComponent.setDisabled();
+    }
+    markCycle() {
+        this.nodeComponent.setCyclePart();
+    }
+    addConnection(param, connections) {
         if (NodeEditor.instance.isConnectionStaged()) {
             let conn = NodeEditor.stagedConnection;
-            if (conn.connect(param)) {
-                NodeEditor.instance.clearStagedConnection();
+            if (conn.connect(param, connections)) {
+                NodeEditor.instance.addStagedConnection();
                 conn.move(0, 0);
             }
             return;
@@ -5970,17 +6192,8 @@ class EditorNode {
             },
             value: this.values.map(v => v.serialized),
             in: this.inParams.map(p => p.serialized),
-            out: this.outParams.map(p => p.serialized),
-            disabled: this.disabled
+            out: this.outParams.map(p => p.serialized)
         };
-    }
-    checkRequiredInputs() {
-        for (let connector of this.inParams)
-            if (connector.connectionCount == 0) {
-                this.nodeComponent.setNotActive();
-                return;
-            }
-        this.nodeComponent.setActive();
     }
     static load(data) {
         let node = new EditorNode(data, data.pos.x, data.pos.y, data.id);
@@ -5994,6 +6207,25 @@ class EditorNode {
         for (let conn of connectors)
             if (conn.parameter == param)
                 return conn;
+    }
+    computed() {
+        for (let value of this.values) {
+            value.computed();
+        }
+        for (let inparam of this.inParams) {
+            inparam.computed();
+        }
+    }
+    get hasBeenUpdated() {
+        for (let value of this.values) {
+            if (value.hasBeenUpdated)
+                return true;
+        }
+        for (let inparam of this.inParams) {
+            if (inparam.hasBeenUpdated)
+                return true;
+        }
+        return false;
     }
 }
 EditorNode.idCounter = 0;
@@ -6027,6 +6259,7 @@ class NodeEditor {
                 let node = new EditorNode(structure, x, y);
                 this.nodes[node.id] = node;
                 this.selectNode(node.id);
+                this.checkGraph();
             });
             types = types.concat(usesTypes(structure).filter((item) => types.indexOf(item) < 0));
         }
@@ -6037,6 +6270,9 @@ class NodeEditor {
     revalidate() {
         let graph = this.serialized;
         this.load(graph);
+    }
+    checkGraph() {
+        validateNodeGraph(this.nodes);
     }
     selectNode(nodeID) {
         this.selectedNodes[nodeID] = this.nodes[nodeID];
@@ -6049,17 +6285,13 @@ class NodeEditor {
             this.deselectNode(nodeID);
         }
     }
-    connectionExists(key) {
-        return key in this.connections;
-    }
-    addConnection(connection) {
-        this.connections[connection.key] = connection;
-    }
     removeConnection(connectionID) {
         delete this.connections[connectionID];
+        this.checkGraph();
     }
     removeNode(nodeID) {
         delete this.nodes[nodeID];
+        this.checkGraph();
     }
     stageConnection(conn) {
         this.stagedConnection = conn;
@@ -6071,92 +6303,29 @@ class NodeEditor {
     clearStagedConnection() {
         this.stagedConnection = null;
     }
+    addStagedConnection() {
+        this.connections[this.stagedConnection.key] = this.stagedConnection;
+        this.stagedConnection = null;
+        this.checkGraph();
+    }
     isConnectionStaged() {
         return this.stagedConnection != null;
     }
     debugMessage(title, message) {
         Application.ui.messages.addMessage(title, message, 0);
     }
-    validateParameter(p, structParams) {
-        for (let sp of structParams) {
-            if (sp.param == p.param && sp.type == p.type)
-                return true;
-        }
-        return false;
-    }
-    validateStructure(struct) {
-        if (!(struct.title in this.functions)) {
-            this.debugMessage("Node structure not valid", `Node ${struct.title} is unknown.`);
-            return false;
-        }
-        let f = this.functions[struct.title];
-        if (f.in.length != struct.in.length || f.out.length != struct.out.length) {
-            this.debugMessage("Node structure not valid", `Node ${struct.title} has ${struct.in.length} inputs (${f.in.length} expected) and ${struct.out.length} outputs (${f.out.length} expected).`);
-            return false;
-        }
-        for (let p of f.in)
-            if (!this.validateParameter(p, struct.in)) {
-                this.debugMessage("Node structure not valid", `Node ${struct.title} missing input parameter ${p.param} [type ${p.type}].`);
-                return false;
-            }
-        for (let p of f.out)
-            if (!this.validateParameter(p, struct.out)) {
-                this.debugMessage("Node structure not valid", `Node ${struct.title} missing output parameter ${p.param} [type ${p.type}].`);
-                return false;
-            }
-        return true;
-    }
-    sortParameters(structParams, templateParams) {
-        let params = [];
-        for (let p of templateParams)
-            for (let sp of structParams)
-                if (p.param == sp.param)
-                    params.push(sp);
-        return params;
-    }
-    sortConnectors(struct) {
-        struct.in = this.sortParameters(struct.in, this.functions[struct.title].in);
-        struct.out = this.sortParameters(struct.out, this.functions[struct.title].out);
-    }
-    updateStructure(struct) {
-        struct.description = this.functions[struct.title].description;
-        struct.disabled = this.functions[struct.title].disabled;
-        this.sortConnectors(struct);
-    }
-    validateConnection(inputNode, outNode) {
-        if (!(inputNode in this.nodes && outNode in this.nodes))
-            return false;
-        return true;
-    }
     load(contents) {
         try {
-            let data = JSON.parse(contents);
             this.clear();
-            Application.ui.messages.closeAllMessages();
-            for (let node of data) {
-                if (this.validateStructure(node)) {
-                    this.updateStructure(node);
-                }
-                else {
-                    node["disabled"] = true;
-                }
-                let n = EditorNode.load(node);
-                this.nodes[n.id] = n;
-            }
-            for (let node of data)
-                for (let param of node.in)
-                    for (let conn of param.connections) {
-                        if (!this.validateConnection(conn.out.node, conn.in.node))
-                            continue;
-                        let outConn = this.nodes[conn.out.node].getConnector(ConnectorType.output, conn.out.connector);
-                        let inConn = this.nodes[conn.in.node].getConnector(ConnectorType.input, conn.in.connector);
-                        Connection.load(outConn, inConn);
-                    }
+            let graph = load(contents, this.functions);
+            this.connections = graph.connections;
+            this.nodes = graph.nodes;
         }
         catch (error) {
             console.error(error);
             this.debugMessage("Loading file failed", "The file format is corrupted.");
         }
+        this.checkGraph();
     }
     get serialized() {
         let nodes = [];
@@ -6165,15 +6334,9 @@ class NodeEditor {
         return JSON.stringify(nodes);
     }
     recieved(data) {
-        if (!("status" in data)) {
-            console.error("unmarked data for node editor", data);
-            return;
-        }
         switch (data.status) {
             case 'functionsLoaded':
                 this.initFunctions(data.functions);
-                break;
-            case 'pipelineDone':
                 break;
             case 'error':
                 this.debugMessage("Pipeline Error", data.error);
@@ -6183,11 +6346,14 @@ class NodeEditor {
                 break;
             case 'nodeDone':
                 this.debugMessage("Pipeline progress", `Node ${data.title} finished.`);
+                this.nodes[data.id].computed();
+                this.checkGraph();
                 break;
             case 'progress':
                 Application.ui.messages.updateProgressbar(data.progressID, data.progress, data.message);
                 break;
             case 'pipelineDone':
+                this.checkGraph();
                 break;
             default:
                 break;
@@ -6200,6 +6366,10 @@ class NodeEditor {
             command: 'run',
             graph: content
         });
+    }
+    markNodesComputed() {
+        for (let node in this.nodes)
+            this.nodes[node].computed();
     }
     clear() {
         for (let node in this.nodes)
@@ -6238,7 +6408,6 @@ class Application {
         });
     }
     recieved(data) {
-        console.log(data);
         if (data.recipient == "editor")
             NodeEditor.instance.recieved(data);
         else if (data.recipient == "viewer")

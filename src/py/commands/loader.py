@@ -3,7 +3,6 @@ import sys
 from inspect import getmembers, isfunction
 from os import path, walk
 
-from comms import printOK
 from metascript import MetaFunction, MetaTypes
 
 
@@ -22,9 +21,6 @@ def load_modules():
             if file_extension == '.py':
                 files.append([filename, path.join(scripts_dir, file)])
 
-    printOK(p)
-    printOK(files)
-
     MetaFunction.enableMeta()
 
     #find call method
@@ -33,8 +29,6 @@ def load_modules():
             continue
 
         pathmodule = f'scripts.{module}'
-        printOK(pathmodule)
-        printOK(file)
         
         if pathmodule not in sys.modules:
             pymodule = importlib.import_module(pathmodule)
@@ -46,7 +40,6 @@ def load_modules():
         
         if 'call' in members:
             modules[module] = pymodule
-            printOK(f"loading {module}")
             metafunction = modules[module].call()
             functionStruct = metafunction.toDict()
             functionStruct['title'] = module

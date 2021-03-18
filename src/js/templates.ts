@@ -437,7 +437,12 @@ class ConnectionHTMLContainer extends HTMLContainer {
 
 //-----------------------------------------------------------------------------------------
 
-abstract class ValueComponent {};
+abstract class ValueComponent {
+    static updated() {
+        NodeEditor.instance.checkGraph();
+    }
+
+};
 
 function rw(text: string) {
     return text.replace(/\s/g, "");
@@ -458,7 +463,7 @@ class StringValueComponent extends ValueComponent {
 
     static callback(value: NodeValue) {
         let input = document.getElementById(rw(value.node.id + value.param)) as HTMLInputElement;
-        input.onkeyup = (ev: Event) => { value.value = input.value; };
+        input.onkeyup = (ev: Event) => { value.value = input.value; ValueComponent.updated() };
         input.onmousedown = nothing;
         input.onmousemove = nothing;
     }
@@ -479,7 +484,7 @@ class NumberValueComponent extends ValueComponent {
 
     static callback(value: NodeValue) {
         let input = document.getElementById(rw(value.node.id + value.param)) as HTMLInputElement;
-        input.onkeyup = (ev: Event) => { value.value = input.value; };
+        input.onkeyup = (ev: Event) => { value.value = input.value; ValueComponent.updated() };
         input.onmousedown = nothing;
         input.onmousemove = nothing;
     }
@@ -504,7 +509,7 @@ class SelectValueComponent extends ValueComponent {
 
     static callback(value: NodeValue) {
         let selection = document.getElementById(rw(value.node.id + value.param)) as HTMLSelectElement;
-        selection.onchange = (ev: Event) => { value.value = selection.value; };
+        selection.onchange = (ev: Event) => { value.value = selection.value; ValueComponent.updated() };
         selection.onmousedown = nothing;
         selection.onmousemove = nothing;
     }
@@ -542,6 +547,7 @@ class FileValueComponent extends ValueComponent {
                 let name = nameFromPath(result.filePaths[0]);
                 file.value = name;
                 value.value = filename;
+                ValueComponent.updated();
             }).catch((err: any) => {
                 alert(err)
             });
@@ -573,6 +579,7 @@ class Vec3ValueComponent extends ValueComponent {
 
         let callback = (ev: Event) => {
             value.value = [parseFloat(vec3x.value), parseFloat(vec3y.value), parseFloat(vec3z.value)];
+            ValueComponent.updated();
         }
 
         [vec3x, vec3y, vec3z].map(elem => {
@@ -605,6 +612,7 @@ class BoolValueComponent extends ValueComponent {
         let checkbox = document.getElementById(rw(value.node.id + value.param)) as HTMLInputElement;
         checkbox.onchange = (ev: Event) => {
             value.value = checkbox.checked;
+            ValueComponent.updated();
         }
 
         checkbox.onmousedown = nothing;
@@ -643,7 +651,7 @@ class NodeComponent extends HTMLComponent {
 
     render() {
         return `
-        <div class="node ${this.node.disabled ? "disabled" : ""}" id="${this.node.id}">
+        <div class="node" id="${this.node.id}">
         <div class="title">${this.node.title}</div>
         <div class="contents">
             <div class="connectors">${this.node.inParams.map(param =>
@@ -685,7 +693,6 @@ class NodeComponent extends HTMLComponent {
         this.pos.y = y;
 
         this.node.values.map(value => ValueInitializer[value.type].callback(value));
-        console.log(this.node);
         this.setupConnector(this.inputConnectors, this.node.inParams);
         this.setupConnector(this.outputConnectors, this.node.outParams);
 
@@ -728,20 +735,32 @@ class NodeComponent extends HTMLComponent {
 
             //click event on connector
             (connectorHTML[i] as HTMLElement).onmousedown = (ev: MouseEvent) => {
-                this.node.addConnection(param[i]);
+                this.node.addConnection(param[i], NodeEditor.instance.connections);
                 ev.preventDefault();
                 ev.stopPropagation();
             }
         }
     }
 
-    setNotActive() {
-        this.elements.node.classList.add("nonactive");
+    setDisabled() {
+        this.elements.node.classList.add("disabled");
+        this.elements.node.classList.remove("execute", "active", "cycle");
     }
 
-     setActive() {
-        this.elements.node.classList.remove("nonactive");
-     }
+    setActive() {
+        this.elements.node.classList.add("active");
+        this.elements.node.classList.remove("execute", "disabled", "cycle");
+    }
+
+    setExecute() {
+        this.elements.node.classList.remove("disabled", "active", "cycle");
+        this.elements.node.classList.add("execute");
+    }
+
+    setCyclePart() {
+        this.elements.node.classList.remove("disabled", "active", "execute");
+        this.elements.node.classList.add("cycle");
+    }
 
     private applyTransform() {
         this.elements.node.style.transform = 'translate(' + this.pos.x + 'px, ' + this.pos.y + 'px)';
@@ -894,7 +913,6 @@ class MessagePanelComponent extends StaticHTMLComponent {
 
     updateProgressbar(id: string, value: number, text: string) {
         let progress = this.bars[id];
-        console.log(progress, id);
         if (!progress) {
             progress = new ProgressBarComponent(id);
             let elem = this.appenToEnd(this.elements.messageList, progress.render());

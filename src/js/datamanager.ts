@@ -47,8 +47,6 @@ class DataManager {
                     this.callbacks.push(callbacks);
             else if (callbacks)
                 this.callbacks.push(callbacks);
-
-            console.log('sending', data);
             this.socket.send(JSON.stringify(data)); 
 
         } else {

@@ -4,6 +4,7 @@ from metascript import MetaTypes, description, output, param
 from pipeline.elements import MetaArea, MetaLines, MetaObject, MetaPoints
 from pipeline.sources import MetaSource
 
+from comms import printOK
 
 @param('Source', MetaTypes.MetaSource)
 @output('Objects', MetaTypes.MetaObjects)

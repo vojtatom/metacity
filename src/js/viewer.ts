@@ -99,9 +99,7 @@ class Viewer {
     }
 
 
-    addLayer(layer: GeneralLayerInterface) {
-        console.log("adding", layer);
-        
+    addLayer(layer: GeneralLayerInterface) {      
         switch (layer.type) {
             case "objects":
                 this.layers.push(new ObjectLayer(layer as ObjectLayerInterface));
@@ -147,6 +145,7 @@ class Viewer {
 
     willAppear() {
         this.graphics.resize();
+        this.graphics.renderFrame(true);
     }
 
     errorCheck() {

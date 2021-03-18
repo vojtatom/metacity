@@ -214,18 +214,18 @@ body {
   align-items: center;
 }
 
-.node.nonactive .title,
-.node.nonactive .values-titles,
-.node.nonactive .connectors,
-.node.nonactive select,
-.node.nonactive input {
+.node.disabled .title,
+.node.disabled .values-titles,
+.node.disabled .connectors,
+.node.disabled select,
+.node.disabled input,
+.node.disabled {
   background-color: #c7c7c7;
 }
 
-
-.node.disabled .title,
-.node.disabled .connectors {
-  background: #ff3897;
+.node.execute > .title,
+.node.execute .connectors {
+  background-color: #FFF;
 }
 
 .connectors {

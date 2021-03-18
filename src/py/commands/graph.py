@@ -1,4 +1,3 @@
-from pprint import pprint
 from comms import sendNodeFinished, sendNodeStarted, sendClearViewer
 
 def input_connectors(node):
@@ -127,7 +126,7 @@ def pick_params(param_order, node, intermediate):
 
 
 
-def compute(graph, modules, functions_struct): 
+def compute(graph, modules, functions_struct, pipeline): 
     order = topological_sort(graph)
     nodes = node_dict(graph)
     values = {}
@@ -141,9 +140,9 @@ def compute(graph, modules, functions_struct):
         input_values = pick_params(param_order, node, values)  
         module = modules[node['title']] #this is the callable thing
 
-        sendNodeStarted(node['title'])
+        sendNodeStarted(node['title'], node['id'])
         returned = module.call(*input_values)
-        sendNodeFinished(node['title'])
+        sendNodeFinished(node['title'], node['id'])
 
         if not isinstance(returned, tuple):
             returned = (returned,)

@@ -1,4 +1,4 @@
-from comms import sendAddLayer, printOK
+from comms import printOK, sendAddLayer
 from metascript import MetaTypes, description, output, param
 from pipeline.layers import MetaLayer
 

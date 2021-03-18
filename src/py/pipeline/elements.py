@@ -8,7 +8,7 @@ import pipeline.sources
 
 
 class MetaElement:
-    def __init__(self, ID: str, source: pipeline.sources.MetaSource):
+    def __init__(self, ID: str, source):
         self.id = ID
         self.source = source
 

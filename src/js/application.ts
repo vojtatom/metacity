@@ -30,7 +30,6 @@ class Application {
 
 
     recieved(data: any) {
-        console.log(data);
         if (data.recipient == "editor")
             NodeEditor.instance.recieved(data);
         else if (data.recipient == "viewer")

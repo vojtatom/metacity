@@ -22,6 +22,7 @@
       "gl/shadow.ts",
       "gl/object.ts",
       "gl/triangle.ts",
+      "validation.ts",
       "viewer.ts",
       "nodeeditor.ts",
       "application.ts",
