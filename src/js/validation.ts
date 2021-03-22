@@ -19,7 +19,9 @@ function findCycle(node: EditorNode, visited: Set<string>): EditorNode|boolean {
                 if (node.id == cc.id)
                     return true;
                 return cc;
-            }
+            } else if(cc) {
+                return true;
+            } 
         }
     }
     return false;
@@ -52,6 +54,8 @@ function getStartingNodes(nodes: { [name: string]: EditorNode }) {
 
 
 function validateNodeGraph(nodes: { [name: string]: EditorNode }) {
+    console.log(nodes);
+    
     for(let nodeID in nodes) {
         nodes[nodeID].markDisabled();
     }

@@ -29,8 +29,11 @@ class Layer {
         this.idxToId = data.idxToId;
         this.lod = data.lod;
         this.meta = data.meta;
-
         this.gl = new GLObject();
+    }
+
+    delete() {
+        this.gl.delete();
     }
 
 }
@@ -73,7 +76,17 @@ class Viewer {
     private static instanceObject: Viewer;
     graphics: Graphics;
 
-    layers: Layer[] = [];
+    layers: {[name: string]: Layer} = {};
+
+    active = false;
+
+    activate() {
+        this.active = true;
+    }
+
+    deactivate() {
+        this.active = false;
+    }
     
     //Viewer is a singleton
     private constructor() {}
@@ -95,14 +108,20 @@ class Viewer {
 
     
     clear() {
-
+        for(let layer in this.layers) {
+            this.layers[layer].delete()
+        }
+        this.layers = {};
     }
 
 
-    addLayer(layer: GeneralLayerInterface) {      
+    updateLayer(id: string, layer: GeneralLayerInterface) {
+        if (id in this.layers)
+            this.layers[id].delete();
+        
         switch (layer.type) {
             case "objects":
-                this.layers.push(new ObjectLayer(layer as ObjectLayerInterface));
+                this.layers[id] = new ObjectLayer(layer as ObjectLayerInterface);
                 break;
         
             default:
@@ -120,7 +139,7 @@ class Viewer {
                 this.clear();
                 break;
             case "addLayer":
-                this.addLayer(data.layer);
+                this.updateLayer(data.layerID, data.layer);
                 break;
             default:
                 break;
@@ -131,7 +150,10 @@ class Viewer {
     startRender() {
         let last = 0;
         let loop = (time: number) => {
-            this.graphics.renderFrame();
+
+            if(this.active) {
+                this.graphics.renderFrame();
+            }
             //console.log(time - last);
             last = time;
     
@@ -146,6 +168,11 @@ class Viewer {
     willAppear() {
         this.graphics.resize();
         this.graphics.renderFrame(true);
+        this.activate();
+    }
+
+    willDisappear() {
+        this.deactivate();
     }
 
     errorCheck() {

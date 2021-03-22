@@ -122,10 +122,22 @@ class Graphics {
             event.preventDefault();
             event.stopPropagation();
         };
+
+        window.onkeydown = (event: KeyboardEvent) => {
+            this.interface.onKeyDown(event.key);
+            event.preventDefault();
+            event.stopPropagation();
+        } 
+
+        window.onkeyup = (event: KeyboardEvent) => {
+            this.interface.onKeyUp(event.key);
+            event.preventDefault();
+            event.stopPropagation();
+        } 
     }
 
     renderFrame(userRedraw: boolean = false) {
-        if (this.scene.camera.needsRedraw || userRedraw)
+        if ((this.scene.camera.needsRedraw || userRedraw)  )
         {
             this.gl.depthMask(true);      
             this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
@@ -173,6 +185,9 @@ class GLObject {
     protected ebo: WebGLBuffer;
     protected vbo: {[name: string]: WebGLBuffer} = {};
     protected usedPrograms: {[program: string]: RenderParams} = {};
+    id: Number;
+
+    static globjid = 0;
 
     get programs() {
         return Viewer.instance.graphics.programs;
@@ -180,6 +195,7 @@ class GLObject {
 
     constructor() {
         this.gl = Viewer.instance.graphics.gl;
+        this.id = GLObject.globjid++;
     }
 
     initVao() {
@@ -221,5 +237,21 @@ class GLObject {
 
     programParams(programTitle: string) {
         return this.usedPrograms[programTitle];
+    }
+
+    delete() {
+        if (this.vao)
+            this.gl.deleteVertexArray(this.vao);
+        
+            for(let buff in this.vbo) {
+            this.gl.deleteBuffer(this.vbo[buff]);
+        }
+        
+        if(this.ebo)
+            this.gl.deleteBuffer(this.ebo);
+
+        for(let program in this.usedPrograms) {
+            this.usedPrograms[program].program.deleteGLObject(this);
+        }
     }
 }

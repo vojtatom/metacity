@@ -42,4 +42,9 @@ class Application {
         return Application.instance.ui;
     }
 
+    clear() {
+        Viewer.instance.clear();
+        NodeEditor.instance.clear();
+    }
+
 }

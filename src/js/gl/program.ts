@@ -220,6 +220,15 @@ class Program {
         this.primitives.push(obj);
     }
 
+    deleteGLObject(obj: GLObject) {
+        let i = 0;
+        for(let i = 0; i < this.primitives.length; ++i) {
+            if (this.primitives[i].id == obj.id) {
+                this.primitives.splice(i, 1);
+            }
+        }
+    }
+
     render(scene: Scene) {
         throw "Throwing form base class, custom render not implemented.";
     }

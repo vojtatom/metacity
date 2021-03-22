@@ -381,6 +381,9 @@ class ConnectionHTMLContainer extends HTMLContainer {
     private onmousedown(ev: MouseEvent, connection: Connection) {
         if (connection.in && connection.out) {
             if (ev.button == 0) {
+                if(NodeEditor.instance.isConnectionStaged())
+                    return;
+
                 //move existing
                 let posIn = connection.in.connHTML.pos;
                 let posOut = connection.out.connHTML.pos;
@@ -1122,6 +1125,8 @@ class NodeEditorComponent extends StaticHTMLComponent {
         while (this.elements.nodeArea.children.length > 1) {
             this.elements.nodeArea.removeChild(this.elements.nodeArea.lastElementChild);
         }
+
+        this.elements.svgArea.innerHTML = "";
     }
 }
 
@@ -1234,6 +1239,7 @@ class ApplicationComponent extends StaticHTMLComponent {
         this.elements.nodes.style.display = 'block';
         this.elements.viewer.style.display = 'none';
         NodeEditor.instance.willAppear();
+        Viewer.instance.willDisappear();
     }
 
     openViewer() {

@@ -50,7 +50,7 @@ function openProject() {
 			}
 
 			const content = data;
-			NodeEditor.instance.load(content);
+			NodeEditor.instance.openNewProject(content);
 			
 		});
 

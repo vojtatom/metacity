@@ -21,13 +21,13 @@ class IO {
         };
     }
 
-    onKeyDown(key: number) {
+    onKeyDown(key: string) {
         this.keys[key] = true;
         //this.app.pressed(key);
         console.log(key);
     }
 
-    onKeyUp(key: number){
+    onKeyUp(key: string){
         this.keys[key] = false;
     }
 
@@ -37,13 +37,11 @@ class IO {
         this.mouse.y = y;
         this.mouse.button = button;
         this.mouse.time = Date.now();
-        console.log("down");
     };
     
     onMouseUp(x: number, y: number) {
         this.mouse.down = false;
         let now = Date.now();
-        console.log("up");
         
         if (now - this.mouse.time < 200 && this.mouse.button == 0)
         {

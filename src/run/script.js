@@ -4279,6 +4279,8 @@ class ConnectionHTMLContainer extends HTMLContainer {
     onmousedown(ev, connection) {
         if (connection.in && connection.out) {
             if (ev.button == 0) {
+                if (NodeEditor.instance.isConnectionStaged())
+                    return;
                 let posIn = connection.in.connHTML.pos;
                 let posOut = connection.out.connHTML.pos;
                 let pos = NodeEditor.ui.mousePosition;
@@ -4851,6 +4853,7 @@ class NodeEditorComponent extends StaticHTMLComponent {
         while (this.elements.nodeArea.children.length > 1) {
             this.elements.nodeArea.removeChild(this.elements.nodeArea.lastElementChild);
         }
+        this.elements.svgArea.innerHTML = "";
     }
 }
 class ViewerComponent extends StaticHTMLComponent {
@@ -4934,6 +4937,7 @@ class ApplicationComponent extends StaticHTMLComponent {
         this.elements.nodes.style.display = 'block';
         this.elements.viewer.style.display = 'none';
         NodeEditor.instance.willAppear();
+        Viewer.instance.willDisappear();
     }
     openViewer() {
         this.elements.nodes.style.display = 'none';
@@ -4971,13 +4975,11 @@ class IO {
         this.mouse.y = y;
         this.mouse.button = button;
         this.mouse.time = Date.now();
-        console.log("down");
     }
     ;
     onMouseUp(x, y) {
         this.mouse.down = false;
         let now = Date.now();
-        console.log("up");
         if (now - this.mouse.time < 200 && this.mouse.button == 0) {
         }
     }
@@ -5255,9 +5257,19 @@ class Graphics {
             event.preventDefault();
             event.stopPropagation();
         };
+        window.onkeydown = (event) => {
+            this.interface.onKeyDown(event.key);
+            event.preventDefault();
+            event.stopPropagation();
+        };
+        window.onkeyup = (event) => {
+            this.interface.onKeyUp(event.key);
+            event.preventDefault();
+            event.stopPropagation();
+        };
     }
     renderFrame(userRedraw = false) {
-        if (this.scene.camera.needsRedraw || userRedraw) {
+        if ((this.scene.camera.needsRedraw || userRedraw)) {
             this.gl.depthMask(true);
             this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
             this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
@@ -5286,6 +5298,7 @@ class GLObject {
         this.vbo = {};
         this.usedPrograms = {};
         this.gl = Viewer.instance.graphics.gl;
+        this.id = GLObject.globjid++;
     }
     get programs() {
         return Viewer.instance.graphics.programs;
@@ -5322,7 +5335,20 @@ class GLObject {
     programParams(programTitle) {
         return this.usedPrograms[programTitle];
     }
+    delete() {
+        if (this.vao)
+            this.gl.deleteVertexArray(this.vao);
+        for (let buff in this.vbo) {
+            this.gl.deleteBuffer(this.vbo[buff]);
+        }
+        if (this.ebo)
+            this.gl.deleteBuffer(this.ebo);
+        for (let program in this.usedPrograms) {
+            this.usedPrograms[program].program.deleteGLObject(this);
+        }
+    }
 }
+GLObject.globjid = 0;
 var ShaderType;
 (function (ShaderType) {
     ShaderType[ShaderType["vertex"] = 0] = "vertex";
@@ -5437,6 +5463,14 @@ class Program {
     }
     addGLObject(obj) {
         this.primitives.push(obj);
+    }
+    deleteGLObject(obj) {
+        let i = 0;
+        for (let i = 0; i < this.primitives.length; ++i) {
+            if (this.primitives[i].id == obj.id) {
+                this.primitives.splice(i, 1);
+            }
+        }
     }
     render(scene) {
         throw "Throwing form base class, custom render not implemented.";
@@ -5722,6 +5756,9 @@ function findCycle(node, visited) {
                     return true;
                 return cc;
             }
+            else if (cc) {
+                return true;
+            }
         }
     }
     return false;
@@ -5746,6 +5783,7 @@ function getStartingNodes(nodes) {
     return startings;
 }
 function validateNodeGraph(nodes) {
+    console.log(nodes);
     for (let nodeID in nodes) {
         nodes[nodeID].markDisabled();
     }
@@ -5881,6 +5919,9 @@ class Layer {
         this.meta = data.meta;
         this.gl = new GLObject();
     }
+    delete() {
+        this.gl.delete();
+    }
 }
 class ObjectLayer extends Layer {
     constructor(data) {
@@ -5905,7 +5946,14 @@ class ObjectLayer extends Layer {
 }
 class Viewer {
     constructor() {
-        this.layers = [];
+        this.layers = {};
+        this.active = false;
+    }
+    activate() {
+        this.active = true;
+    }
+    deactivate() {
+        this.active = false;
     }
     static get instance() {
         if (!this.instanceObject) {
@@ -5918,11 +5966,17 @@ class Viewer {
         this.graphics = new Graphics(canvas);
     }
     clear() {
+        for (let layer in this.layers) {
+            this.layers[layer].delete();
+        }
+        this.layers = {};
     }
-    addLayer(layer) {
+    updateLayer(id, layer) {
+        if (id in this.layers)
+            this.layers[id].delete();
         switch (layer.type) {
             case "objects":
-                this.layers.push(new ObjectLayer(layer));
+                this.layers[id] = new ObjectLayer(layer);
                 break;
             default:
                 break;
@@ -5936,7 +5990,7 @@ class Viewer {
                 this.clear();
                 break;
             case "addLayer":
-                this.addLayer(data.layer);
+                this.updateLayer(data.layerID, data.layer);
                 break;
             default:
                 break;
@@ -5945,7 +5999,9 @@ class Viewer {
     startRender() {
         let last = 0;
         let loop = (time) => {
-            this.graphics.renderFrame();
+            if (this.active) {
+                this.graphics.renderFrame();
+            }
             last = time;
             if (!this.graphics.error)
                 requestAnimationFrame(loop);
@@ -5956,6 +6012,10 @@ class Viewer {
     willAppear() {
         this.graphics.resize();
         this.graphics.renderFrame(true);
+        this.activate();
+    }
+    willDisappear() {
+        this.deactivate();
     }
     errorCheck() {
         this.graphics.checkError();
@@ -6008,14 +6068,22 @@ class Connection {
     connect(conn, connections) {
         let sourceConn = this.in ? this.in : this.out;
         let key = Connection.key(sourceConn, conn);
-        if (conn.node.id == sourceConn.node.id)
+        if (conn.node.id == sourceConn.node.id) {
+            NodeEditor.instance.debugMessage("Conneciton error", "Cannot connect node with itself.");
             return null;
-        if (conn.inout + sourceConn.inout != ConnectorType.input + ConnectorType.output)
+        }
+        if (conn.inout + sourceConn.inout != ConnectorType.input + ConnectorType.output) {
+            NodeEditor.instance.debugMessage("Conneciton error", "Cannot connect input to input or output to output.");
             return null;
-        if (sourceConn.type != conn.type)
+        }
+        if (sourceConn.type != conn.type) {
+            NodeEditor.instance.debugMessage("Conneciton error", `Incompatible types ${sourceConn.type} and ${conn.type}.`);
             return null;
-        if (key in connections)
+        }
+        if (key in connections) {
+            NodeEditor.instance.debugMessage("Conneciton error", "Connection already exists.");
             return null;
+        }
         if (this.in)
             this.out = conn;
         else
@@ -6107,6 +6175,14 @@ class Connector {
     }
 }
 const arrayEquals = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+var NodeStatus;
+(function (NodeStatus) {
+    NodeStatus[NodeStatus["active"] = 0] = "active";
+    NodeStatus[NodeStatus["execute"] = 1] = "execute";
+    NodeStatus[NodeStatus["disabled"] = 2] = "disabled";
+    NodeStatus[NodeStatus["cycle"] = 3] = "cycle";
+})(NodeStatus || (NodeStatus = {}));
+;
 class NodeValue {
     constructor(value, node) {
         this.param = value.param;
@@ -6314,6 +6390,13 @@ class NodeEditor {
     debugMessage(title, message) {
         Application.ui.messages.addMessage(title, message, 0);
     }
+    openNewProject(content) {
+        DataManager.instance.send({
+            command: 'clearPipeline'
+        });
+        Application.instance.clear();
+        this.load(content);
+    }
     load(contents) {
         try {
             this.clear();
@@ -6372,8 +6455,8 @@ class NodeEditor {
             this.nodes[node].computed();
     }
     clear() {
-        for (let node in this.nodes)
-            this.nodes[node].remove();
+        this.nodes = {};
+        this.connections = {};
         Application.ui.clear();
     }
     static get ui() {
@@ -6418,6 +6501,10 @@ class Application {
     static get ui() {
         return Application.instance.ui;
     }
+    clear() {
+        Viewer.instance.clear();
+        NodeEditor.instance.clear();
+    }
 }
 function saveProject() {
     let content = NodeEditor.instance.serialized;
@@ -6458,7 +6545,7 @@ function openProject() {
                 throw err;
             }
             const content = data;
-            NodeEditor.instance.load(content);
+            NodeEditor.instance.openNewProject(content);
         });
     }).catch((err) => {
         alert(err);

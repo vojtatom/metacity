@@ -107,9 +107,10 @@ def sendClearViewer():
     })
 
 
-def sendAddLayer(data):
+def sendUpdateLayer(data, identifier):
     send({
         "recipient": "viewer",
+        "layerID": identifier,
         "status": "addLayer",
         "layer": data
     })
@@ -146,4 +147,13 @@ def pipelineResult(data):
         "status": "pipelineDone",
         "data": response
     })
+
+
+
+def pipelineCleared():
+    return json.dumps({
+        "recipient": "editor",
+        "status": "pipelineCleared"
+    })
+
 

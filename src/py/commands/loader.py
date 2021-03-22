@@ -3,10 +3,10 @@ import sys
 from inspect import getmembers, isfunction
 from os import path, walk
 
-from metascript import MetaFunction, MetaTypes
+from metascript import MetaFunction, MetaTypes, MetaPipeline
 
 
-def load_modules():
+def load_modules(pipeline: MetaPipeline):
     scripts_dir = path.join(path.dirname(path.abspath(__file__)), '../scripts')
     p = path.dirname(path.abspath(__file__))
 
@@ -46,6 +46,8 @@ def load_modules():
             functions[module] = functionStruct
 
     MetaFunction.disableMeta()
+
+    pipeline.update_functions(functions, modules)
     return modules, functions
 
 if __name__ == "__main__":

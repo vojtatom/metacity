@@ -4,7 +4,8 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import websockets
 from process import process
-from pipeline.graph import MetaPipeline
+from commands.graph import MetaPipeline
+from commands.loader import load_modules
 import comms
 
 _executor = ThreadPoolExecutor(10)
@@ -37,3 +38,6 @@ if __name__ == "__main__":
     asyncio.get_event_loop().run_forever()
 
 
+
+#if __name__ == "__main__":
+#    load_modules()

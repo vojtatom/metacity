@@ -81,19 +81,31 @@ class Connection {
 
         //check self-loop
         if (conn.node.id == sourceConn.node.id)
+        {
+            NodeEditor.instance.debugMessage("Conneciton error", "Cannot connect node with itself.");
             return null;
+        }
 
         //check for inout
         if (conn.inout + sourceConn.inout != ConnectorType.input + ConnectorType.output)
+        {
+            NodeEditor.instance.debugMessage("Conneciton error", "Cannot connect input to input or output to output.");
             return null;
+        }
 
         //check for type
         if (sourceConn.type != conn.type)
+        {
+            NodeEditor.instance.debugMessage("Conneciton error", `Incompatible types ${sourceConn.type} and ${conn.type}.`);
             return null;
+        }
 
         //check for existing
         if (key in connections)
+        {
+            NodeEditor.instance.debugMessage("Conneciton error", "Connection already exists.");
             return null;
+        }
 
         if (this.in)
             this.out = conn;
@@ -219,6 +231,12 @@ class Connector {
 
 const arrayEquals = (a: number[], b: number[]) => a.length === b.length && a.every((v, i) => v === b[i]);
 
+enum NodeStatus {
+    active = 0,
+    execute = 1,
+    disabled = 2,
+    cycle = 3
+};
 
 class NodeValue {
     param: string;
@@ -511,6 +529,14 @@ class NodeEditor {
     debugMessage(title: string, message: string) {
         Application.ui.messages.addMessage(title, message, 0);
     }
+
+    openNewProject(content: string) {
+        DataManager.instance.send({
+            command: 'clearPipeline'
+        });
+        Application.instance.clear();
+        this.load(content);
+    }
     
     load(contents: string) {
         try {
@@ -581,9 +607,8 @@ class NodeEditor {
 
     clear() {
         //removes all nodes
-        for(let node in this.nodes) 
-            this.nodes[node].remove();
-        
+        this.nodes = {};
+        this.connections = {};
         Application.ui.clear();
     }
 

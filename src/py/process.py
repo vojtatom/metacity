@@ -7,20 +7,25 @@ import logging
 logging.basicConfig(filename='python.log', level=logging.WARNING)
 
 def loadFunctions(data, pipeline):
-    modules, functions = load_modules()
+    modules, functions = load_modules(pipeline)
     return comms.functionList(functions)
 
 
 def run(data, pipeline):
-    modules, functions = load_modules()
     graph = json.loads(data['graph'])
-    result = compute(graph, modules, functions, pipeline)
+    result = compute(graph, pipeline)
     return comms.pipelineResult(result)
+
+
+def clearPipeline(data, pipeline):
+    pipeline.clearPipeline()
+    return comms.pipelineCleared()
 
 
 commands = {
     'loadFunctions': loadFunctions,
-    'run': run
+    'run': run,
+    'clearPipeline': clearPipeline
 }
 
 def process(data, loop, pipeline): 
