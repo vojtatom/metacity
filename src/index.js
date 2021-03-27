@@ -19,7 +19,7 @@ const createWindow = () => {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
-  mainWindow.webContents.openDevTools();
+  mainWindow.webContents.openDevTools({mode: 'undocked'});
   mainWindow.setMenuBarVisibility(false)
   
   /*var menu = Menu.buildFromTemplate([{

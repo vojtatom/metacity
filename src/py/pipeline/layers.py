@@ -40,6 +40,9 @@ class MetaObjectLayer(MetaLayer):
         self.idxToId = {}
         self.idToIdx = {}
 
+        if len(objects) == 0:
+            return
+
         for o in objects:
             self._processObject(o)
 
@@ -49,6 +52,19 @@ class MetaObjectLayer(MetaLayer):
 
         self._computeBBox()
         self._computeNormals()
+
+
+    def shallowCopy(self):
+        copy = MetaObjectLayer([])
+        copy.triangles = self.triangles
+        copy.normals = self.normals  
+        copy.bbox = self.bbox
+        copy.idxL1 = self.idxL1  
+        copy.idxL2 = self.idxL2  
+        copy.meta = self.meta  
+        copy.idxToId = self.idxToId  
+        copy.idToIdx = self.idToIdx  
+        return copy
 
 
     def _updateMeta(self, idL1, idL2, mobject: MetaObject):
@@ -98,7 +114,9 @@ class MetaObjectLayer(MetaLayer):
 
     
     def flipNormals(self):
-        self.normals = -self.normals
+        copy = self.shallowCopy()
+        copy.normals = -copy.normals
+        return copy
 
 
     def toDict(self):

@@ -33,11 +33,6 @@ class MetaSource:
 
     def __init__(self):
         self.geometry = {}
-        
-        self.id = MetaSource.staticID
-        MetaSource.staticID += 1
-        self.objID = 0
-
         self.idxToId = {}
         self.idToIdx = {}
         self.objects = {} #dictionary with IDs
@@ -72,8 +67,8 @@ class MetaSource:
 
     def _updateIndex(self, ID):
         if ID not in self.idToIdx:
-            idx = self.objID
-            self.objID += 1
+            idx = MetaSource.staticID
+            MetaSource.staticID += 1
             self.idToIdx[ID] = idx
             self.idxToId[idx] = ID 
 

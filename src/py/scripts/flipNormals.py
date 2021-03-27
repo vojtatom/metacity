@@ -6,5 +6,5 @@ from pipeline.layers import MetaLayer
 @output('Layer', MetaTypes.MetaLayer)
 @description('Creates a visualization Layer from MetaObjects with selected Levels of Detail')
 def call(layer: MetaLayer):
-    layer.flipNormals()
-    return layer
+    flippedLayer = layer.flipNormals()
+    return flippedLayer

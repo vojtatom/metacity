@@ -11,6 +11,7 @@ class MetaElement:
     def __init__(self, ID: str, source):
         self.id = ID
         self.source = source
+        self.style = {}
 
     @property
     def meta(self):
@@ -37,12 +38,12 @@ class MetaElement:
 
     @property
     def index(self):
-        return self.source.id, self.source.idToIdx[self.id]
+        return 0, self.source.idToIdx[self.id]
 
 
     @property
     def objID(self):
-        return self.source.id, self.id
+        return 0, self.id
 
 
 
@@ -51,7 +52,6 @@ class MetaObject(MetaElement):
 
     def __init__(self, ID, source):
         super().__init__(ID, source)
-        self.style = {}
         
 
 class MetaArea(MetaElement):
@@ -59,7 +59,6 @@ class MetaArea(MetaElement):
 
     def __init__(self, ID, source):
         super().__init__(ID, source)
-        self.style = {}
 
 
 class MetaLines(MetaElement):
@@ -67,7 +66,6 @@ class MetaLines(MetaElement):
 
     def __init__(self, ID, source):
         super().__init__(ID, source)
-        self.style = {}
 
 
 class MetaPoints(MetaElement):
@@ -75,5 +73,4 @@ class MetaPoints(MetaElement):
 
     def __init__(self, ID, source):
         super().__init__(ID, source)
-        self.style = {}
 
