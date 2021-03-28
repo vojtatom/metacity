@@ -9,125 +9,65 @@
 </head>
 
 <body>
-    <header>
-        <img src="./01b.png" alt="metacity" id="header">
-        <section class="main white">
-            <h1>Metacity Concept</h1>
-            <p>Metacity is a modular system streamlining urban data visualization</p>
-        </section>
-    </header>
-    <section class="main">
-        <h2>The Loop</h2>
-        <p>Cities have become a huge source of various <strong>data</strong>. The urban data usually includes building
-            metadata, street layouts, public transport information, etc.</p>
-        <img src="./loop.svg" alt="scheme">
-        <p>All plans and future changes are made and approved based on the <strong>models</strong> derived from the
-            urban data. The models help us answer questions and plan future changes.</p>
-        <p>The changes influence citizens' daily lives. Local authorities should strive for more interaction between the
-            city administration and the public, which requires a new <strong>platform</strong>.</p>
-        <p>A part of this platform is <strong>Metacity</strong>.</p>
-        <img src="./scheme.svg" alt="scheme">
-
-        <h2>How it works</h2>
-        <p>The Metacity is currently being designed and conceptualized. The basic workflow:</p>
-        <ol>
-            <li>Open your data (geometry, metadata...)</li>
-            <li>Generate files for your physical models, <i>the final form of the models has not been decided, see
-                    bellow</i></li>
-            <li>Setup the metadata layers</li>
-            <li>Export your sequence</li>
-        </ol>
-        <p>The setup of the projection is done in a node editor, which exposes the geometry metadata as well as
-            additional metadata from other input files.</p>
-        <h3>Editor notes</h3>
-        <ul>
-            <li>base functionality - output is an interactive virtual visualization of the input data (all interactive
-                on screen, allows zoom, pan, display meta, etc.)</li>
-            <li>visualize metadata using a number of layer formats (grid, arcs, paths, points, heatmap...)</li>
-            <li>virtual mapping of 2D data onto 3D content</li>
-            <li>produce a view with an image or procedural animation which will be projected onto the physical model</li>
-        </ul>
-
-        <h2>I/O</h2>
-        <p>Formats and their support:</p>
-        <ul>
-            <li>CSV, CityGML, CityJSON, GeoJSON, IFC, and OBJ - sure support</li>
-            <li>SHP - not an open format, but should be supported</li>
-            <li>DWG or DGN - maybe, not open formats</li>
-        </ul>
-        <p>Outputs are live views:</p>
-        <ul>
-            <li>virtual live view of the model and metadata</li>
-            <li>image or animation to be projected onto a physical model</li>
-        </ul>
-
-        <h2>Physical model</h2>
-        <p>The possibilities are endless, but I've come up with two basic plans that would determine the Metacity software's first implemented features. Regardless of the chosen version, the projection mapping view will be capable of displaying guide markers for model placement and projector configuration.</p>
-        <div class="plan">
-            <div>
-                <h3>3D print</h3>
-                <p>Metacity allows to simplify and export STL models of the terrain and individual buildings.</p>
-            </div>
-            <div>
-
-                <h3>Lego</h3>
-                <p>Metacity allows to simplify the model and produce a voxelized version. Further, the simplified models are partitioned into individual bricks, and manuals for assembly of individual quarters are produced together with the number of bricks needed for assembly.</p>
+    <div class="wrapper">
+        <div class="strip two">
+            <div id="main-poster" class="image .color-hover"></div>
+            <div class="text-lower">
+                <h1>Metacity</h1>
+                <p>Future without frustration</p>
             </div>
         </div>
-
-        <h2>Roadmap</h2>
-        <ol>
-            <li>Imports of the basic formats (obj, shp, cityjson, geojson)</li>
-            <li>Imports and project management UI</li>
-            <li>Basic desktop 3D  data view</li>
-            <li>Model exports (lego or STL for 3D print)</li>
-            <li>The base for metadata layers
-                <ol>
-                    <li>points</li>
-                    <li>grid</li>
-                    <li>paths</li>
-                    <li>arcs</li>
-                    <li>heatmap</li>
-                </ol>
-            </li>
-            <li>Node editor UI
-                <ol>
-                    <li>attribute mapping from geojson</li>
-                    <li>attribute mapping from csv</li>
-                    <li>attribute mapping from cityjson</li>
-                    <li>attribute mapping from shp</li>
-                </ol>
-            </li>
-            <li>Widescreen view with modified contols</li>
-            <li>Projection mapping view</li>
-            <li>tba</li>
-        </ol>
-
-        <h2>Partners and Links</h2>
-        <p>This project is being developed as a part of a diploma thesis at FEE CTU in cooperation with the following institutions:</p>
-        <div class="imgs">
-            <a href="http://praha.camp/">
-            <img src="./logo/camp.svg" alt="CAMP"></a>
-            <a href="https://www.iprpraha.cz/"><img src="./logo/ipr.png" alt="IPR"></a>
-            <!--<img src="./logo/faculty_of_architecture.svg" alt="">-->
-            <a href="https://www.fel.cvut.cz/"><img src="./logo/electrical_engeneering.svg" alt="FEE"></a>
-            <a href="https://dcgi.fel.cvut.cz/"><img src="./logo/dcgi.png" alt=""></a>
-            <a href="https://www.fit.cvut.cz/"><img src="./logo/information_technology.svg" alt="">        </a>
+        <div class="strip text">
+            <div class="written">
+                <p>Cities have become a huge source of <strong id="tag-data">data</strong>.</p>
+                <p>All plans and future changes approved based on the <strong id="tag-models">models</strong> derived from the urban data.</p>
+                <p>The models help us answer <strong id="tag-questions">questions</strong> and plan future changes.</p>
+                <p>Local authorities should strive for more <strong id="tag-interaction">interaction</strong> between the city administration and the public.</p> 
+                <p>New kind of interaction requires new <strong id="tag-platform">platform</strong>.</p>
+                <p>A part of this platform is <strong id="tag-metacity">Metacity</strong>.</p>
+                </div>
+            </div>
         </div>
-        <ul>
-            <li><a href="https://www.vojtatom.cz/metacity/">Demo of the import and processed geometry from CityJSON, and GeoJSON + simple CSV + simple animation along path</a></li>
-            <li><a href="https://github.com/vojtatom/metacity">Github repo project</a></li>
-            <li><a href="https://github.com/vojtatom/diploma">Github repo thesis</a></li>
-            <li><a href="https://github.com/vojtatom/diploma/raw/main/outputs/output.pdf">PDF: Initial concept report</a></li>
-            <li><a href="https://github.com/vojtatom/diploma/raw/main/note/design.pdf">PDF: design ideas</a></li>
-        </ul>
+        <div class="strip two">
+            <div id="img-middle-left" class="image"></div>
+            <div id="img-middle-right" class="image"></div>
+        </div>
+        <div class="strip text">
+            <div class="links">
+                <p>Currently, we use <strong>open data</strong> from <a href="https://www.geoportalpraha.cz">geoportalpraha.cz</a>. We are working on the first prototype, check out:</p>
+                <ul>
+                    <li><a href="https://github.com/vojtatom/metacity">Github</a> with the code base</li>
+                    <li>First <a href="https://vojtatom.cz/metacity">Visualization Demo</a></li>
+                    <li><a href="https://github.com/vojtatom/metacity/projects/3">General Roadmap</a> 
+                        or <a href="https://github.com/vojtatom/metacity/projects/1">Roadmap of Programming Tasks</a></li>
+                    <li><a href="https://github.com/vojtatom/diploma/blob/main/thesis/output.pdf">Diploma thesis</a> currently being developed at FEE CTU as the Metacity research base</li>
+                    <li><a href="https://github.com/vojtatom/diploma/blob/main/note/design.pdf">Design notes</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="strip logos">
+            <div class="imgs">
+                <a href="http://praha.camp/">
+                <img src="./logo/camp.svg" alt="CAMP"></a>
+                <a href="https://www.iprpraha.cz/"><img src="./logo/ipr.png" alt="IPR"></a>
+                <!--<img src="./logo/faculty_of_architecture.svg" alt="">-->
+                <a href="https://www.fel.cvut.cz/"><img src="./logo/electrical_engeneering.svg" alt="FEE"></a>
+                <a href="https://dcgi.fel.cvut.cz/"><img src="./logo/dcgi.png" alt=""></a>
+                <a href="https://www.fit.cvut.cz/"><img src="./logo/information_technology.svg" alt="">        </a>
+            </div>
+        </div>
+        <div class="strip two">
+            <div id="img-bottom-left" class="image .color-hover"></div>
+            <div id="img-bottom-right" class="image .color-hover"></div>
+        </div>
+    </div>
 
-    </section>
+
     <footer>
-        <div class="main">
-            <p>&copy; 2020, made by <a href="https://vojtatom.cz">@vojtatom</a></p>
-        </div>
+            <p>&copy; 2020, made by Metacity &amp; Friends</p>
     </footer>
+
+
 </body>
 
 </html>

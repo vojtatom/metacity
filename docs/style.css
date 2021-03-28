@@ -1,14 +1,216 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&family=Open+Sans:wght@400;700;800&display=swap');
 
+@font-face {
+    font-family: 'VisualTrial';
+    src: url('fonts/VisualTrial-Regular.woff2') format('woff2'),
+        url('fonts/VisualTrial-Regular.woff') format('woff'),
+        url('fonts/VisualTrial-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+
+
 html, body{
     font-family: 'Open Sans', sans-serif;
-    margin: 2rem 0 2rem;
     width: 100%;
+    margin: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4 {
+.strip {
+    width: 100vw;
+    display: flex;
+    flex-direction: row;
+}
+
+.strip.two > * {
+    width: 50%;
+} 
+
+@media(max-width: 40rem) {
+    .strip.two > * {
+        width: 100%;
+    }  
+
+    .strip.two {
+        flex-direction: column;
+    }
+}
+
+.strip.logos {
+    min-height: initial;
+    margin: 2rem 0;
+}
+
+.image {
+    object-fit: cover;
+    display: block;
+    background-size: cover;
+    background-position: 50% 50%;
+    background-repeat: no-repeat;
+    height: 30rem;
+}
+
+@media(max-width: 40rem) {
+    .image {
+        height: 20rem;
+    }
+}
+
+@media(max-width: 20rem) {
+    .image {
+        height: 10rem;
+    }
+}
+
+h1 {
+    font-family: 'VisualTrial';
+    background-color: #FFF;
+    padding: 12rem 2rem 0 2rem;
+    font-size: 6em;
+    text-transform: uppercase;
+    margin-bottom: 0;
+}
+
+@media(max-width: 70rem) {
+    h1 {
+        font-size: 5em;
+    }
+}
+
+@media(max-width: 60rem) {
+    h1 {
+        font-size: 4em;
+    }
+}
+
+@media(max-width: 50rem) {
+    h1 {
+        font-size: 3em;
+    }
+}
+
+.text-lower p {
+    padding: 1rem 2.5rem;
+}
+
+
+@media(max-width: 40rem) {
+    h1 {
+        font-size: 2em;
+        padding: 0em 0;
+    }
+
+    .text-lower {
+        padding: 0 1rem;
+        box-sizing: border-box;
+    }
+ 
+    .text-lower p {
+        padding: 0;
+    }
+}
+
+
+
+.strip.text {
+    min-height: initial;
+    display: flex;
+    justify-content: center;
+    background: #F8F8F8;
+    font-size: 1.2em;
+}
+
+.written,
+.links {
+    max-width: 40rem;
+    margin: 3rem 0;
+    color: #888;
+}
+
+@media(max-width: 40rem) {
+    .written,
+    .links {
+        margin: 3rem 1rem;
+    }
+}
+
+.written strong {
+    color: #000;
+}
+
+#main-poster {
+    background-image: url("./img/09.png");
+    /*border: 2rem solid #6ccf12;*/
+}
+
+#img-middle-left {
+    background-image: url("./img/a1.png"); 
+}
+
+#img-middle-right {
+    background-image: url("./img/07.png"); 
+}
+
+#img-bottom-left {
+    background-image: url("./img/a7.png"); 
+}
+
+#img-bottom-right {
+    background-image: url("./img/banner.png"); 
+}
+
+footer p {
+    max-width: 20rem;
+    margin: 1rem auto;
+}
+
+/*#tag-data {
+    color: #000;
+}
+#tag-models {
+    color: #0c1550;
+}
+#tag-questions {
+    color: #377032;
+}
+#tag-interaction {
+    color: #69cd67;
+}
+#tag-platform {
+    color: #d49f2a;
+}*/
+#tag-metacity {
+    color: #af356e;
+    text-transform: uppercase;
+    font-family: 'VisualTrial';
+}
+
+.imgs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    
+    align-items: center;
+    width: 100%;
+}
+
+.imgs > a {
+    display: block;
+    width: 6rem;
+    margin: 0.75rem;
+} 
+
+.imgs > a img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+/*h1, h2, h3, h4 {
     font-family: 'Montserrat', sans-serif;
     font-weight: 800;
 }
@@ -27,17 +229,12 @@ body, html {
     margin: 0;
 }
 
-#header {
-    width: 100%;
-    max-width: 60rem;
-    margin: 0 auto;
-    display: block;
-}
-
 header {
-    background: #292431;
+    padding-top: 10rem;
+    background-image: url("./banner.png");
     padding-bottom: 2em;
     margin-bottom: 2rem;
+    color: #FFF;
 }
 
 .white {
@@ -106,4 +303,4 @@ footer a {
     display: block;
     width: 100%;
     height: auto;
-}
+}*/
