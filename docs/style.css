@@ -127,7 +127,8 @@ h1 {
 }
 
 .written,
-.links {
+.links,
+.contact {
     max-width: 40rem;
     margin: 3rem 0;
     color: #888;
@@ -135,7 +136,8 @@ h1 {
 
 @media(max-width: 40rem) {
     .written,
-    .links {
+    .links,
+    .contact{
         margin: 3rem 1rem;
     }
 }
